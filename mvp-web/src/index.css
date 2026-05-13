@@ -1,0 +1,127 @@
+@import 'tailwindcss';
+@import '@xyflow/react/dist/style.css';
+
+@theme {
+  --font-sans: 'Inter', 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Geist Mono', ui-monospace, monospace;
+
+  /* Surface */
+  --color-bg-0: oklch(0.16 0.012 260);
+  --color-bg-1: oklch(0.19 0.014 260);
+  --color-bg-2: oklch(0.22 0.016 260);
+  --color-border: oklch(0.32 0.018 260);
+  --color-border-strong: oklch(0.42 0.022 260);
+
+  /* Text */
+  --color-fg: oklch(0.96 0.01 260);
+  --color-fg-muted: oklch(0.72 0.018 260);
+  --color-fg-subtle: oklch(0.55 0.02 260);
+
+  /* Accents */
+  --color-accent: oklch(0.78 0.16 240);
+  --color-accent-strong: oklch(0.7 0.18 240);
+
+  /* Node kinds — same hue family, different lightness */
+  --color-kind-module: oklch(0.78 0.12 250);
+  --color-kind-class: oklch(0.78 0.13 200);
+  --color-kind-function: oklch(0.82 0.14 160);
+  --color-kind-route: oklch(0.82 0.14 80);
+  --color-kind-task: oklch(0.78 0.16 30);
+  --color-kind-data: oklch(0.78 0.13 320);
+  --color-kind-external: oklch(0.65 0.02 260);
+
+  /* Edge kinds */
+  --color-edge-call: oklch(0.7 0.05 240);
+  --color-edge-import: oklch(0.55 0.04 260);
+  --color-edge-route: oklch(0.78 0.12 80);
+  --color-edge-unresolved: oklch(0.55 0.02 260);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg-0);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* React Flow — dark theme polish */
+.react-flow {
+  background: var(--color-bg-0);
+}
+
+.react-flow__background {
+  background-color: var(--color-bg-0);
+}
+
+.react-flow__edge-path {
+  stroke-width: 1.5;
+}
+
+.react-flow__handle {
+  width: 8px;
+  height: 8px;
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-strong);
+}
+
+.react-flow__controls {
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px -10px oklch(0 0 0 / 0.5);
+}
+
+.react-flow__controls-button {
+  background: transparent;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-fg-muted);
+  width: 32px;
+  height: 32px;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--color-bg-2);
+  color: var(--color-fg);
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+.react-flow__minimap {
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.react-flow__attribution {
+  background: transparent !important;
+  color: var(--color-fg-subtle);
+  font-size: 10px;
+}
+
+/* subtle node entrance */
+@keyframes node-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.node-enter {
+  animation: node-in 220ms ease-out both;
+}

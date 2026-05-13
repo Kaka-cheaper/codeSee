@@ -47,19 +47,19 @@ export function GraphCanvas({ ucg }: Props) {
           fontSize: 10,
           fontFamily: 'var(--font-mono)',
         },
-        labelBgStyle: { fill: 'var(--color-bg-1)' },
+        labelBgStyle: { fill: 'var(--color-bg-1)', fillOpacity: 0.85 },
         labelBgPadding: [4, 2],
         labelBgBorderRadius: 4,
         style: {
           stroke: meta.stroke,
-          strokeWidth: 1.4,
+          strokeWidth: 1.25,
           strokeDasharray: meta.dashed || isLow ? '4 4' : undefined,
-          opacity: isLow ? 0.75 : 1,
+          opacity: isLow ? 0.7 : 0.9,
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          width: 14,
-          height: 14,
+          width: 13,
+          height: 13,
           color: meta.stroke,
         },
       }
@@ -88,18 +88,18 @@ export function GraphCanvas({ ucg }: Props) {
       >
         <Background
           variant={BackgroundVariant.Dots}
-          gap={24}
-          size={1.2}
-          color="oklch(0.32 0.02 260)"
+          gap={28}
+          size={1}
+          color="oklch(0.86 0.012 70)"
         />
         <MiniMap
           pannable
           zoomable
-          maskColor="oklch(0.16 0.012 260 / 0.7)"
+          maskColor="oklch(0.985 0.006 78 / 0.6)"
           nodeColor={(n) => {
             const data = n.data as unknown as UcgFlowNodeData | undefined
             const kind = data?.ucg.kind
-            return kind ? NODE_KIND_META[kind].dot : 'oklch(0.5 0.02 260)'
+            return kind ? NODE_KIND_META[kind].minimap : 'oklch(0.8 0.012 70)'
           }}
           nodeStrokeWidth={0}
         />

@@ -58,3 +58,29 @@
 7. 拍板 MVP 技术栈：Next.js 15 (App Router) 或 Vite + React 18；TypeScript strict；shadcn/ui；Tailwind v4；@xyflow/react (React Flow)；Framer Motion；Lucide；状态用 Zustand 或 Jotai；字体 Geist/Inter；深色优先 CSS Variables 主题；前期不上后端，本地直接加载 UCG JSON。
 修改的代码文件：无（前端选型与设计方向讨论，不涉及代码修改）。
 应当达成的效果：用户对"美观度由什么决定"建立正确心智，拿到一份可直接落地的渲染选型与 UI 外壳搭配方案，并明确 MVP 阶段的技术栈，以确保 MVP 视觉质感不低于主流 SaaS 产品。
+
+---
+
+问题5：请求跑一个可用的画布壳子，验证 React Flow + 设计系统下的默认质感。
+解决方案：
+1. 在 `mvp-web/` 目录用 Vite + React 18 + TypeScript 初始化项目（Node 22 / npm 10 环境，未安装 pnpm，遂使用 npm）。
+2. 安装核心依赖：`@xyflow/react`、`lucide-react`、`clsx`、`tailwind-merge`，开发依赖 `tailwindcss@v4`、`@tailwindcss/vite`。
+3. 配置 Vite 接入 Tailwind v4 插件并加 `@/* -> src/*` 路径别名；同步在 `tsconfig.app.json` 中加 paths（按 TS 5+ 写法不再使用 baseUrl，避免弃用警告）。
+4. 在 `src/index.css` 用 Tailwind v4 的 `@theme` 定义 OKLCH 设计 token：surface / text / accent / 节点 kind（同色相不同明度）/ 边 kind 颜色，并对 React Flow 控制条、minimap、handle、attribution 等做暗色润色，加节点入场微动效。
+5. 落地 UCG schema v0：`src/ucg/types.ts` 定义 NodeKind / EdgeKind 有限枚举、UcgNode / UcgEdge（含 confidence 与 provenance）、UcgManifest、UcgUnresolved，作为画布唯一允许消费的合同。
+6. 写示例图 `src/ucg/sample.ts`：模拟 FastAPI 登录流程（route → service → repo/data_model → external，含 Celery publish 边并将其 confidence=0.7 标记为推断）。
+7. 实现 `src/graph/`：
+   - `kindMeta.ts` 节点/边视觉元数据（图标、颜色、虚线策略）
+   - `layout.ts` 极简 BFS 层级布局占位（后续换 ELK/dagre）
+   - `UcgNodeView.tsx` 自定义节点（图标 chip + name + qualified_name + 类型标签 + 文件位置），hover/selected 四态
+   - `GraphCanvas.tsx` 画布主体：smoothstep 边、ArrowClosed marker、低置信度自动虚线、Background dots、MiniMap 按 kind 上色、Controls
+   - `NodeDetailsPanel.tsx` 右侧详情抽屉：节点头信息 + 上下游边列表 + 元数据 JSON
+8. 顶部栏 `src/app/TopBar.tsx` 显示仓库 / commit / 节点边总数；`App.tsx` 仅吃 sampleUcg，体现"画布只读 UCG"的边界。
+9. 清理 Vite 模板默认的 `App.css` 与 `assets/` 以避免污染主题。
+10. 全链路验证：`tsc -b` 类型零错；`vite build` 成功（dist/index.js gzip 130KB、css gzip 6.6KB）；`npm run dev` 跑在 `http://localhost:5175/`。
+11. 初始化根目录 git 仓库，添加 `.gitignore`（忽略 node_modules / dist / .env 等），首次提交：`feat: 初始化 MVP 画布壳子（UCG 类型 + React Flow + 示例图）`。
+修改的代码文件：
+   - 新增：`mvp-web/` 整套项目（package.json、vite.config.ts、tsconfig.app.json、src/index.css、src/App.tsx、src/main.tsx、src/lib/cn.ts、src/ucg/types.ts、src/ucg/sample.ts、src/graph/{kindMeta,layout,UcgNodeView,GraphCanvas,NodeDetailsPanel}.tsx|ts、src/app/TopBar.tsx）
+   - 删除：`mvp-web/src/App.css`、`mvp-web/src/assets/`
+   - 新增：根目录 `.gitignore`
+应当达成的效果：用户访问 `http://localhost:5175/` 可看到一张暗色风格的代码功能图（路由 → 登录服务 → 验证密码 / 签发 token / 仓储 / 数据模型 / 外部包 / 异步任务），具备节点 hover / 选中、缩放 / minimap / 控件、点节点弹出右侧详情面板、低置信度边显示为虚线等基础交互；同时整个上层代码不依赖任何具体语言或工具，所有数据均以 UCG 形式注入，验证"UCG → 画布"链路成立，可作为后续接 TS / Python 适配器的稳定底座。

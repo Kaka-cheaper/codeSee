@@ -2,39 +2,53 @@
 @import '@xyflow/react/dist/style.css';
 
 @theme {
-  --font-sans: 'Inter', 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'Geist Mono', ui-monospace, monospace;
+  --font-sans:
+    'Inter', 'Söhne', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:
+    'JetBrains Mono', 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace;
 
-  /* Surface */
-  --color-bg-0: oklch(0.16 0.012 260);
-  --color-bg-1: oklch(0.19 0.014 260);
-  --color-bg-2: oklch(0.22 0.016 260);
-  --color-border: oklch(0.32 0.018 260);
-  --color-border-strong: oklch(0.42 0.022 260);
+  /* Surface — 暖白调，米黄底子，避免纯白冷感 */
+  --color-bg-0: oklch(0.985 0.006 78);
+  --color-bg-1: oklch(0.995 0.004 78);
+  --color-bg-2: oklch(0.965 0.008 78);
+  --color-bg-sunken: oklch(0.955 0.01 78);
 
-  /* Text */
-  --color-fg: oklch(0.96 0.01 260);
-  --color-fg-muted: oklch(0.72 0.018 260);
-  --color-fg-subtle: oklch(0.55 0.02 260);
+  /* Border — 极淡暖灰，几乎不抢注意力 */
+  --color-border: oklch(0.91 0.008 70);
+  --color-border-strong: oklch(0.84 0.012 65);
 
-  /* Accents */
-  --color-accent: oklch(0.78 0.16 240);
-  --color-accent-strong: oklch(0.7 0.18 240);
+  /* Text — 深棕灰，不是纯黑，柔和 */
+  --color-fg: oklch(0.32 0.022 55);
+  --color-fg-muted: oklch(0.5 0.018 60);
+  --color-fg-subtle: oklch(0.66 0.014 65);
 
-  /* Node kinds — same hue family, different lightness */
-  --color-kind-module: oklch(0.78 0.12 250);
-  --color-kind-class: oklch(0.78 0.13 200);
-  --color-kind-function: oklch(0.82 0.14 160);
-  --color-kind-route: oklch(0.82 0.14 80);
-  --color-kind-task: oklch(0.78 0.16 30);
-  --color-kind-data: oklch(0.78 0.13 320);
-  --color-kind-external: oklch(0.65 0.02 260);
+  /* Accent — Claude 风暖橘赭石 */
+  --color-accent: oklch(0.66 0.135 45);
+  --color-accent-soft: oklch(0.94 0.04 55);
+  --color-accent-strong: oklch(0.58 0.155 40);
 
-  /* Edge kinds */
-  --color-edge-call: oklch(0.7 0.05 240);
-  --color-edge-import: oklch(0.55 0.04 260);
-  --color-edge-route: oklch(0.78 0.12 80);
-  --color-edge-unresolved: oklch(0.55 0.02 260);
+  /* Node kinds — 沙灰底色调，同饱和度不同色相，柔和不喧宾夺主 */
+  --color-kind-module: oklch(0.92 0.025 240);
+  --color-kind-class: oklch(0.92 0.03 200);
+  --color-kind-function: oklch(0.93 0.035 150);
+  --color-kind-route: oklch(0.93 0.05 75);
+  --color-kind-task: oklch(0.92 0.06 45);
+  --color-kind-data: oklch(0.93 0.03 305);
+  --color-kind-external: oklch(0.93 0.008 70);
+
+  --color-kind-module-fg: oklch(0.45 0.05 240);
+  --color-kind-class-fg: oklch(0.45 0.06 200);
+  --color-kind-function-fg: oklch(0.42 0.07 150);
+  --color-kind-route-fg: oklch(0.5 0.1 70);
+  --color-kind-task-fg: oklch(0.5 0.13 40);
+  --color-kind-data-fg: oklch(0.45 0.07 305);
+  --color-kind-external-fg: oklch(0.5 0.015 65);
+
+  /* Edge kinds — 偏中性暖灰 */
+  --color-edge-call: oklch(0.7 0.018 60);
+  --color-edge-import: oklch(0.78 0.012 65);
+  --color-edge-route: oklch(0.7 0.1 60);
+  --color-edge-unresolved: oklch(0.78 0.012 65);
 }
 
 html,
@@ -45,47 +59,64 @@ body,
 
 body {
   margin: 0;
-  background: var(--color-bg-0);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, oklch(0.97 0.025 60 / 0.5), transparent 60%),
+    radial-gradient(800px 500px at -10% 110%, oklch(0.96 0.02 250 / 0.4), transparent 60%),
+    var(--color-bg-0);
   color: var(--color-fg);
   font-family: var(--font-sans);
-  font-feature-settings: 'cv11', 'ss01';
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* React Flow — dark theme polish */
+/* React Flow — 暖白主题 */
 .react-flow {
-  background: var(--color-bg-0);
+  background: transparent;
 }
 
 .react-flow__background {
-  background-color: var(--color-bg-0);
+  background-color: transparent;
 }
 
 .react-flow__edge-path {
-  stroke-width: 1.5;
+  stroke-width: 1.25;
+}
+
+.react-flow__edge-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--color-fg-subtle);
+}
+
+.react-flow__edge-textbg {
+  fill: var(--color-bg-1);
 }
 
 .react-flow__handle {
-  width: 8px;
-  height: 8px;
-  background: var(--color-bg-2);
+  width: 7px;
+  height: 7px;
+  background: var(--color-bg-1);
   border: 1px solid var(--color-border-strong);
 }
 
 .react-flow__controls {
   background: var(--color-bg-1);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 8px 24px -10px oklch(0 0 0 / 0.5);
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 0.04),
+    0 8px 24px -16px oklch(0 0 0 / 0.12);
 }
 
 .react-flow__controls-button {
   background: transparent;
   border-bottom: 1px solid var(--color-border);
   color: var(--color-fg-muted);
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
 }
 
 .react-flow__controls-button:hover {
@@ -100,21 +131,25 @@ body {
 .react-flow__minimap {
   background: var(--color-bg-1);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 0.04),
+    0 8px 24px -16px oklch(0 0 0 / 0.1);
 }
 
 .react-flow__attribution {
   background: transparent !important;
   color: var(--color-fg-subtle);
   font-size: 10px;
+  opacity: 0.6;
 }
 
-/* subtle node entrance */
+/* 节点入场微动效 */
 @keyframes node-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(3px);
   }
   to {
     opacity: 1;
@@ -123,5 +158,12 @@ body {
 }
 
 .node-enter {
-  animation: node-in 220ms ease-out both;
+  animation: node-in 260ms cubic-bezier(0.32, 0.72, 0.32, 1) both;
+}
+
+/* 选区聚焦环（克制版） */
+*:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--color-accent) 60%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
 }

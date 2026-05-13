@@ -24,22 +24,27 @@ export function NodeDetailsPanel({ node, ucg, onClose }: Props) {
   return (
     <aside
       className={cn(
-        'pointer-events-none absolute top-4 right-4 bottom-4 z-10 w-[340px]',
+        'pointer-events-none absolute top-4 right-4 bottom-4 z-10 w-[348px]',
         'transition-[opacity,transform] duration-200',
-        node ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-3 opacity-0',
+        node ? 'translate-x-0 opacity-100' : 'translate-x-3 opacity-0',
       )}
     >
       {node && (
-        <div className="pointer-events-auto flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-1)]/95 backdrop-blur shadow-[0_24px_60px_-20px_oklch(0_0_0/0.6)]">
-          <header className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3">
+        <div
+          className={cn(
+            'pointer-events-auto flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--color-border)]',
+            'bg-[var(--color-bg-1)]/90 backdrop-blur-md',
+            'shadow-[0_1px_2px_oklch(0_0_0/0.04),0_24px_48px_-24px_oklch(0_0_0/0.18)]',
+          )}
+        >
+          <header className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3.5">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span
-                  className="rounded-md px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase"
+                  className="rounded-md px-1.5 py-0.5 text-[10px] font-medium tracking-wide"
                   style={{
-                    color: NODE_KIND_META[node.kind].dot,
-                    background: 'var(--color-bg-2)',
-                    border: '1px solid var(--color-border)',
+                    color: NODE_KIND_META[node.kind].chipFg,
+                    background: NODE_KIND_META[node.kind].chipBg,
                   }}
                 >
                   {NODE_KIND_META[node.kind].label}
@@ -48,7 +53,7 @@ export function NodeDetailsPanel({ node, ucg, onClose }: Props) {
                   {node.language}
                 </span>
               </div>
-              <h2 className="mt-2 truncate text-sm font-semibold text-[var(--color-fg)]">
+              <h2 className="mt-2 truncate text-[14px] font-medium tracking-tight text-[var(--color-fg)]">
                 {node.name}
               </h2>
               <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--color-fg-muted)]">
@@ -57,10 +62,10 @@ export function NodeDetailsPanel({ node, ucg, onClose }: Props) {
             </div>
             <button
               onClick={onClose}
-              className="-mr-1 rounded-md p-1 text-[var(--color-fg-subtle)] transition-colors hover:bg-[var(--color-bg-2)] hover:text-[var(--color-fg)]"
+              className="-mr-1 rounded-md p-1.5 text-[var(--color-fg-subtle)] transition-colors hover:bg-[var(--color-bg-2)] hover:text-[var(--color-fg)]"
               aria-label="关闭"
             >
-              <X size={16} />
+              <X size={15} />
             </button>
           </header>
 
@@ -100,7 +105,7 @@ export function NodeDetailsPanel({ node, ucg, onClose }: Props) {
 
             {node.meta && Object.keys(node.meta).length > 0 && (
               <Section title="元数据">
-                <pre className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-0)] p-2.5 font-mono text-[10.5px] leading-relaxed text-[var(--color-fg-muted)]">
+                <pre className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-sunken)] p-2.5 font-mono text-[10.5px] leading-relaxed text-[var(--color-fg-muted)]">
                   {JSON.stringify(node.meta, null, 2)}
                 </pre>
               </Section>
@@ -115,7 +120,7 @@ export function NodeDetailsPanel({ node, ucg, onClose }: Props) {
 function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <section>
-      <div className="mb-1.5 text-[10.5px] font-medium tracking-wide text-[var(--color-fg-subtle)] uppercase">
+      <div className="mb-2 text-[10.5px] font-medium tracking-wide text-[var(--color-fg-subtle)]">
         {title}
       </div>
       {children}
@@ -128,7 +133,13 @@ function EdgeList({
   idToNode,
   side,
 }: {
-  edges: { id: string; source: string; target: string; kind: keyof typeof EDGE_KIND_META; confidence: number }[]
+  edges: {
+    id: string
+    source: string
+    target: string
+    kind: keyof typeof EDGE_KIND_META
+    confidence: number
+  }[]
   idToNode: Map<string, UcgNode>
   side: 'source' | 'target'
 }) {
@@ -144,10 +155,10 @@ function EdgeList({
         return (
           <li
             key={e.id}
-            className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-2)]/50 px-2 py-1.5"
+            className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-1)] px-2.5 py-1.5 transition-colors hover:bg-[var(--color-bg-2)]"
           >
             <span
-              className="font-mono text-[9.5px] tracking-wide uppercase"
+              className="font-mono text-[9.5px] tracking-wide"
               style={{ color: meta.stroke }}
             >
               {meta.label}
@@ -156,7 +167,7 @@ function EdgeList({
               {peer?.name ?? peerId}
             </span>
             {e.confidence < 1 && (
-              <span className="rounded bg-[var(--color-bg-0)] px-1 font-mono text-[9.5px] text-[var(--color-fg-subtle)]">
+              <span className="rounded bg-[var(--color-bg-sunken)] px-1 font-mono text-[9.5px] text-[var(--color-fg-subtle)]">
                 p={e.confidence.toFixed(2)}
               </span>
             )}

@@ -8,7 +8,7 @@ export default function App() {
   const ucg = sampleUcg
 
   return (
-    <div className="flex h-full w-full flex-col bg-[var(--color-bg-0)] text-[var(--color-fg)]">
+    <div className="flex h-full w-full flex-col text-[var(--color-fg)]">
       <TopBar ucg={ucg} />
       <div className="relative flex-1">
         <ReactFlowProvider>

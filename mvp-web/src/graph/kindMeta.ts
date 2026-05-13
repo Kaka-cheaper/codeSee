@@ -1,58 +1,73 @@
 import type { EdgeKind, NodeKind } from '@/ucg/types'
 
-/** 节点 kind 的视觉与语言无关的元数据。 */
+/**
+ * 节点 kind 的视觉元数据（语言无关）。
+ * 设计：浅色暖底 + 深色字图标，避免任何饱和高、对比强的配色。
+ */
 export const NODE_KIND_META: Record<
   NodeKind,
-  { label: string; color: string; dot: string }
+  { label: string; chipBg: string; chipFg: string; minimap: string }
 > = {
   module: {
     label: 'Module',
-    color: 'var(--color-kind-module)',
-    dot: 'oklch(0.78 0.12 250)',
+    chipBg: 'var(--color-kind-module)',
+    chipFg: 'var(--color-kind-module-fg)',
+    minimap: 'oklch(0.78 0.04 240)',
   },
   class: {
     label: 'Class',
-    color: 'var(--color-kind-class)',
-    dot: 'oklch(0.78 0.13 200)',
+    chipBg: 'var(--color-kind-class)',
+    chipFg: 'var(--color-kind-class-fg)',
+    minimap: 'oklch(0.78 0.05 200)',
   },
   function: {
     label: 'Function',
-    color: 'var(--color-kind-function)',
-    dot: 'oklch(0.82 0.14 160)',
+    chipBg: 'var(--color-kind-function)',
+    chipFg: 'var(--color-kind-function-fg)',
+    minimap: 'oklch(0.78 0.06 150)',
   },
   method: {
     label: 'Method',
-    color: 'var(--color-kind-function)',
-    dot: 'oklch(0.82 0.14 160)',
+    chipBg: 'var(--color-kind-function)',
+    chipFg: 'var(--color-kind-function-fg)',
+    minimap: 'oklch(0.78 0.06 150)',
   },
   route: {
     label: 'Route',
-    color: 'var(--color-kind-route)',
-    dot: 'oklch(0.82 0.14 80)',
+    chipBg: 'var(--color-kind-route)',
+    chipFg: 'var(--color-kind-route-fg)',
+    minimap: 'oklch(0.8 0.09 75)',
   },
   task: {
     label: 'Task',
-    color: 'var(--color-kind-task)',
-    dot: 'oklch(0.78 0.16 30)',
+    chipBg: 'var(--color-kind-task)',
+    chipFg: 'var(--color-kind-task-fg)',
+    minimap: 'oklch(0.78 0.11 45)',
   },
   signal: {
     label: 'Signal',
-    color: 'var(--color-kind-task)',
-    dot: 'oklch(0.78 0.16 30)',
+    chipBg: 'var(--color-kind-task)',
+    chipFg: 'var(--color-kind-task-fg)',
+    minimap: 'oklch(0.78 0.11 45)',
   },
   data_model: {
     label: 'Data',
-    color: 'var(--color-kind-data)',
-    dot: 'oklch(0.78 0.13 320)',
+    chipBg: 'var(--color-kind-data)',
+    chipFg: 'var(--color-kind-data-fg)',
+    minimap: 'oklch(0.8 0.06 305)',
   },
   external: {
     label: 'External',
-    color: 'var(--color-kind-external)',
-    dot: 'oklch(0.65 0.02 260)',
+    chipBg: 'var(--color-kind-external)',
+    chipFg: 'var(--color-kind-external-fg)',
+    minimap: 'oklch(0.8 0.012 70)',
   },
 }
 
-export const EDGE_KIND_META: Record<EdgeKind, { label: string; stroke: string; dashed: boolean }> = {
+export const EDGE_KIND_META: Record<
+  EdgeKind,
+  { label: string; stroke: string; dashed: boolean }
+> = {
   call: { label: 'call', stroke: 'var(--color-edge-call)', dashed: false },
   import: { label: 'import', stroke: 'var(--color-edge-import)', dashed: false },
   inherit: { label: 'inherit', stroke: 'var(--color-edge-import)', dashed: false },

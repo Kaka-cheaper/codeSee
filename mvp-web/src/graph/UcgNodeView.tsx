@@ -28,63 +28,62 @@ const KIND_ICON: Record<UcgNode['kind'], LucideIcon> = {
 
 export type UcgFlowNodeData = {
   ucg: UcgNode
-  selected?: boolean
 }
 
 export function UcgNodeView({ data, selected }: NodeProps) {
-  // React Flow 11 把 data 类型固定为 Record<string, unknown>，这里转一次
   const { ucg } = data as unknown as UcgFlowNodeData
   const meta = NODE_KIND_META[ucg.kind]
   const Icon = KIND_ICON[ucg.kind]
 
+  const fileName = ucg.location?.file.split('/').slice(-1)[0]
+
   return (
     <div
       className={cn(
-        'node-enter group relative min-w-[200px] max-w-[280px] rounded-xl border bg-[var(--color-bg-1)]',
-        'px-3.5 py-2.5 shadow-[0_8px_24px_-12px_oklch(0_0_0/0.6)] transition-all',
-        'hover:border-[var(--color-border-strong)] hover:bg-[var(--color-bg-2)]',
+        'node-enter group relative min-w-[208px] max-w-[288px] rounded-2xl border bg-[var(--color-bg-1)]',
+        'px-3.5 py-3 transition-all duration-200',
+        'shadow-[0_1px_2px_oklch(0_0_0/0.04)]',
+        'hover:shadow-[0_2px_8px_oklch(0_0_0/0.06),0_0_0_3px_var(--color-bg-2)]',
+        'hover:-translate-y-px',
         selected
-          ? 'border-[var(--color-accent)] ring-1 ring-[var(--color-accent)]/40'
+          ? 'border-[var(--color-accent)] shadow-[0_2px_12px_oklch(0_0_0/0.06),0_0_0_3px_var(--color-accent-soft)]'
           : 'border-[var(--color-border)]',
       )}
     >
       <Handle
         type="target"
         position={Position.Left}
-        className="!bg-[var(--color-bg-2)] !border-[var(--color-border-strong)]"
+        className="!h-1.5 !w-1.5 !border-[var(--color-border-strong)] !bg-[var(--color-bg-1)]"
       />
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         <span
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-          style={{ background: meta.color, color: 'oklch(0.18 0.01 260)' }}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+          style={{ background: meta.chipBg, color: meta.chipFg }}
         >
-          <Icon size={14} strokeWidth={2.25} />
+          <Icon size={14} strokeWidth={2} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-medium leading-tight text-[var(--color-fg)]">
+          <div className="truncate text-[13.5px] font-medium leading-tight text-[var(--color-fg)]">
             {ucg.name}
           </div>
-          <div className="mt-0.5 truncate font-mono text-[10.5px] leading-tight text-[var(--color-fg-subtle)]">
+          <div className="mt-1 truncate font-mono text-[10.5px] leading-tight text-[var(--color-fg-subtle)]">
             {ucg.qualified_name}
           </div>
         </div>
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-2.5 flex items-center justify-between gap-2">
         <span
-          className="rounded-md px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase"
-          style={{
-            color: meta.dot,
-            background: 'color-mix(in oklch, var(--color-bg-2) 70%, transparent)',
-            border: '1px solid var(--color-border)',
-          }}
+          className="rounded-md px-1.5 py-0.5 text-[10px] font-medium tracking-wide"
+          style={{ color: meta.chipFg, background: meta.chipBg }}
         >
           {meta.label}
         </span>
-        {ucg.location && (
+        {fileName && (
           <span className="truncate font-mono text-[10px] text-[var(--color-fg-subtle)]">
-            {ucg.location.file.split('/').slice(-1)[0]}:{ucg.location.start_line}
+            {fileName}
+            {ucg.location ? `:${ucg.location.start_line}` : ''}
           </span>
         )}
       </div>
@@ -92,7 +91,7 @@ export function UcgNodeView({ data, selected }: NodeProps) {
       <Handle
         type="source"
         position={Position.Right}
-        className="!bg-[var(--color-bg-2)] !border-[var(--color-border-strong)]"
+        className="!h-1.5 !w-1.5 !border-[var(--color-border-strong)] !bg-[var(--color-bg-1)]"
       />
     </div>
   )

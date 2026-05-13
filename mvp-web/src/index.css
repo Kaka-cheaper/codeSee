@@ -7,48 +7,48 @@
   --font-mono:
     'JetBrains Mono', 'Geist Mono', ui-monospace, 'SFMono-Regular', monospace;
 
-  /* Surface — 暖白调，米黄底子，避免纯白冷感 */
-  --color-bg-0: oklch(0.985 0.006 78);
-  --color-bg-1: oklch(0.995 0.004 78);
-  --color-bg-2: oklch(0.965 0.008 78);
-  --color-bg-sunken: oklch(0.955 0.01 78);
+  /* Surface — 亚麻 / 信纸调，降亮以减晃眼 */
+  --color-bg-0: oklch(0.948 0.012 80);
+  --color-bg-1: oklch(0.965 0.011 80);
+  --color-bg-2: oklch(0.93 0.014 78);
+  --color-bg-sunken: oklch(0.915 0.016 78);
 
-  /* Border — 极淡暖灰，几乎不抢注意力 */
-  --color-border: oklch(0.91 0.008 70);
-  --color-border-strong: oklch(0.84 0.012 65);
+  /* Border — 暖米灰，更柔 */
+  --color-border: oklch(0.87 0.014 70);
+  --color-border-strong: oklch(0.78 0.018 65);
 
-  /* Text — 深棕灰，不是纯黑，柔和 */
-  --color-fg: oklch(0.32 0.022 55);
-  --color-fg-muted: oklch(0.5 0.018 60);
-  --color-fg-subtle: oklch(0.66 0.014 65);
+  /* Text — 深棕，比纯黑更安静 */
+  --color-fg: oklch(0.3 0.024 50);
+  --color-fg-muted: oklch(0.48 0.02 58);
+  --color-fg-subtle: oklch(0.62 0.016 62);
 
   /* Accent — Claude 风暖橘赭石 */
-  --color-accent: oklch(0.66 0.135 45);
-  --color-accent-soft: oklch(0.94 0.04 55);
-  --color-accent-strong: oklch(0.58 0.155 40);
+  --color-accent: oklch(0.62 0.135 42);
+  --color-accent-soft: oklch(0.9 0.045 55);
+  --color-accent-strong: oklch(0.55 0.155 38);
 
-  /* Node kinds — 沙灰底色调，同饱和度不同色相，柔和不喧宾夺主 */
-  --color-kind-module: oklch(0.92 0.025 240);
-  --color-kind-class: oklch(0.92 0.03 200);
-  --color-kind-function: oklch(0.93 0.035 150);
-  --color-kind-route: oklch(0.93 0.05 75);
-  --color-kind-task: oklch(0.92 0.06 45);
-  --color-kind-data: oklch(0.93 0.03 305);
-  --color-kind-external: oklch(0.93 0.008 70);
+  /* Node kinds — 同饱和度不同色相，统一压暗一档，更温润 */
+  --color-kind-module: oklch(0.89 0.03 240);
+  --color-kind-class: oklch(0.89 0.035 200);
+  --color-kind-function: oklch(0.9 0.04 150);
+  --color-kind-route: oklch(0.9 0.055 75);
+  --color-kind-task: oklch(0.89 0.07 45);
+  --color-kind-data: oklch(0.9 0.035 305);
+  --color-kind-external: oklch(0.9 0.012 70);
 
-  --color-kind-module-fg: oklch(0.45 0.05 240);
-  --color-kind-class-fg: oklch(0.45 0.06 200);
-  --color-kind-function-fg: oklch(0.42 0.07 150);
-  --color-kind-route-fg: oklch(0.5 0.1 70);
-  --color-kind-task-fg: oklch(0.5 0.13 40);
-  --color-kind-data-fg: oklch(0.45 0.07 305);
-  --color-kind-external-fg: oklch(0.5 0.015 65);
+  --color-kind-module-fg: oklch(0.42 0.06 240);
+  --color-kind-class-fg: oklch(0.42 0.07 200);
+  --color-kind-function-fg: oklch(0.4 0.08 150);
+  --color-kind-route-fg: oklch(0.46 0.11 70);
+  --color-kind-task-fg: oklch(0.46 0.14 40);
+  --color-kind-data-fg: oklch(0.42 0.08 305);
+  --color-kind-external-fg: oklch(0.46 0.018 65);
 
   /* Edge kinds — 偏中性暖灰 */
-  --color-edge-call: oklch(0.7 0.018 60);
-  --color-edge-import: oklch(0.78 0.012 65);
-  --color-edge-route: oklch(0.7 0.1 60);
-  --color-edge-unresolved: oklch(0.78 0.012 65);
+  --color-edge-call: oklch(0.66 0.022 60);
+  --color-edge-import: oklch(0.74 0.014 65);
+  --color-edge-route: oklch(0.66 0.1 60);
+  --color-edge-unresolved: oklch(0.74 0.014 65);
 }
 
 html,
@@ -60,8 +60,8 @@ body,
 body {
   margin: 0;
   background:
-    radial-gradient(1200px 600px at 80% -10%, oklch(0.97 0.025 60 / 0.5), transparent 60%),
-    radial-gradient(800px 500px at -10% 110%, oklch(0.96 0.02 250 / 0.4), transparent 60%),
+    radial-gradient(1100px 560px at 82% -8%, oklch(0.93 0.03 60 / 0.35), transparent 60%),
+    radial-gradient(900px 520px at -10% 110%, oklch(0.91 0.022 250 / 0.28), transparent 60%),
     var(--color-bg-0);
   color: var(--color-fg);
   font-family: var(--font-sans);

@@ -90,12 +90,12 @@ export function GraphCanvas({ ucg }: Props) {
           variant={BackgroundVariant.Dots}
           gap={28}
           size={1}
-          color="oklch(0.86 0.012 70)"
+          color="oklch(0.8 0.018 70)"
         />
         <MiniMap
           pannable
           zoomable
-          maskColor="oklch(0.985 0.006 78 / 0.6)"
+          maskColor="oklch(0.948 0.012 80 / 0.55)"
           nodeColor={(n) => {
             const data = n.data as unknown as UcgFlowNodeData | undefined
             const kind = data?.ucg.kind

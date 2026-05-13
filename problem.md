@@ -84,3 +84,26 @@
    - 删除：`mvp-web/src/App.css`、`mvp-web/src/assets/`
    - 新增：根目录 `.gitignore`
 应当达成的效果：用户访问 `http://localhost:5175/` 可看到一张暗色风格的代码功能图（路由 → 登录服务 → 验证密码 / 签发 token / 仓储 / 数据模型 / 外部包 / 异步任务），具备节点 hover / 选中、缩放 / minimap / 控件、点节点弹出右侧详情面板、低置信度边显示为虚线等基础交互；同时整个上层代码不依赖任何具体语言或工具，所有数据均以 UCG 形式注入，验证"UCG → 画布"链路成立，可作为后续接 TS / Python 适配器的稳定底座。
+
+---
+
+问题6：原暗色主题"太硬核"，希望改为淡雅、轻松的风格，参考 Claude 官网及桌面版的整体感觉（不是照搬具体颜色）。
+解决方案：
+1. 重写 `src/index.css` 主题 token：底色改为暖米白 oklch(0.985 0.006 78)，叠加左下偏蓝、右上偏暖的两束极淡径向光晕；文字改为深棕灰 oklch(0.32 0.022 55)；边框改为极淡暖灰 oklch(0.91 0.008 70)；accent 改为暖橘赭石 oklch(0.66 0.135 45) + accent-soft 用于环状高亮。
+2. 字体启用 Inter 的 cv11 / ss01 / ss03 OpenType 特性，配合 -0.005em 负字距，靠近 Claude / Linear 风格的紧凑文字质感。
+3. 节点 kind 配色策略反转：从"深底浅字"改为"淡彩底 + 深字"——背景用 oklch L≈0.92~0.93、低饱和度，前景文字与图标用同色相 L≈0.42~0.50，避免任何高饱和或鲜艳配色，让节点在画布里"安静"。
+4. React Flow 控件、minimap、handle、attribution 全部跟随暖白主题：阴影换为极轻 1px + 软外发光圈而非深沉投影；背景点 gap 加大到 28、size=1、用近底色的暖米点；minimap 遮罩用半透暖白；选中态使用 accent-soft 软色环。
+5. 节点视图：圆角加大到 2xl、padding 增 + 留白增；hover 用 -translate-y-px + 三层软光圈；选中用 accent 软外环；边线和箭头宽度从 1.4px 降到 1.25px、整体边的不透明度 0.9，弱化指向感的同时保留可读性。
+6. 顶部栏：logo 用 accent-soft 暖色块包裹 Sparkles 图标；分隔线、字号、留白都向"信纸排版"靠拢。
+7. 详情面板：纸张感卡片，软投影替代深投影；上下游列表项 hover 改为浅暖灰；元数据代码块改用 bg-sunken 米色底。
+8. 全链路验证：`tsc -b` 0 错；`vite build` 通过（CSS gzip 6.87KB，整体增量极小）；HMR 已推送新主题到运行中的 dev server (`http://localhost:5175/`)。
+9. 提交：`style: 改为暖白淡雅主题（Claude 调性）`。
+修改的代码文件：
+   - `mvp-web/src/index.css`（重写主题与 React Flow 暗→亮调）
+   - `mvp-web/src/graph/kindMeta.ts`（chipBg/chipFg/minimap 三色策略，淡底深字）
+   - `mvp-web/src/graph/UcgNodeView.tsx`（圆角、阴影、留白、hover/selected 视觉重做）
+   - `mvp-web/src/graph/GraphCanvas.tsx`（背景点、minimap、边样式调淡）
+   - `mvp-web/src/graph/NodeDetailsPanel.tsx`（纸张感、软投影、列表 hover）
+   - `mvp-web/src/app/TopBar.tsx`（logo 用 accent-soft，弱化分割线）
+   - `mvp-web/src/App.tsx`（外层去掉硬色背景以让 body 渐变透出）
+应当达成的效果：刷新 `http://localhost:5175/` 后整体观感由"暗色高对比的工程界面"切换为"暖白纸张感、低饱和、留白克制"的淡雅风格，节点之间不再喧宾夺主，accent 用暖橘点缀，长时间审查不易疲劳；同时所有变更仅限主题层，UCG schema 与画布数据流向不变，不影响后续 adapter 接入。

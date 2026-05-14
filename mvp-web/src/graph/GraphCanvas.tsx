@@ -27,8 +27,8 @@ import { FeatureNodeView, type FeatureNodeData } from './FeatureNodeView'
 import { StepNodeView, type StepNodeData } from './StepNodeView'
 import { FLOW_META, ROLE_META } from './roleMeta'
 import { DetailsPanel } from './DetailsPanel'
-
 import { EpicGroupBg, type EpicGroupBgData } from './EpicGroupBg'
+import type { LaidOutNode, LayoutGroup } from './layout'
 
 interface Props {
   file: FeaturesFile
@@ -43,7 +43,6 @@ const nodeTypes = {
 
 const defaultEdgeOptions = { type: 'smoothstep' as const }
 
-/** 视图键：相同 viewKey 时复用位置缓存以保持稳定 */
 function viewKeyOf(state: FcgViewState): string {
   return state.mode === 'steps'
     ? `steps:${state.focusedFeatureId ?? ''}`
@@ -51,9 +50,7 @@ function viewKeyOf(state: FcgViewState): string {
 }
 
 export function GraphCanvas({ file }: Props) {
-  return (
-    <GraphInner file={file} />
-  )
+  return <GraphInner file={file} />
 }
 
 function GraphInner({ file }: Props) {
@@ -63,57 +60,45 @@ function GraphInner({ file }: Props) {
 
   const view = useMemo(() => buildView(file, state), [file, state])
   const viewKey = viewKeyOf(state)
+  const isOverview = state.mode === 'overview'
 
-  /** 按 viewKey 缓存最近一次布局位置；切视图时换桶。 */
   const positionsRef = useRef<
-    Map<string /* viewKey */, Map<string /* nodeId */, { x: number; y: number }>>
+    Map<string, Map<string, { x: number; y: number }>>
   >(new Map())
-
-  /** 判定本次哪些节点是"新出现的"，用于淡入动效。 */
   const [newNodeIds, setNewNodeIds] = useState<Set<string>>(new Set())
-
-  /** 布局后的 React Flow 节点和边 */
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
-  const [, setLayoutDone] = useState(false)
+  const measuredSizesRef = useRef<Map<string, { width: number; height: number }>>(new Map())
 
-  /** 异步布局：先放节点让 RF 测量，测量完后用真实尺寸跑 ELK */
+  /* ==================== ELK 布局（功能/流程视图） ==================== */
   useEffect(() => {
-    let cancelled = false
-    setLayoutDone(false)
+    // 概览视图由力导向管理，跳过 ELK
+    if (isOverview) return
 
-    // 第一帧：所有节点放 (0,0)，透明但可测量，让 React Flow 测量真实尺寸
-    const initialNodes: Node[] = view.nodes.map((v) => {
-      const baseData = { view: v, isNew: false } as unknown as
-        | EpicNodeData
-        | FeatureNodeData
-        | StepNodeData
-      return {
-        id: v.id,
-        type: v.kind === 'epic' ? 'epic' : v.kind === 'feature' ? 'feature' : 'step',
-        position: { x: 0, y: 0 },
-        data: baseData,
-        style: { opacity: 0, pointerEvents: 'none' as const },
-      }
-    })
+    let cancelled = false
+
+    const initialNodes: Node[] = view.nodes.map((v) => ({
+      id: v.id,
+      type: v.kind === 'epic' ? 'epic' : v.kind === 'feature' ? 'feature' : 'step',
+      position: { x: 0, y: 0 },
+      data: { view: v, isNew: false } as unknown as EpicNodeData | FeatureNodeData | StepNodeData,
+      style: { opacity: 0, pointerEvents: 'none' as const },
+    }))
     setRfNodes(initialNodes)
     setRfEdges(view.edges.map((e) => buildEdge(e, new Set())))
 
-    // 等一帧让 RF 渲染并测量
     const timer = window.setTimeout(async () => {
       if (cancelled) return
-
-      // 从 RF 拿测量后的真实尺寸
       const measured = reactFlow.getNodes()
       const sizeMap = new Map<string, { width: number; height: number }>()
       for (const n of measured) {
-        const w = n.measured?.width ?? n.width ?? 280
-        const h = n.measured?.height ?? n.height ?? 132
-        sizeMap.set(n.id, { width: w, height: h })
+        sizeMap.set(n.id, {
+          width: n.measured?.width ?? n.width ?? 280,
+          height: n.measured?.height ?? n.height ?? 132,
+        })
       }
       measuredSizesRef.current = sizeMap
 
-      // 用真实尺寸跑 ELK
       const epicNames = new Map(file.epics.map((e) => [e.id, e.name]))
       const layoutResult = await layoutViewAsync(view.nodes, view.edges, epicNames, sizeMap)
       if (cancelled) return
@@ -128,7 +113,6 @@ function GraphInner({ file }: Props) {
         newIds = r.newIds
       }
 
-      // 写回缓存
       const next = new Map<string, { x: number; y: number }>()
       for (const n of finalNodes) next.set(n.view.id, n.position)
       positionsRef.current.set(viewKey, next)
@@ -136,36 +120,39 @@ function GraphInner({ file }: Props) {
       setRfNodes(toRfNodes(finalNodes, newIds, groups))
       setRfEdges(view.edges.map((e) => buildEdge(e, newIds)))
       setNewNodeIds(newIds)
-      setLayoutDone(true)
-    }, 50) // 50ms 足够 RF 完成一帧渲染和测量
+    }, 50)
 
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-    }
+    return () => { cancelled = true; window.clearTimeout(timer) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, viewKey])
+  }, [view, viewKey, isOverview])
 
-  // 概览视图：力导向布局
-  const isOverview = state.mode === 'overview'
-  const measuredSizesRef = useRef<Map<string, { width: number; height: number }>>(new Map())
+  /* ==================== 力导向布局（概览视图） ==================== */
+  // 概览视图切入时初始化节点
+  useEffect(() => {
+    if (!isOverview) return
+    const nodes: Node[] = view.nodes.map((v) => ({
+      id: v.id,
+      type: 'epic',
+      position: { x: Math.random() * 400 - 200, y: Math.random() * 300 - 150 },
+      data: { view: v, isNew: false } as unknown as EpicNodeData,
+    }))
+    setRfNodes(nodes)
+    setRfEdges(view.edges.map((e) => buildEdge(e, new Set())))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOverview, view])
 
   const handleForceTick = useCallback(
     (positions: Map<string, { x: number; y: number }>) => {
-      // 用 React Flow 的 setNodes 直接 patch 位置，避免整个数组重建导致闪烁
-      reactFlow.setNodes((nds) =>
-        nds.map((n) => {
+      setRfNodes((prev) =>
+        prev.map((n) => {
           const pos = positions.get(n.id)
           if (!pos) return n
-          // 只在位置真正变化时更新（避免无意义 re-render）
-          if (Math.abs(n.position.x - pos.x) < 0.5 && Math.abs(n.position.y - pos.y) < 0.5) {
-            return n
-          }
+          if (Math.abs(n.position.x - pos.x) < 0.5 && Math.abs(n.position.y - pos.y) < 0.5) return n
           return { ...n, position: pos }
         }),
       )
     },
-    [reactFlow],
+    [],
   )
 
   const { onDragStart, onDrag, onDragEnd } = useForceLayout({
@@ -177,57 +164,43 @@ function GraphInner({ file }: Props) {
   })
 
   const handleNodeDragStart: OnNodeDrag = useCallback(
-    (_event, node) => {
-      if (isOverview) onDragStart(node.id)
-    },
+    (_event, node) => { if (isOverview) onDragStart(node.id) },
     [isOverview, onDragStart],
   )
-
   const handleNodeDrag: OnNodeDrag = useCallback(
-    (_event, node) => {
-      if (isOverview) onDrag(node.id, node.position.x, node.position.y)
-    },
+    (_event, node) => { if (isOverview) onDrag(node.id, node.position.x, node.position.y) },
     [isOverview, onDrag],
   )
-
   const handleNodeDragStop: OnNodeDrag = useCallback(
-    (_event, node) => {
-      if (isOverview) onDragEnd(node.id)
-    },
+    (_event, node) => { if (isOverview) onDragEnd(node.id) },
     [isOverview, onDragEnd],
   )
 
-  // 切视图后自动 fit
+  /* ==================== 通用交互 ==================== */
   useEffect(() => {
     const t = window.setTimeout(() => {
       reactFlow.fitView({ padding: 0.3, duration: 320 })
-    }, 30)
+    }, isOverview ? 500 : 80)
     return () => window.clearTimeout(t)
-  }, [viewKey, reactFlow])
+  }, [viewKey, reactFlow, isOverview])
 
   const onNodeDoubleClick: NodeMouseHandler = useCallback(
     (_, node) => {
       const v = view.nodes.find((n) => n.id === node.id)
       if (!v) return
-      if (v.kind === 'epic') {
-        setState({ mode: 'features' })
-      } else if (v.kind === 'feature') {
-        setState({ mode: 'steps', focusedFeatureId: v.feature.id })
-      }
+      if (v.kind === 'epic') setState({ mode: 'features' })
+      else if (v.kind === 'feature') setState({ mode: 'steps', focusedFeatureId: v.feature.id })
     },
     [view.nodes],
   )
 
   const onNodeClick: NodeMouseHandler = useCallback((_, node) => {
     setSelectedId(node.id)
-    // 确保 React Flow 内部只选中这一个节点
-    reactFlow.setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        selected: n.id === node.id,
-      })),
-    )
-  }, [reactFlow])
+  }, [])
+
+  const onPaneClick = useCallback(() => {
+    setSelectedId(null)
+  }, [])
 
   const selectedView: FcgViewNode | null = useMemo(() => {
     if (!selectedId) return null
@@ -252,7 +225,7 @@ function GraphInner({ file }: Props) {
         fitViewOptions={{ padding: 0.3 }}
         minZoom={0.2}
         maxZoom={2}
-        onlyRenderVisibleElements
+        nodesDraggable
         nodesConnectable={false}
         elementsSelectable
         onNodeClick={onNodeClick}
@@ -260,10 +233,7 @@ function GraphInner({ file }: Props) {
         onNodeDragStart={handleNodeDragStart}
         onNodeDrag={handleNodeDrag}
         onNodeDragStop={handleNodeDragStop}
-        onPaneClick={() => {
-          setSelectedId(null)
-          reactFlow.setNodes((nds) => nds.map((n) => ({ ...n, selected: false })))
-        }}
+        onPaneClick={onPaneClick}
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="oklch(0.8 0.018 70)" />
         <MiniMap
@@ -305,14 +275,11 @@ function GraphInner({ file }: Props) {
 
 /* --------------------------------------------------------- helpers */
 
-import type { LaidOutNode, LayoutGroup } from './layout'
-
 function toRfNodes(
   laid: LaidOutNode[],
   newIds: Set<string>,
   groups: LayoutGroup[] = [],
 ): Node[] {
-  // group 背景节点放最前面（z-index 最低）
   const groupNodes: Node<EpicGroupBgData>[] = groups.map((g) => ({
     id: g.id,
     type: 'epicGroup',
@@ -329,12 +296,8 @@ function toRfNodes(
       | EpicNodeData
       | FeatureNodeData
       | StepNodeData
-    if (v.kind === 'epic') {
-      return { id: v.id, type: 'epic', position, data: baseData }
-    }
-    if (v.kind === 'feature') {
-      return { id: v.id, type: 'feature', position, data: baseData }
-    }
+    if (v.kind === 'epic') return { id: v.id, type: 'epic', position, data: baseData }
+    if (v.kind === 'feature') return { id: v.id, type: 'feature', position, data: baseData }
     return { id: v.id, type: 'step', position, data: baseData }
   })
 
@@ -346,8 +309,7 @@ function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
   let dashed = false
   let animated = false
   if (e.scope === 'step') {
-    const m =
-      (e.kind && FLOW_META[e.kind as keyof typeof FLOW_META]) ?? FLOW_META.next
+    const m = (e.kind && FLOW_META[e.kind as keyof typeof FLOW_META]) ?? FLOW_META.next
     stroke = m.stroke
     dashed = m.dashed
     animated = m.animated
@@ -355,7 +317,6 @@ function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
     stroke = 'var(--color-edge-import)'
     dashed = true
   }
-  // 边端点是新节点 → 边也淡入
   const involvesNew = newNodeIds.has(e.source) || newNodeIds.has(e.target)
   return {
     id: e.id,
@@ -363,11 +324,7 @@ function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
     target: e.target,
     animated,
     label: e.label || undefined,
-    labelStyle: {
-      fill: 'var(--color-fg-subtle)',
-      fontSize: 10,
-      fontFamily: 'var(--font-mono)',
-    },
+    labelStyle: { fill: 'var(--color-fg-subtle)', fontSize: 10, fontFamily: 'var(--font-mono)' },
     labelBgStyle: { fill: 'var(--color-bg-1)', fillOpacity: 0.85 },
     labelBgPadding: [4, 2] as [number, number],
     labelBgBorderRadius: 4,
@@ -378,44 +335,22 @@ function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
       opacity: 0.9,
       animation: involvesNew ? 'edge-fade-in 360ms ease-out both' : undefined,
     },
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      width: 13,
-      height: 13,
-      color: stroke,
-    },
+    markerEnd: { type: MarkerType.ArrowClosed, width: 13, height: 13, color: stroke },
   }
 }
 
-/* --------------------------------------------------------- 视图切换器 */
+/* --------------------------------------------------------- UI */
 
-function ViewSwitcher({
-  mode,
-  focusedFeatureName,
-  onChangeMode,
-}: {
-  mode: ViewMode
-  focusedFeatureName?: string
-  onChangeMode: (m: ViewMode) => void
+function ViewSwitcher({ mode, focusedFeatureName, onChangeMode }: {
+  mode: ViewMode; focusedFeatureName?: string; onChangeMode: (m: ViewMode) => void
 }) {
   return (
     <div className="pointer-events-none absolute top-4 left-4 z-10">
       <div className="pointer-events-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-1)] px-1.5 py-1 shadow-[0_1px_2px_oklch(0_0_0/0.04)]">
         <div className="flex items-center gap-0.5">
-          <ModeBtn active={mode === 'overview'} onClick={() => onChangeMode('overview')}>
-            概览
-          </ModeBtn>
-          <ModeBtn active={mode === 'features'} onClick={() => onChangeMode('features')}>
-            功能
-          </ModeBtn>
-          <ModeBtn
-            active={mode === 'steps'}
-            onClick={() => mode === 'steps' && onChangeMode('steps')}
-            disabled={mode !== 'steps'}
-            title={mode !== 'steps' ? '请先在功能视图双击一个功能' : undefined}
-          >
-            流程
-          </ModeBtn>
+          <ModeBtn active={mode === 'overview'} onClick={() => onChangeMode('overview')}>概览</ModeBtn>
+          <ModeBtn active={mode === 'features'} onClick={() => onChangeMode('features')}>功能</ModeBtn>
+          <ModeBtn active={mode === 'steps'} onClick={() => mode === 'steps' && onChangeMode('steps')} disabled={mode !== 'steps'} title={mode !== 'steps' ? '请先在功能视图双击一个功能' : undefined}>流程</ModeBtn>
         </div>
       </div>
       {mode === 'steps' && focusedFeatureName && (
@@ -428,49 +363,24 @@ function ViewSwitcher({
   )
 }
 
-function ModeBtn({
-  active,
-  onClick,
-  disabled,
-  children,
-  title,
-}: {
-  active: boolean
-  onClick: () => void
-  disabled?: boolean
-  children: React.ReactNode
-  title?: string
+function ModeBtn({ active, onClick, disabled, children, title }: {
+  active: boolean; onClick: () => void; disabled?: boolean; children: React.ReactNode; title?: string
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={
-        'rounded-md px-2.5 py-1 text-[11.5px] transition-colors ' +
-        (active
-          ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent-strong)]'
-          : disabled
-          ? 'text-[var(--color-fg-subtle)] opacity-50'
-          : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]')
-      }
-    >
-      {children}
-    </button>
+    <button onClick={onClick} disabled={disabled} title={title}
+      className={'rounded-md px-2.5 py-1 text-[11.5px] transition-colors ' +
+        (active ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent-strong)]'
+          : disabled ? 'text-[var(--color-fg-subtle)] opacity-50'
+          : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]')}
+    >{children}</button>
   )
 }
 
 function NewNodeIndicator({ count }: { count: number }) {
   return (
     <div className="pointer-events-none absolute top-4 left-1/2 z-10 -translate-x-1/2">
-      <div
-        className="pointer-events-auto rounded-full border px-3 py-1 text-[11.5px] shadow-[0_1px_2px_oklch(0_0_0/0.04)]"
-        style={{
-          background: 'var(--color-accent-soft)',
-          color: 'var(--color-accent-strong)',
-          borderColor: 'var(--color-accent)',
-        }}
-      >
+      <div className="pointer-events-auto rounded-full border px-3 py-1 text-[11.5px] shadow-[0_1px_2px_oklch(0_0_0/0.04)]"
+        style={{ background: 'var(--color-accent-soft)', color: 'var(--color-accent-strong)', borderColor: 'var(--color-accent)' }}>
         +{count} 个新节点
       </div>
     </div>

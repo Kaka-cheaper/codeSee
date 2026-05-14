@@ -1,39 +1,57 @@
 import { useMemo } from 'react'
 import { ArrowDownRight, ArrowUpRight, X } from 'lucide-react'
 import type { Ucg, UcgNode } from '@/ucg/types'
-import { EDGE_KIND_META, NODE_KIND_META } from './kindMeta'
+import { groupMembersOf, type ViewNode } from './aggregation'
+import { NODE_KIND_META } from './kindMeta'
 import { cn } from '@/lib/cn'
 
 interface Props {
-  node: UcgNode | null
+  view: ViewNode | null
   ucg: Ucg
   onClose: () => void
 }
 
-export function NodeDetailsPanel({ node, ucg, onClose }: Props) {
-  const incoming = useMemo(
-    () => (node ? ucg.edges.filter((e) => e.target === node.id) : []),
-    [node, ucg.edges],
-  )
-  const outgoing = useMemo(
-    () => (node ? ucg.edges.filter((e) => e.source === node.id) : []),
-    [node, ucg.edges],
-  )
-  const idToNode = useMemo(() => new Map(ucg.nodes.map((n) => [n.id, n])), [ucg.nodes])
+export function NodeDetailsPanel({ view, ucg, onClose }: Props) {
+  const isGroup = view?.kind === 'group' || view?.kind === 'external_group'
+
+  // 对于聚合节点，用其内部成员计算上下游
+  const peerInfo = useMemo(() => {
+    if (!view) return { incoming: [], outgoing: [], idToName: new Map() }
+
+    if (isGroup) {
+      const members = groupMembersOf(ucg, view.id)
+      const memberIds = new Set(members.map((m) => m.id))
+      // 对于 group，上下游 = 成员的对外边
+      const incoming = ucg.edges.filter(
+        (e) => memberIds.has(e.target) && !memberIds.has(e.source),
+      )
+      const outgoing = ucg.edges.filter(
+        (e) => memberIds.has(e.source) && !memberIds.has(e.target),
+      )
+      const idToName = new Map(ucg.nodes.map((n) => [n.id, n.name]))
+      return { incoming, outgoing, idToName }
+    }
+
+    const ucgId = view.ucg?.id ?? ''
+    const incoming = ucg.edges.filter((e) => e.target === ucgId)
+    const outgoing = ucg.edges.filter((e) => e.source === ucgId)
+    const idToName = new Map(ucg.nodes.map((n) => [n.id, n.name]))
+    return { incoming, outgoing, idToName }
+  }, [view, ucg, isGroup])
 
   return (
     <aside
       className={cn(
         'pointer-events-none absolute top-4 right-4 bottom-4 z-10 w-[348px]',
-        'transition-[opacity,transform] duration-200',
-        node ? 'translate-x-0 opacity-100' : 'translate-x-3 opacity-0',
+        'transition-[opacity,transform] duration-150',
+        view ? 'translate-x-0 opacity-100' : 'translate-x-3 opacity-0',
       )}
     >
-      {node && (
+      {view && (
         <div
           className={cn(
             'pointer-events-auto flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--color-border)]',
-            'bg-[var(--color-bg-1)]/90 backdrop-blur-md',
+            'bg-[var(--color-bg-1)]',
             'shadow-[0_1px_2px_oklch(0_0_0/0.04),0_24px_48px_-24px_oklch(0_0_0/0.18)]',
           )}
         >
@@ -42,23 +60,24 @@ export function NodeDetailsPanel({ node, ucg, onClose }: Props) {
               <div className="flex items-center gap-2">
                 <span
                   className="rounded-md px-1.5 py-0.5 text-[10px] font-medium tracking-wide"
-                  style={{
-                    color: NODE_KIND_META[node.kind].chipFg,
-                    background: NODE_KIND_META[node.kind].chipBg,
-                  }}
+                  style={kindStyle(view)}
                 >
-                  {NODE_KIND_META[node.kind].label}
+                  {kindLabel(view)}
                 </span>
-                <span className="text-[11px] text-[var(--color-fg-subtle)]">
-                  {node.language}
-                </span>
+                {view.ucg?.language && (
+                  <span className="text-[11px] text-[var(--color-fg-subtle)]">
+                    {view.ucg.language}
+                  </span>
+                )}
               </div>
               <h2 className="mt-2 truncate text-[14px] font-medium tracking-tight text-[var(--color-fg)]">
-                {node.name}
+                {view.label}
               </h2>
-              <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--color-fg-muted)]">
-                {node.qualified_name}
-              </p>
+              {view.pathHint && (
+                <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--color-fg-muted)]">
+                  {view.pathHint}
+                </p>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -70,12 +89,29 @@ export function NodeDetailsPanel({ node, ucg, onClose }: Props) {
           </header>
 
           <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
-            {node.location && (
+            {isGroup && (
+              <Section title="成员">
+                <ul className="space-y-1">
+                  {groupMembersOf(ucg, view.id)
+                    .slice(0, 30)
+                    .map((m) => (
+                      <li
+                        key={m.id}
+                        className="truncate font-mono text-[11px] text-[var(--color-fg-muted)]"
+                      >
+                        {m.qualified_name}
+                      </li>
+                    ))}
+                </ul>
+              </Section>
+            )}
+
+            {view.ucg?.location && !isGroup && (
               <Section title="位置">
                 <div className="font-mono text-[11px] text-[var(--color-fg-muted)]">
-                  {node.location.file}
+                  {view.ucg.location.file}
                   <span className="text-[var(--color-fg-subtle)]">
-                    :{node.location.start_line}-{node.location.end_line}
+                    :{view.ucg.location.start_line}-{view.ucg.location.end_line}
                   </span>
                 </div>
               </Section>
@@ -85,36 +121,58 @@ export function NodeDetailsPanel({ node, ucg, onClose }: Props) {
               title={
                 <div className="flex items-center gap-1.5">
                   <ArrowDownRight size={12} />
-                  上游 ({incoming.length})
+                  上游 ({peerInfo.incoming.length})
                 </div>
               }
             >
-              <EdgeList edges={incoming} idToNode={idToNode} side="source" />
+              <EdgeList
+                edges={peerInfo.incoming}
+                idToName={peerInfo.idToName}
+                idToNode={ucg.nodes}
+                side="source"
+              />
             </Section>
 
             <Section
               title={
                 <div className="flex items-center gap-1.5">
                   <ArrowUpRight size={12} />
-                  下游 ({outgoing.length})
+                  下游 ({peerInfo.outgoing.length})
                 </div>
               }
             >
-              <EdgeList edges={outgoing} idToNode={idToNode} side="target" />
+              <EdgeList
+                edges={peerInfo.outgoing}
+                idToName={peerInfo.idToName}
+                idToNode={ucg.nodes}
+                side="target"
+              />
             </Section>
-
-            {node.meta && Object.keys(node.meta).length > 0 && (
-              <Section title="元数据">
-                <pre className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-sunken)] p-2.5 font-mono text-[10.5px] leading-relaxed text-[var(--color-fg-muted)]">
-                  {JSON.stringify(node.meta, null, 2)}
-                </pre>
-              </Section>
-            )}
           </div>
         </div>
       )}
     </aside>
   )
+}
+
+function kindLabel(view: ViewNode): string {
+  if (view.kind === 'group') return 'Package'
+  if (view.kind === 'external_group') return 'External (clustered)'
+  if (view.kind === 'external_member') return 'External'
+  return 'Module'
+}
+
+function kindStyle(view: ViewNode): React.CSSProperties {
+  if (view.kind === 'external_group' || view.kind === 'external_member') {
+    return {
+      color: NODE_KIND_META.external.chipFg,
+      background: NODE_KIND_META.external.chipBg,
+    }
+  }
+  return {
+    color: NODE_KIND_META.module.chipFg,
+    background: NODE_KIND_META.module.chipBg,
+  }
 }
 
 function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
@@ -130,17 +188,12 @@ function Section({ title, children }: { title: React.ReactNode; children: React.
 
 function EdgeList({
   edges,
-  idToNode,
+  idToName,
   side,
 }: {
-  edges: {
-    id: string
-    source: string
-    target: string
-    kind: keyof typeof EDGE_KIND_META
-    confidence: number
-  }[]
-  idToNode: Map<string, UcgNode>
+  edges: { id: string; source: string; target: string; kind: string; confidence: number }[]
+  idToName: Map<string, string>
+  idToNode: UcgNode[]
   side: 'source' | 'target'
 }) {
   if (edges.length === 0) {
@@ -148,23 +201,18 @@ function EdgeList({
   }
   return (
     <ul className="space-y-1.5">
-      {edges.map((e) => {
+      {edges.slice(0, 50).map((e) => {
         const peerId = side === 'source' ? e.source : e.target
-        const peer = idToNode.get(peerId)
-        const meta = EDGE_KIND_META[e.kind]
         return (
           <li
             key={e.id}
-            className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-1)] px-2.5 py-1.5 transition-colors hover:bg-[var(--color-bg-2)]"
+            className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-1)] px-2.5 py-1.5"
           >
-            <span
-              className="font-mono text-[9.5px] tracking-wide"
-              style={{ color: meta.stroke }}
-            >
-              {meta.label}
+            <span className="font-mono text-[9.5px] tracking-wide text-[var(--color-fg-subtle)]">
+              {e.kind}
             </span>
             <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--color-fg)]">
-              {peer?.name ?? peerId}
+              {idToName.get(peerId) ?? peerId}
             </span>
             {e.confidence < 1 && (
               <span className="rounded bg-[var(--color-bg-sunken)] px-1 font-mono text-[9.5px] text-[var(--color-fg-subtle)]">

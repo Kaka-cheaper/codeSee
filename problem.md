@@ -126,3 +126,31 @@
    - `mvp-web/src/index.css`（surface / border / text / accent / kind / edge token 全面降亮加暖）
    - `mvp-web/src/graph/GraphCanvas.tsx`（背景点颜色与 minimap 遮罩跟随新底色）
 应当达成的效果：刷新后整体亮度下降约 3-4%，色温整体偏暖，长时间审视不再有"晃眼"感；节点、边、面板、控件之间的对比关系全部按比例下移，可读性保持，但视觉负担显著降低，整体调性更接近"亚麻信纸 + 暖橘点缀"。
+
+---
+
+问题8：进入下一阶段，实现 TS 语言适配器，让画布从"吃示例"切换为"吃真实分析结果"。
+解决方案：
+1. 把仓库改造成 npm workspaces 单仓库结构：根目录 `package.json` 声明 `packages/*` 与 `mvp-web` 两个 workspace；新增 `build:schema` / `build:ts-adapter` / `build` / `scan:self` / `dev:web` 等聚合脚本。
+2. 新建共享包 `packages/ucg-schema`：把原 `mvp-web/src/ucg/types.ts` 中的 UCG 类型抽离为唯一的合同来源；新增 `nodeId({file, qualified_name, kind})` 与 `edgeId({source,target,kind})` 工具函数，使用 FNV-1a 32 位哈希生成稳定 id（不引入 crypto 依赖），保证跨次运行同一节点 id 不变。配套 `tsconfig.json`、`tsc -p` 构建到 `dist/`。
+3. 新建 `packages/ts-adapter`：基于 `ts-morph@^24` 实现 TypeScript 静态分析。
+   - 节点：每个 .ts/.tsx 文件 → `module`；class → `class`；顶层 function 与 var = (...) => {} 与函数表达式 → `function`；class 内方法 → `method`；外部包按根包名归并为 `external`（`lodash/fp` 归到 `lodash`，`@scope/pkg/sub` 归到 `@scope/pkg`）。
+   - 边：`module → module/external` 的 `import`；`module → class/function`、`class → method` 的 `contains`；`function/method → function/method/external` 的 `call`（通过 `getDefinitions()` 解析）；class 继承落到 `inherit` 但 confidence=0.6 标注 "暂未做精确解析"。
+   - 解析失败的 callee 进入 `unresolved` 列表，符号截断 80 字符并附 context 节点 id。
+   - tsconfig 检测：优先 `tsconfig.app.json` 再 `tsconfig.json`，找不到时按 glob 加载 ts/tsx 并排除 node_modules / dist / build。
+4. CLI `packages/ts-adapter/src/cli.ts`：`codesee-ts <rootDir> [--out <path>] [--repo <name>] [--tsconfig <path>]`，支持 `--help`，输出节点/边/unresolved 统计与耗时到 stderr，UCG JSON 写到 `--out`（自动建目录）。
+5. 修改 `mvp-web`：
+   - `package.json` 增加 `@codesee/ucg-schema: "*"` 依赖；
+   - `src/ucg/types.ts` 改为 `export * from '@codesee/ucg-schema'` 保持上层 import 路径不变；
+   - 新增 `src/ucg/loader.ts`：先 `fetch('/ucg.json')`，校验 schema（version/nodes/edges）后返回；失败回退到 `sampleUcg`；
+   - `App.tsx` 改为异步加载，加载期间显示"正在加载 UCG…"；
+   - `TopBar` 增加 `live` / `sample` 徽章，标识当前画布数据来源。
+6. 修复实际跑通过程中遇到的 ESM 下 `require` 不可用问题（`findFirstExisting` 改为模块顶部 `import fs from 'node:fs'`）。
+7. 在 `.gitignore` 中追加 `packages/*/dist/` 与 `mvp-web/public/ucg.json`，避免分析产物入库。
+8. 自分析跑通：`npx tsx src/cli.ts ../../mvp-web --out ../../mvp-web/public/ucg.json --repo codesee/mvp-web` → 节点 33 / 边 62 / unresolved 5 / 用时 ≈1.8s；统计：module 12 / external 11 / function 10；import 36 / contains 10 / call 16；unresolved 全部为 React useState 返回的 setter（符合预期，本就不应作为业务调用边）。
+9. 全链路构建验证：根目录 `npm run build` 串行 schema → ts-adapter → mvp-web 全部通过；vite build 产物 CSS gzip 6.89KB / JS gzip 130.84KB；mvp-web `tsc -b` 0 错；dev server 起在 `http://localhost:5173/` 自动加载 `/ucg.json`。
+10. 提交：`feat(ts-adapter): 实现 TS 语言适配器，画布吃真实 UCG`。
+修改的代码文件：
+   - 新增：`package.json`（根 workspaces）、`packages/ucg-schema/{package.json,tsconfig.json,src/index.ts}`、`packages/ts-adapter/{package.json,tsconfig.json,src/{analyzer.ts,cli.ts}}`、`mvp-web/src/ucg/loader.ts`、`mvp-web/public/ucg.json`（运行产物，已 gitignore）
+   - 改动：`mvp-web/package.json`（依赖共享 schema）、`mvp-web/src/ucg/types.ts`（re-export）、`mvp-web/src/App.tsx`（异步加载）、`mvp-web/src/app/TopBar.tsx`（live/sample 徽章）、`.gitignore`
+应当达成的效果：从根目录运行 `npm run scan:self` 后，刷新 `http://localhost:5173/` 顶部出现绿色 `live` 徽章，画布展示 mvp-web 项目的真实静态依赖图（App → GraphCanvas / TopBar / loader → ucg-schema / @xyflow/react / lucide-react 等），上层代码与共享 schema 完全语言无关，为后续接入 Python 适配器、AI 语义层、布局升级、影响域查询打下稳定底座。下一阶段可在三件事中选一推进：dagre/ELK 布局升级、AI 聚类与命名、影响域查询高亮。

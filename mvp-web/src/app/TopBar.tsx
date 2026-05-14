@@ -8,7 +8,7 @@ interface Props {
 
 export function TopBar({ ucg, source }: Props) {
   return (
-    <header className="flex h-12 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg-1)]/70 px-5 backdrop-blur-md">
+    <header className="flex h-12 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg-1)] px-5">
       <div className="flex items-center gap-2.5">
         <span
           className="flex h-6 w-6 items-center justify-center rounded-md"

@@ -1,22 +1,21 @@
-import type { Ucg, UcgNode } from '@/ucg/types'
+import type { ViewEdge, ViewNode } from './aggregation'
 
 /**
- * 极简层级布局：按"距离最远入口"的最长路径分层，同层内按 kind 排列。
- * 入口 = 入度为 0 的节点（route / 无被调用的函数等）。
- * 当图有环时退化为按 BFS 层级。
+ * 极简层级布局（占位）：BFS 分层 + 同层按 label 排序。
+ * 接受聚合后的 ViewNode/ViewEdge，不再依赖具体语言。
  *
- * 这只是 MVP 用的占位布局，足够看清主线；后续会换 ELK / dagre。
+ * 后续会换成 dagre 或 ELK；当前节点数不大时这个够用。
  */
 
-export interface LaidOutNode extends UcgNode {
+export interface LaidOutNode extends ViewNode {
   position: { x: number; y: number }
 }
 
-export function layoutUcg(ucg: Ucg): LaidOutNode[] {
-  const { nodes, edges } = ucg
-  const idToNode = new Map(nodes.map((n) => [n.id, n]))
-
-  // 邻接表
+export function layoutView(
+  nodes: ViewNode[],
+  edges: ViewEdge[],
+): LaidOutNode[] {
+  const idSet = new Set(nodes.map((n) => n.id))
   const out = new Map<string, string[]>()
   const inDeg = new Map<string, number>()
   for (const n of nodes) {
@@ -24,12 +23,11 @@ export function layoutUcg(ucg: Ucg): LaidOutNode[] {
     inDeg.set(n.id, 0)
   }
   for (const e of edges) {
-    if (!idToNode.has(e.source) || !idToNode.has(e.target)) continue
+    if (!idSet.has(e.source) || !idSet.has(e.target)) continue
     out.get(e.source)!.push(e.target)
     inDeg.set(e.target, (inDeg.get(e.target) ?? 0) + 1)
   }
 
-  // BFS 分层
   const level = new Map<string, number>()
   const queue: string[] = []
   for (const n of nodes) {
@@ -49,26 +47,24 @@ export function layoutUcg(ucg: Ucg): LaidOutNode[] {
       }
     }
   }
-  // 没分到层的（环）补一层
   for (const n of nodes) {
     if (!level.has(n.id)) level.set(n.id, 0)
   }
 
-  // 按层分桶
-  const buckets = new Map<number, UcgNode[]>()
+  const buckets = new Map<number, ViewNode[]>()
   for (const n of nodes) {
     const lv = level.get(n.id) ?? 0
     if (!buckets.has(lv)) buckets.set(lv, [])
     buckets.get(lv)!.push(n)
   }
 
-  const COL_GAP = 280
-  const ROW_GAP = 110
+  const COL_GAP = 320
+  const ROW_GAP = 120
   const result: LaidOutNode[] = []
   const sortedLevels = [...buckets.keys()].sort((a, b) => a - b)
   for (const lv of sortedLevels) {
     const list = buckets.get(lv)!
-    list.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name))
+    list.sort((a, b) => a.kind.localeCompare(b.kind) || a.label.localeCompare(b.label))
     const total = list.length
     list.forEach((n, idx) => {
       const y = (idx - (total - 1) / 2) * ROW_GAP

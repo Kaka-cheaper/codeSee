@@ -5,9 +5,9 @@ import type { FcgViewEdge, FcgViewNode } from './fcgView'
  * 节点尺寸（与节点视图保持一致；估算用）。
  */
 const NODE_SIZE: Record<FcgViewNode['kind'], { width: number; height: number }> = {
-  epic: { width: 280, height: 96 },
-  feature: { width: 280, height: 132 },
-  step: { width: 220, height: 80 },
+  epic: { width: 300, height: 100 },
+  feature: { width: 320, height: 160 },
+  step: { width: 240, height: 88 },
 }
 
 export interface LaidOutNode {

@@ -10,6 +10,7 @@ import {
   type Edge,
   type Node,
   type NodeMouseHandler,
+  type OnNodeDrag,
 } from '@xyflow/react'
 import type { FeaturesFile } from '@/fcg/types'
 import {
@@ -20,6 +21,7 @@ import {
   type ViewMode,
 } from './fcgView'
 import { layoutViewAsync, mergeWithPrevious } from './layout'
+import { useForceLayout } from './useForceLayout'
 import { EpicNodeView, type EpicNodeData } from './EpicNodeView'
 import { FeatureNodeView, type FeatureNodeData } from './FeatureNodeView'
 import { StepNodeView, type StepNodeData } from './StepNodeView'
@@ -109,6 +111,7 @@ function GraphInner({ file }: Props) {
         const h = n.measured?.height ?? n.height ?? 132
         sizeMap.set(n.id, { width: w, height: h })
       }
+      measuredSizesRef.current = sizeMap
 
       // 用真实尺寸跑 ELK
       const epicNames = new Map(file.epics.map((e) => [e.id, e.name]))
@@ -142,6 +145,53 @@ function GraphInner({ file }: Props) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, viewKey])
+
+  // 概览视图：力导向布局
+  const isOverview = state.mode === 'overview'
+  const measuredSizesRef = useRef<Map<string, { width: number; height: number }>>(new Map())
+
+  const handleForceTick = useCallback(
+    (positions: Map<string, { x: number; y: number }>) => {
+      setRfNodes((prev) =>
+        prev.map((n) => {
+          const pos = positions.get(n.id)
+          if (!pos) return n
+          if (n.position.x === pos.x && n.position.y === pos.y) return n
+          return { ...n, position: pos }
+        }),
+      )
+    },
+    [],
+  )
+
+  const { onDragStart, onDrag, onDragEnd } = useForceLayout({
+    nodes: view.nodes,
+    edges: view.edges,
+    measuredSizes: measuredSizesRef.current,
+    enabled: isOverview,
+    onTick: handleForceTick,
+  })
+
+  const handleNodeDragStart: OnNodeDrag = useCallback(
+    (_event, node) => {
+      if (isOverview) onDragStart(node.id)
+    },
+    [isOverview, onDragStart],
+  )
+
+  const handleNodeDrag: OnNodeDrag = useCallback(
+    (_event, node) => {
+      if (isOverview) onDrag(node.id, node.position.x, node.position.y)
+    },
+    [isOverview, onDrag],
+  )
+
+  const handleNodeDragStop: OnNodeDrag = useCallback(
+    (_event, node) => {
+      if (isOverview) onDragEnd(node.id)
+    },
+    [isOverview, onDragEnd],
+  )
 
   // 切视图后自动 fit
   useEffect(() => {
@@ -196,6 +246,9 @@ function GraphInner({ file }: Props) {
         elementsSelectable
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
+        onNodeDragStart={handleNodeDragStart}
+        onNodeDrag={handleNodeDrag}
+        onNodeDragStop={handleNodeDragStop}
         onPaneClick={() => setSelectedId(null)}
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="oklch(0.8 0.018 70)" />

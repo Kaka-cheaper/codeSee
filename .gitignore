@@ -1,5 +1,7 @@
 node_modules/
 dist/
+packages/*/dist/
+mvp-web/public/ucg.json
 .DS_Store
 .vscode/
 .idea/

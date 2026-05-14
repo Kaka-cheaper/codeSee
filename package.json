@@ -1,0 +1,16 @@
+{
+  "name": "codesee",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "mvp-web"
+  ],
+  "scripts": {
+    "build:schema": "npm -w @codesee/ucg-schema run build",
+    "build:ts-adapter": "npm -w @codesee/ts-adapter run build",
+    "build": "npm run build:schema && npm run build:ts-adapter && npm -w mvp-web run build",
+    "scan:self": "npm -w @codesee/ts-adapter run scan -- ../../mvp-web --out ../../mvp-web/public/ucg.json",
+    "dev:web": "npm -w mvp-web run dev"
+  }
+}

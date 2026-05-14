@@ -3,9 +3,10 @@ import type { Ucg } from '@/ucg/types'
 
 interface Props {
   ucg: Ucg
+  source: 'fetched' | 'sample'
 }
 
-export function TopBar({ ucg }: Props) {
+export function TopBar({ ucg, source }: Props) {
   return (
     <header className="flex h-12 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg-1)]/70 px-5 backdrop-blur-md">
       <div className="flex items-center gap-2.5">
@@ -23,6 +24,23 @@ export function TopBar({ ucg }: Props) {
         </span>
         <span className="ml-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-2)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-fg-subtle)]">
           MVP
+        </span>
+        <span
+          className="ml-1 rounded-md px-1.5 py-0.5 font-mono text-[10px]"
+          title={source === 'fetched' ? '加载自 /ucg.json' : '使用内置示例图'}
+          style={{
+            color:
+              source === 'fetched'
+                ? 'var(--color-kind-function-fg)'
+                : 'var(--color-fg-subtle)',
+            background:
+              source === 'fetched'
+                ? 'var(--color-kind-function)'
+                : 'var(--color-bg-2)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          {source === 'fetched' ? 'live' : 'sample'}
         </span>
       </div>
 

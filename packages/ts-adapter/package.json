@@ -1,0 +1,29 @@
+{
+  "name": "@codesee/ts-adapter",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "codesee-ts": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "scan": "tsx src/cli.ts",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@codesee/ucg-schema": "*",
+    "ts-morph": "^24.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

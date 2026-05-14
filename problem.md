@@ -154,3 +154,26 @@
    - 新增：`package.json`（根 workspaces）、`packages/ucg-schema/{package.json,tsconfig.json,src/index.ts}`、`packages/ts-adapter/{package.json,tsconfig.json,src/{analyzer.ts,cli.ts}}`、`mvp-web/src/ucg/loader.ts`、`mvp-web/public/ucg.json`（运行产物，已 gitignore）
    - 改动：`mvp-web/package.json`（依赖共享 schema）、`mvp-web/src/ucg/types.ts`（re-export）、`mvp-web/src/App.tsx`（异步加载）、`mvp-web/src/app/TopBar.tsx`（live/sample 徽章）、`.gitignore`
 应当达成的效果：从根目录运行 `npm run scan:self` 后，刷新 `http://localhost:5173/` 顶部出现绿色 `live` 徽章，画布展示 mvp-web 项目的真实静态依赖图（App → GraphCanvas / TopBar / loader → ucg-schema / @xyflow/react / lucide-react 等），上层代码与共享 schema 完全语言无关，为后续接入 Python 适配器、AI 语义层、布局升级、影响域查询打下稳定底座。下一阶段可在三件事中选一推进：dagre/ELK 布局升级、AI 聚类与命名、影响域查询高亮。
+
+---
+
+问题9：当前画布"显示得太细"违背了语义级初衷（function 级节点等于看代码），且 33 节点已出现拖动卡顿，需要做粒度调整与性能优化。
+解决方案：
+1. 识别根因：粒度问题与性能问题本质同一件事——把 function 级直接画在主画布等于把代码搬上来；正确做法是 UCG 数据层保持精细、渲染层做"聚合视图"。
+2. 新增 `mvp-web/src/graph/aggregation.ts` 实现 LOD（Level of Detail）：
+   - 默认：项目内 module 按目录前缀聚合为"包节点"（group），external 聚合为单一 external 簇。
+   - 双击 group → 展开为内部 module，再次双击折叠。
+   - function/method/class 默认不进画布（保留在 UCG 中供详情面板 drill-down）。
+   - 跨节点的边按 (source,target) 聚合，标签显示 `kind ×count`，宽度按 log2(count) 缩放并设上限；任一原始边 confidence<1 则聚合边显示虚线。
+   - 分组规则：单段路径→'root'；两段→第一段（避免 src/App.tsx 这种单文件成包）；≥三段→前两段。
+3. 新增 `GroupNodeView.tsx`（folder/package 视觉），重写 `UcgNodeView.tsx` 使其消费 `ViewNode`（module / external_member），两者均 `React.memo` 包裹。
+4. `GraphCanvas.tsx` 重构：吃聚合视图，单击=选中、双击 group=展开；启用 `onlyRenderVisibleElements`、`nodesConnectable=false`；去掉边的 animated；左下角加"视图分组"控件可一键切换包展开。
+5. 详情面板 `NodeDetailsPanel.tsx` 适配 ViewNode：包节点展示成员列表与成员对外的上下游边；module / external 节点展示自身上下游；面板与顶部栏移除 `backdrop-blur` 以消除滚动/拖拽期间的性能瓶颈。
+6. `layout.ts` 改为接收 ViewNode/ViewEdge，列间距 280→320、行间距 110→120 适配新的卡片尺寸；BFS 分层逻辑保留（暂不引入 dagre/ELK）。
+7. 修复 TS 严格模式下的 noUnusedLocals 报错（aggregation.ts 中未使用的 idToUcg 与 UcgEdge import）。
+8. 验证：mvp-web 自分析 33 节点 / 62 边的 UCG，经聚合后默认渲染节点 6（src 2 / src/graph 5 / src/app 1 / src/ucg 3 / src/lib 1 / external 11，共 6 个视图节点），边相应显著减少；`tsc -b` 0 错；`vite build` 通过；HMR 已推送至 dev server (`http://localhost:5173/`)。
+9. 提交：`feat(canvas): 引入聚合视图，默认包级展示，性能优化`。
+修改的代码文件：
+   - 新增：`mvp-web/src/graph/aggregation.ts`、`mvp-web/src/graph/GroupNodeView.tsx`
+   - 改动：`mvp-web/src/graph/{UcgNodeView,GraphCanvas,NodeDetailsPanel,layout}.ts(x)`、`mvp-web/src/app/TopBar.tsx`
+应当达成的效果：刷新页面后默认只看到包级的关系图（约 6 个节点），节点之间的边显示聚合次数；拖动顺畅、不再卡顿；想看包内细节双击即可展开为模块级；点击任意节点右侧抽屉显示其内部成员、上下游边、跨节点聚合信息——画布从"代码搬运"切换为"功能块/语义骨架"视图。下一步建议做 AI 语义命名，把 `src/graph` 这类路径名替换为"画布渲染"等语义标签，才算真正脱离"看代码"。

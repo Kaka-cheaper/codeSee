@@ -1,0 +1,28 @@
+{
+  "name": "@codesee/ucg-annotator",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "codesee-annotate": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "annotate": "tsx src/cli.ts",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@codesee/ucg-schema": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

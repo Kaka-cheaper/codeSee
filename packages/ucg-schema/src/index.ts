@@ -111,3 +111,64 @@ export function edgeId(input: { source: string; target: string; kind: EdgeKind }
   }
   return `e:${h.toString(16).padStart(8, '0')}`
 }
+
+
+/* ---------------- Annotations (语义层，与结构层物理分离) ---------------- */
+
+export const ANNOTATIONS_VERSION = '0' as const
+
+/**
+ * 一条注解可以挂在两类目标上：
+ * - 单个 UCG 节点 (kind=node)：通过 node id 引用
+ * - 一组 UCG 节点形成的"簇"(kind=cluster)：通过 path prefix 或显式 id 列表定义
+ *
+ * 标注内容只允许 label / summary / tags，不得改动结构字段。
+ */
+
+export type AnnotationTarget =
+  | { kind: 'node'; nodeId: string }
+  | { kind: 'cluster'; clusterId: string }
+
+export interface ClusterDef {
+  id: string
+  /** 用于匹配 module 的路径前缀。例：'src/graph' 会把所有 src/graph/** 模块归为此簇。
+   *  与画布的 group key 复用同一规则；后续若引入 LLM 自由聚类，也允许显式 ids 列表。
+   */
+  pathPrefix?: string
+  /** 显式成员（覆盖 pathPrefix）。任一 member id 命中即归簇。 */
+  ids?: string[]
+}
+
+export interface Annotation {
+  /** 简短语义标签，例：'画布渲染'、'静态分析'、'数据合同' */
+  label: string
+  /** 一句话说明（可选） */
+  summary?: string
+  /** 业务/架构标签（可选） */
+  tags?: string[]
+  /** 1.0 = 用户确认；<1.0 = AI 推测 */
+  confidence: number
+  /** 谁写的：'heuristic@v1' / 'llm@gpt-4o' / 'user' */
+  provenance: string
+  /** 用户锁定后下次重跑不会被覆盖 */
+  locked?: boolean
+  /** 创建/更新时间 */
+  updated_at: string
+}
+
+export interface AnnotationsFile {
+  version: typeof ANNOTATIONS_VERSION
+  /** 簇定义（id → 定义） */
+  clusters: ClusterDef[]
+  /** target → annotation；target 用 'node:<id>' 或 'cluster:<id>' 形式做 key */
+  annotations: Record<string, Annotation>
+}
+
+export function annotationKey(target: AnnotationTarget): string {
+  if (target.kind === 'node') return `node:${target.nodeId}`
+  return `cluster:${target.clusterId}`
+}
+
+export function emptyAnnotations(): AnnotationsFile {
+  return { version: ANNOTATIONS_VERSION, clusters: [], annotations: {} }
+}

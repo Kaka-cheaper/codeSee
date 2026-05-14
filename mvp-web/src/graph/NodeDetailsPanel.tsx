@@ -69,14 +69,51 @@ export function NodeDetailsPanel({ view, ucg, onClose }: Props) {
                     {view.ucg.language}
                   </span>
                 )}
+                {view.annotation && (
+                  <span
+                    className="rounded-md px-1.5 py-0.5 font-mono text-[10px]"
+                    title={view.annotation.provenance + ' · p=' + view.annotation.confidence}
+                    style={{
+                      color: view.annotation.provenance.startsWith('llm@')
+                        ? 'var(--color-accent-strong)'
+                        : 'var(--color-fg-subtle)',
+                      background: view.annotation.provenance.startsWith('llm@')
+                        ? 'var(--color-accent-soft)'
+                        : 'var(--color-bg-2)',
+                    }}
+                  >
+                    {view.annotation.provenance.startsWith('llm@')
+                      ? 'AI'
+                      : view.annotation.provenance.startsWith('user')
+                      ? 'user'
+                      : 'auto'}
+                  </span>
+                )}
               </div>
               <h2 className="mt-2 truncate text-[14px] font-medium tracking-tight text-[var(--color-fg)]">
-                {view.label}
+                {view.annotation?.label ?? view.label}
               </h2>
+              {view.annotation?.summary && (
+                <p className="mt-1 text-[11.5px] leading-relaxed text-[var(--color-fg-muted)]">
+                  {view.annotation.summary}
+                </p>
+              )}
               {view.pathHint && (
-                <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--color-fg-muted)]">
+                <p className="mt-1 truncate font-mono text-[10.5px] text-[var(--color-fg-subtle)]">
                   {view.pathHint}
                 </p>
+              )}
+              {view.annotation?.tags && view.annotation.tags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {view.annotation.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-2)] px-1.5 py-0.5 font-mono text-[9.5px] text-[var(--color-fg-muted)]"
+                    >
+                      #{t}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
             <button

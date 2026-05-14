@@ -9,8 +9,10 @@
   "scripts": {
     "build:schema": "npm -w @codesee/ucg-schema run build",
     "build:ts-adapter": "npm -w @codesee/ts-adapter run build",
-    "build": "npm run build:schema && npm run build:ts-adapter && npm -w mvp-web run build",
+    "build:annotator": "npm -w @codesee/ucg-annotator run build",
+    "build": "npm run build:schema && npm run build:ts-adapter && npm run build:annotator && npm -w mvp-web run build",
     "scan:self": "npm -w @codesee/ts-adapter run scan -- ../../mvp-web --out ../../mvp-web/public/ucg.json",
+    "annotate:self": "npm -w @codesee/ucg-annotator run annotate -- ../../mvp-web/public/ucg.json --out ../../mvp-web/public/annotations.json",
     "dev:web": "npm -w mvp-web run dev"
   }
 }

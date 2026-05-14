@@ -4,9 +4,10 @@ import type { Ucg } from '@/ucg/types'
 interface Props {
   ucg: Ucg
   source: 'fetched' | 'sample'
+  hasAnnotations: boolean
 }
 
-export function TopBar({ ucg, source }: Props) {
+export function TopBar({ ucg, source, hasAnnotations }: Props) {
   return (
     <header className="flex h-12 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg-1)] px-5">
       <div className="flex items-center gap-2.5">
@@ -42,6 +43,20 @@ export function TopBar({ ucg, source }: Props) {
         >
           {source === 'fetched' ? 'live' : 'sample'}
         </span>
+        {hasAnnotations && (
+          <span
+            className="ml-1 flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px]"
+            title="加载了语义标注 (annotations.json)"
+            style={{
+              color: 'var(--color-accent-strong)',
+              background: 'var(--color-accent-soft)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            <Sparkles size={9} strokeWidth={2.2} />
+            annotated
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-3 text-[11px] text-[var(--color-fg-muted)]">

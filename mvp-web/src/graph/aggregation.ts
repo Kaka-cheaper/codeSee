@@ -1,4 +1,4 @@
-import type { Ucg, UcgNode } from '@/ucg/types'
+import type { AnnotationsFile, Ucg, UcgNode } from '@/ucg/types'
 
 /**
  * 视图聚合：从 UCG（结构真值）+ 展开状态 → 渲染层 nodes/edges。
@@ -28,6 +28,15 @@ export interface ViewNode {
   ucg?: UcgNode
   /** group 是否已展开 */
   expanded?: boolean
+  /** 语义标注（来自 annotations.json） */
+  annotation?: {
+    label: string
+    summary?: string
+    tags?: string[]
+    confidence: number
+    provenance: string
+    locked?: boolean
+  }
 }
 
 export interface ViewEdge {
@@ -67,6 +76,7 @@ function groupKeyOfModule(node: UcgNode): string {
 export function aggregate(
   ucg: Ucg,
   expanded: ReadonlySet<string>,
+  annotations?: AnnotationsFile | null,
 ): AggregatedView {
   // 1. 把 UCG 节点分桶
   const moduleByGroup = new Map<string, UcgNode[]>()
@@ -119,6 +129,19 @@ export function aggregate(
 
   // 3. 构造可见节点
   const nodes: ViewNode[] = []
+  const annot = (clusterId: string) => {
+    const a = annotations?.annotations[`cluster:${clusterId}`]
+    return a
+      ? {
+          label: a.label,
+          summary: a.summary,
+          tags: a.tags,
+          confidence: a.confidence,
+          provenance: a.provenance,
+          locked: a.locked,
+        }
+      : undefined
+  }
   for (const [groupId, members] of moduleByGroup) {
     const isOpen = expanded.has(groupId)
     if (isOpen) {
@@ -129,6 +152,16 @@ export function aggregate(
           label: m.name,
           pathHint: m.qualified_name,
           ucg: m,
+          annotation: annotations?.annotations[`node:${m.id}`]
+            ? {
+                label: annotations.annotations[`node:${m.id}`].label,
+                summary: annotations.annotations[`node:${m.id}`].summary,
+                tags: annotations.annotations[`node:${m.id}`].tags,
+                confidence: annotations.annotations[`node:${m.id}`].confidence,
+                provenance: annotations.annotations[`node:${m.id}`].provenance,
+                locked: annotations.annotations[`node:${m.id}`].locked,
+              }
+            : undefined,
         })
       }
     } else {
@@ -139,6 +172,7 @@ export function aggregate(
         memberCount: members.length,
         pathHint: groupId.replace(/^group:/, ''),
         expanded: false,
+        annotation: annot(groupId),
       })
     }
   }
@@ -159,6 +193,7 @@ export function aggregate(
         label: EXTERNAL_GROUP_LABEL,
         memberCount: externalNodes.length,
         expanded: false,
+        annotation: annot(EXTERNAL_GROUP_ID),
       })
     }
   }

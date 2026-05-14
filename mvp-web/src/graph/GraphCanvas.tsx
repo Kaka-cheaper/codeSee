@@ -10,7 +10,7 @@ import {
   type Node,
   type NodeMouseHandler,
 } from '@xyflow/react'
-import type { Ucg } from '@/ucg/types'
+import type { AnnotationsFile, Ucg } from '@/ucg/types'
 import { layoutView } from './layout'
 import { aggregate, type ViewNode } from './aggregation'
 import { UcgNodeView, type UcgFlowNodeData } from './UcgNodeView'
@@ -19,6 +19,7 @@ import { NodeDetailsPanel } from './NodeDetailsPanel'
 
 interface Props {
   ucg: Ucg
+  annotations: AnnotationsFile | null
 }
 
 const nodeTypes = {
@@ -32,11 +33,14 @@ const defaultEdgeOptions = {
   type: 'smoothstep' as const,
 }
 
-export function GraphCanvas({ ucg }: Props) {
+export function GraphCanvas({ ucg, annotations }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
-  const view = useMemo(() => aggregate(ucg, expanded), [ucg, expanded])
+  const view = useMemo(
+    () => aggregate(ucg, expanded, annotations),
+    [ucg, expanded, annotations],
+  )
 
   const { rfNodes, rfEdges } = useMemo(() => {
     const laidOut = layoutView(view.nodes, view.edges)
@@ -156,6 +160,7 @@ export function GraphCanvas({ ucg }: Props) {
 
       <ViewLegend
         groups={view.groups}
+        annotations={annotations}
         onToggle={toggleGroup}
       />
 
@@ -170,9 +175,11 @@ export function GraphCanvas({ ucg }: Props) {
 
 function ViewLegend({
   groups,
+  annotations,
   onToggle,
 }: {
   groups: { id: string; label: string; expanded: boolean; memberCount: number }[]
+  annotations: AnnotationsFile | null
   onToggle: (id: string) => void
 }) {
   return (
@@ -182,23 +189,28 @@ function ViewLegend({
           视图分组（双击节点或点这里展开）
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {groups.map((g) => (
-            <button
-              key={g.id}
-              onClick={() => onToggle(g.id)}
-              className={
-                'rounded-md border px-2 py-0.5 font-mono text-[10.5px] transition-colors ' +
-                (g.expanded
-                  ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-strong)]'
-                  : 'border-[var(--color-border)] bg-[var(--color-bg-2)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-sunken)]')
-              }
-            >
-              {g.label}
-              <span className="ml-1 text-[var(--color-fg-subtle)]">
-                {g.memberCount}
-              </span>
-            </button>
-          ))}
+          {groups.map((g) => {
+            const a = annotations?.annotations[`cluster:${g.id}`]
+            const display = a?.label ?? g.label
+            return (
+              <button
+                key={g.id}
+                onClick={() => onToggle(g.id)}
+                title={a ? a.summary || display : g.label}
+                className={
+                  'rounded-md border px-2 py-0.5 text-[10.5px] transition-colors ' +
+                  (g.expanded
+                    ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-strong)]'
+                    : 'border-[var(--color-border)] bg-[var(--color-bg-2)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-sunken)]')
+                }
+              >
+                {display}
+                <span className="ml-1 text-[var(--color-fg-subtle)]">
+                  {g.memberCount}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>

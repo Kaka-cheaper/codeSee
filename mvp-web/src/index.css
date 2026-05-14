@@ -161,6 +161,32 @@ body {
   animation: node-in 260ms cubic-bezier(0.32, 0.72, 0.32, 1) both;
 }
 
+/* 新节点淡入：sync 后新出现的节点在原位置淡入，旧节点保持稳定 */
+@keyframes new-node-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.is-new-node {
+  animation: new-node-fade-in 420ms cubic-bezier(0.32, 0.72, 0.32, 1) both;
+}
+
+/* 新节点引出 / 接入的边淡入 */
+@keyframes edge-fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0.9;
+  }
+}
+
 /* 选区聚焦环（克制版） */
 *:focus-visible {
   outline: 2px solid color-mix(in oklch, var(--color-accent) 60%, transparent);

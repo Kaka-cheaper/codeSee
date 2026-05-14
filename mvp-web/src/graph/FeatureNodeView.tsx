@@ -16,7 +16,10 @@ import { cn } from '@/lib/cn'
 import type { FcgViewNode } from './fcgView'
 import type { Trigger, TriggerKind } from '@/fcg/types'
 
-export type FeatureNodeData = { view: Extract<FcgViewNode, { kind: 'feature' }> }
+export type FeatureNodeData = {
+  view: Extract<FcgViewNode, { kind: 'feature' }>
+  isNew?: boolean
+}
 
 const TRIGGER_ICON: Record<TriggerKind, LucideIcon> = {
   http: Network,
@@ -30,7 +33,7 @@ const TRIGGER_ICON: Record<TriggerKind, LucideIcon> = {
 }
 
 function FeatureNodeViewImpl({ data, selected }: NodeProps) {
-  const { view } = data as unknown as FeatureNodeData
+  const { view, isNew } = data as unknown as FeatureNodeData
   const f = view.feature
   const isAi = f.provenance === 'ai'
   const isLocked = f.locked === true
@@ -47,6 +50,7 @@ function FeatureNodeViewImpl({ data, selected }: NodeProps) {
         'shadow-[0_1px_2px_oklch(0_0_0/0.04)]',
         'hover:shadow-[0_2px_8px_oklch(0_0_0/0.06)]',
         selected ? 'border-[var(--color-accent)]' : 'border-[var(--color-border)]',
+        isNew && 'is-new-node',
       )}
     >
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !border-[var(--color-border-strong)] !bg-[var(--color-bg-1)]" />

@@ -312,3 +312,25 @@
    - 新增：`templates/AGENTS.md`、`scripts/install.ps1`、`scripts/install.sh`
    - 改动：`prompts/{scan,scan-light,scan-heavy,sync}.md`（路径全量改 .codesee）、`mvp-web/src/{App.tsx,fcg/loader.ts,app/TopBar.tsx}`、`README.md`
 应当达成的效果：用户在 codeSee 根目录跑一次 `./scripts/install.ps1 <目标项目>` 即可完成集成，目标项目除 6 个轻量文件外不被污染；AI IDE 在目标项目里读 AGENTS.md 自动按"首次扫描 / 增量同步"两种触发维护 `.codesee/features.json`；viewer 独立运行，浏览器拖入或选择文件即可切换不同项目，localStorage 记忆上次打开；同一份 viewer + 同一套 prompts/templates 模板可服务任意数量的目标项目，符合"低侵入、可升级、跨项目共享"目标。下一步：在 Polisim 上跑一次 install + AI 扫描，验证整套流程的实际可用性与 features.json 的可读性。
+
+---
+
+问题15：用户实际跑 install.ps1 时遇到 PowerShell 解析错误"字符串缺少终止符"——根因是脚本中文输出在 PowerShell 5.1 下被默认 GBK 解码导致引号被切断。同时发现一个潜在风险：Polisim 已有自己的 AGENTS.md，原脚本"跳过或覆盖"二选一的策略不合适。
+解决方案：
+1. 重写 install.ps1 全部改为 ASCII 输出（避免任何控制台编码问题），同时设置 `$OutputEncoding = UTF8` 与 `[UTF8Encoding]::new($false)` 写文件，确保跨 PowerShell 版本（5.1 / 7+）一致行为。
+2. 引入 AGENTS.md 智能追加机制：
+   - 新增 `templates/AGENTS-snippet.md`：CodeSee 集成段落，用 `<!-- BEGIN: CodeSee integration -->` 与 `<!-- END: CodeSee integration -->` 标记包裹；
+   - 三态处理：目标无 AGENTS.md → 直接拷贝完整模板；已有 AGENTS.md 但无 CodeSee 标记 → 追加 snippet 到末尾（自动补换行）；已有 AGENTS.md 且有标记 → 默认跳过保持幂等，`-Force` / `--force` 时按 BEGIN/END 标记原地替换段落（用字符串 IndexOf 切片，比正则更稳）。
+3. install.sh 同步改造：核心追加逻辑用 grep -F + 内联 python3 段落实现 BEGIN/END 替换，便于跨平台；输出全部 ASCII。
+4. 实测三种情况：
+   - 首次跑 Polisim：成功追加 CodeSee 段落；
+   - 第二次跑：报告 "CodeSee section already present, skipped"，幂等；
+   - 加 `-Force` 跑：报告 "replaced existing CodeSee section"，原地刷新；
+   - 用 `[System.IO.File]::ReadAllText(..., UTF8)` 读 Polisim 的 AGENTS.md 末尾验证：BEGIN/END 标记完整、Markdown 表格未被破坏、原 Polisim 内容（包括前面的 Harness、DESIGN.md 等章节）一字未改。
+5. README 同步更新："已有 AGENTS.md 时追加而非跳过"的说明，避免用户误以为脚本会覆盖自己的规则。
+6. 顺便确认上次"AGENTS.md exists, skipped"是旧版脚本的正确行为（未覆盖 Polisim 原文件）；通过 git status 验证 Polisim/AGENTS.md 不在 modified 列表，原内容完好。
+7. 提交：`fix(install): 脚本改用 ASCII 输出避免编码错误；已有 AGENTS.md 时追加而非覆盖`。
+修改的代码文件：
+   - 新增：`templates/AGENTS-snippet.md`
+   - 改动：`scripts/install.ps1`（ASCII 输出 + 三态追加逻辑）、`scripts/install.sh`（同步改造）、`README.md`
+应当达成的效果：用户跑 install 脚本可以无视目标项目是否已有 AGENTS.md：没有就建、有就追加、再跑就幂等、加 -Force 就刷新；ASCII 输出在任意 PowerShell 版本下都不会被编码截断；Polisim 端 AGENTS.md 末尾已带完整 CodeSee 段落，AI 读到即可按触发 1 执行扫描，进入正式可用阶段。下一步：在 Polisim 实际触发扫描，跑完后把 .codesee/features.json 拖入 viewer 验证可视化效果。

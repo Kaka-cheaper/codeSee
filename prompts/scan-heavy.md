@@ -1,13 +1,13 @@
 # CodeSee · 扫描模式 · 重型项目
 
-> 由 `prompts/scan.md` 路由进来。
+> 由 `.codesee/prompts/scan.md` 路由进来。
 > 适用：源码 ≥ 100 文件，或多模块/多服务/前后端分离，一次读不完。
 
 ---
 
 ## 你的任务
 
-通过**分阶段、分块**的方式，在 `mvp-web/public/features.json` 累积输出完整的 `features.json`。
+通过**分阶段、分块**的方式，在 `.codesee/features.json` 累积输出完整的 `features.json`。
 不要试图一口气读完整个项目——会漏、会错、会浪费 token。
 
 ## 总体策略
@@ -51,7 +51,7 @@
 
 **不要填 steps / flow**。重型项目里这一步通常列出 **20-200 个 feature**。
 
-写一份"只有骨架"的 features.json 到 `mvp-web/public/features.json`：
+写一份"只有骨架"的 features.json 到 `.codesee/features.json`：
 
 ```json
 {
@@ -162,4 +162,4 @@
 
 ## 完整 Schema
 
-参见 `prompts/scan-light.md` 末尾的 Schema 块（与本 prompt 共用）。
+参见 `.codesee/prompts/scan-light.md` 末尾的 Schema 块（与本 prompt 共用）。

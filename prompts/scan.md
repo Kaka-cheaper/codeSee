@@ -45,8 +45,8 @@
 
 ## 第二步：按规模选择子 prompt 执行
 
-- **轻型项目** → 完整执行 `prompts/scan-light.md`
-- **重型项目** → 完整执行 `prompts/scan-heavy.md`
+- **轻型项目** → 完整执行 `.codesee/prompts/scan-light.md`
+- **重型项目** → 完整执行 `.codesee/prompts/scan-heavy.md`
 
 **告诉我你选了哪一档**，再开始执行对应文件里的步骤。如果你看不到那两份子文件，请要求我提供。
 
@@ -75,7 +75,7 @@
 最终把生成的 JSON **覆盖写入**：
 
 ```
-mvp-web/public/features.json
+.codesee/features.json
 ```
 
 只输出**单个 JSON 对象**到该文件，不要 markdown 包裹、不要解释、不要数组顶层。
@@ -92,4 +92,4 @@ type FeaturesFile = {
 }
 ```
 
-完整字段约束写在 `scan-light.md` / `scan-heavy.md` 里。
+完整字段约束写在 `.codesee/prompts/scan-light.md` / `.codesee/prompts/scan-heavy.md` 里。

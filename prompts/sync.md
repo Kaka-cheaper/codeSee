@@ -9,7 +9,7 @@
 
 我刚完成了一轮代码改动。请你：
 
-1. 读项目根的 `mvp-web/public/features.json`（现有功能图）
+1. 读项目根的 `.codesee/features.json`（现有功能图）
 2. 读本次改动的 git diff（命令：`git diff HEAD~1`，如果不可用就读 `git status` + `git diff`）
 3. 推断这一轮改动**新增 / 修改 / 删除**了哪些 feature 或 step
 4. 输出**最小变更**，重写 features.json
@@ -37,7 +37,7 @@ step 必须是**动作语义**，不是代码层面的实现细节：
 ## 输出协议
 
 只输出一个完整 JSON，结构完全等同 `features.json`，不要 markdown 包裹。
-然后把它**覆盖写入** `mvp-web/public/features.json`。
+然后把它**覆盖写入** `.codesee/features.json`。
 
 写完后用人话简短总结这一轮：
 
@@ -73,4 +73,4 @@ type Feature = {
 }
 ```
 
-完整 schema 见 `prompts/scan.md`。
+完整 schema 见 `.codesee/prompts/scan-light.md`。

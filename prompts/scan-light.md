@@ -1,13 +1,13 @@
 # CodeSee · 扫描模式 · 轻型项目
 
-> 由 `prompts/scan.md` 路由进来。
+> 由 `.codesee/prompts/scan.md` 路由进来。
 > 适用：源码 < 100 文件、单仓库单服务、上下文一次能装下。
 
 ---
 
 ## 你的任务
 
-通读项目，**一次性输出**完整的 `features.json` 到 `mvp-web/public/features.json`。
+通读项目，**一次性输出**完整的 `features.json` 到 `.codesee/features.json`。
 
 ## 工作步骤
 
@@ -116,7 +116,7 @@ type CrossFeatureLink = {
 
 ## 完成后
 
-写入 `mvp-web/public/features.json`，然后用人话**简短**总结：
+写入 `.codesee/features.json`，然后用人话**简短**总结：
 
 ```
 - 发现 N 个 epic、M 个 feature

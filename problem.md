@@ -266,3 +266,23 @@
    - 改动：`mvp-web/{App,app/TopBar,graph/GraphCanvas,graph/layout,package.json}`、`.gitignore`
 应当达成的效果：刷新 `http://localhost:5173/` 可看到示例 4 个功能、2 个 Epic 的语义流程图；左上角"概览/功能/流程"三档切换，双击 Epic→功能、双击 Feature→流程；流程视图里能直观看到"接收→校验→查用户→比对→签 token→返回 / 异步发邮件"这种动作链；详情面板可下钻到 step 的源码 refs（如 AI 在 prompt 中如实填写）；项目代码量大幅瘦身，仅保留 mvp-web 单仓库；任何 AI IDE 拷 prompts/scan.md 即可产出 features.json，prompts/sync.md 用于每轮改动后的增量同步；features.json 入库以便 review 与回滚。
 下一步建议：在真实项目跑一次扫描模式，验证 AI 产出的 features.json 在画布上的真实质感与可读性，再决定是否补"画布内编辑标注 + 写回"或"细化跨 feature 视觉/搜索筛选"等增强。
+
+---
+
+问题13：用户要在重型项目 D:\桌面\github_project\Polisim 上跑扫描，并提出两个延伸问题：(a) 轻型 / 重型项目是否需要不同 prompt？(b) AI 是不是已有成熟的"扫描 skill"，prompt 只需要告诉它怎么用 skill + 扫到什么粒度？
+解决方案：
+1. 直接确认两个判断都对：
+   - 轻 vs 重需要不同流程：上下文压力 / 产出策略 / 风险都不同；同一份 prompt 跑重型项目易漏功能、错关系、出现幻觉。
+   - AI IDE 普遍内置代码探索能力（Cursor @Codebase / Claude Code Agent / Kiro context-gatherer / Copilot @workspace），但它们是"通用工具"，不是"语义提取 skill"——能找文件、读代码、追依赖，但不知道用户想要的"备菜→下锅→出锅"粒度。
+2. 重构 prompts/ 目录为入口 + 两档执行：
+   - `scan.md`：入口与规模自检；明确"用你 IDE 自带的探索能力，我不告诉你怎么遍历目录"；给出 5 维自检表（文件数 / 子模块 / 端点数 / 上下文是否一次能读完 / 业务领域数），命中任意 2 项重型即走 heavy；强制 AI 输出"我选了哪一档"。同时保留通用约束：命名规则、调用→语义反例对照、写入位置、schema 速查。
+   - `scan-light.md`：适用 < 100 文件单仓库；一次性产出完整 features.json；强调步骤 (通读→划 epic→抽 feature→写 step+flow→挂 refs→cross_feature) 与粒度规则 (3-10 step / feature)；末尾保留完整 Schema 与自检清单。
+   - `scan-heavy.md`：适用 ≥ 100 文件 / 多模块 / 多服务；四阶段策略：阶段1 建索引（只填 feature 骨架，不写 step）→ 阶段2 一个 epic 一个 epic 分块深入 → 阶段3 cross_feature 关系 → 阶段4 自检回补；显式给出节奏建议（每阶段开始/结束都要报告、累积输出超过 8KB 主动落盘）、边界情况协议（动态路由/共享中间件/生成代码/测试代码）、最终自检 checklist。
+3. 三份 prompt 共用一份 Schema，避免 drift；schema 速查只在 scan.md 给出顶层结构，完整定义集中在 scan-light.md，scan-heavy.md 末尾引用以避免重复。
+4. 同步更新 README：扫描章节描述"先 scan.md → 自检 → 选 light/heavy 子 prompt"的流程；目录结构里补全四份 prompt 文件的角色说明。
+5. 给出 Polisim 的实操步骤：先把 scan.md 拷给 AI 触发自检 → 再拷对应子 prompt → 在阶段 1 (建索引) 后停一次确认 epic 划分 → 阶段 2 完成后产出 features.json → 拷回 mvp-web/public/。强调阶段 1 后中断检查是重型项目避免 AI 飘的关键节点。
+6. 提交：`feat(prompts): 扫描 prompt 拆分为 light/heavy 两档，复用 IDE 自带探索能力`。
+修改的代码文件：
+   - 新增：`prompts/scan-light.md`、`prompts/scan-heavy.md`
+   - 改动：`prompts/scan.md`（重写为入口 + 自检 + 路由）、`README.md`（更新扫描流程与目录说明）
+应当达成的效果：用户可在任何 AI IDE 里直接拷用一组分级 prompt，AI 会先报告项目规模再选执行路径；轻型项目一次产出，重型项目按 4 阶段累积、可中途校准、显式落盘；AI 不再被要求重复实现"代码遍历"，而是借助 IDE 自身工具，prompt 仅约束粒度与节奏，跨 IDE 通用。下一步建议：在 Polisim 实跑一次扫描，回看 features.json 在画布上的可读性与覆盖度，再决定 prompt 是否针对特定栈（Python / 前后端分离 / 多服务）补特例。

@@ -19,7 +19,7 @@ import {
   type FcgViewState,
   type ViewMode,
 } from './fcgView'
-import { layoutView, layoutWithMemory } from './layout'
+import { layoutViewAsync, layoutViewSync, mergeWithPrevious } from './layout'
 import { EpicNodeView, type EpicNodeData } from './EpicNodeView'
 import { FeatureNodeView, type FeatureNodeData } from './FeatureNodeView'
 import { StepNodeView, type StepNodeData } from './StepNodeView'
@@ -67,47 +67,49 @@ function GraphInner({ file }: Props) {
   /** 判定本次哪些节点是"新出现的"，用于淡入动效。 */
   const [newNodeIds, setNewNodeIds] = useState<Set<string>>(new Set())
 
-  /** 计算布局：同视图沿用旧位置，新节点淡入；切视图时全部按新算的来。 */
-  const { rfNodes, rfEdges } = useMemo(() => {
+  /** 布局后的 React Flow 节点和边 */
+  const [rfNodes, setRfNodes] = useState<Node<EpicNodeData | FeatureNodeData | StepNodeData>[]>([])
+  const [rfEdges, setRfEdges] = useState<Edge[]>([])
+
+  /** 异步布局 */
+  useEffect(() => {
+    let cancelled = false
+
+    // 先用同步 fallback 给一个初始位置（避免空白闪烁）
+    const syncLaid = layoutViewSync(view.nodes)
     const prevForView = positionsRef.current.get(viewKey)
-    let laid
-    let newIds: Set<string>
     if (prevForView && prevForView.size > 0) {
-      const r = layoutWithMemory(view.nodes, view.edges, prevForView)
-      laid = r.laid
-      newIds = r.newIds
+      const { merged, newIds } = mergeWithPrevious(syncLaid, prevForView)
+      setRfNodes(toRfNodes(merged, newIds))
+      setRfEdges(view.edges.map((e) => buildEdge(e, newIds)))
+      setNewNodeIds(newIds)
     } else {
-      laid = layoutView(view.nodes, view.edges)
-      newIds = new Set<string>()
+      setRfNodes(toRfNodes(syncLaid, new Set()))
+      setRfEdges(view.edges.map((e) => buildEdge(e, new Set())))
     }
 
-    // 写回缓存
-    const next = new Map<string, { x: number; y: number }>()
-    for (const n of laid) next.set(n.view.id, n.position)
-    positionsRef.current.set(viewKey, next)
+    // 然后跑 ELK 异步布局
+    layoutViewAsync(view.nodes, view.edges).then((laid) => {
+      if (cancelled) return
+      const prev = positionsRef.current.get(viewKey)
+      let finalLaid = laid
+      let newIds = new Set<string>()
+      if (prev && prev.size > 0) {
+        const r = mergeWithPrevious(laid, prev)
+        finalLaid = r.merged
+        newIds = r.newIds
+      }
+      // 写回缓存
+      const next = new Map<string, { x: number; y: number }>()
+      for (const n of finalLaid) next.set(n.view.id, n.position)
+      positionsRef.current.set(viewKey, next)
 
-    // 更新新节点集合（用 setTimeout 避免 useMemo 内部 setState）
-    queueMicrotask(() => setNewNodeIds(newIds))
+      setRfNodes(toRfNodes(finalLaid, newIds))
+      setRfEdges(view.edges.map((e) => buildEdge(e, newIds)))
+      setNewNodeIds(newIds)
+    })
 
-    const rfNodes: Node<EpicNodeData | FeatureNodeData | StepNodeData>[] = laid.map(
-      ({ view: v, position }) => {
-        const isNew = newIds.has(v.id)
-        const baseData = { view: v, isNew } as unknown as
-          | EpicNodeData
-          | FeatureNodeData
-          | StepNodeData
-        if (v.kind === 'epic') {
-          return { id: v.id, type: 'epic', position, data: baseData }
-        }
-        if (v.kind === 'feature') {
-          return { id: v.id, type: 'feature', position, data: baseData }
-        }
-        return { id: v.id, type: 'step', position, data: baseData }
-      },
-    )
-
-    const rfEdges: Edge[] = view.edges.map((e) => buildEdge(e, newIds))
-    return { rfNodes, rfEdges }
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, viewKey])
 
@@ -205,6 +207,28 @@ function GraphInner({ file }: Props) {
 }
 
 /* --------------------------------------------------------- helpers */
+
+import type { LaidOutNode } from './layout'
+
+function toRfNodes(
+  laid: LaidOutNode[],
+  newIds: Set<string>,
+): Node<EpicNodeData | FeatureNodeData | StepNodeData>[] {
+  return laid.map(({ view: v, position }) => {
+    const isNew = newIds.has(v.id)
+    const baseData = { view: v, isNew } as unknown as
+      | EpicNodeData
+      | FeatureNodeData
+      | StepNodeData
+    if (v.kind === 'epic') {
+      return { id: v.id, type: 'epic', position, data: baseData }
+    }
+    if (v.kind === 'feature') {
+      return { id: v.id, type: 'feature', position, data: baseData }
+    }
+    return { id: v.id, type: 'step', position, data: baseData }
+  })
+}
 
 function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
   let stroke = 'var(--color-edge-call)'

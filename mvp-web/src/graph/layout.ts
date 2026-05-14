@@ -164,16 +164,27 @@ async function elkGroupedFeatures(
       targets: [e.target],
     }))
 
+  // 根布局策略：有跨组边时用 layered（有方向意义），否则用 rectpacking（紧凑排列）
+  const hasInterEdges = elkEdges.length > 0
+  const rootOptions: Record<string, string> = hasInterEdges
+    ? {
+        'elk.algorithm': 'layered',
+        'elk.direction': 'DOWN',
+        'elk.spacing.nodeNode': '64',
+        'elk.layered.spacing.nodeNodeBetweenLayers': '80',
+        'elk.padding': '[top=32,left=32,bottom=32,right=32]',
+        'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+      }
+    : {
+        'elk.algorithm': 'rectpacking',
+        'elk.rectpacking.desiredAspectRatio': '1.8',
+        'elk.spacing.nodeNode': '56',
+        'elk.padding': '[top=32,left=32,bottom=32,right=32]',
+      }
+
   const graph: ElkNode = {
     id: 'root',
-    layoutOptions: {
-      'elk.algorithm': 'layered',
-      'elk.direction': 'DOWN',
-      'elk.spacing.nodeNode': '64',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '80',
-      'elk.padding': '[top=32,left=32,bottom=32,right=32]',
-      'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
-    },
+    layoutOptions: rootOptions,
     children,
     edges: elkEdges,
   }

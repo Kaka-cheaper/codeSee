@@ -82,7 +82,7 @@ function GraphInner({ file }: Props) {
     let cancelled = false
     setLayoutDone(false)
 
-    // 第一帧：所有节点放 (0,0)，hidden，让 React Flow 测量真实尺寸
+    // 第一帧：所有节点放 (0,0)，透明但可测量，让 React Flow 测量真实尺寸
     const initialNodes: Node[] = view.nodes.map((v) => {
       const baseData = { view: v, isNew: false } as unknown as
         | EpicNodeData
@@ -93,7 +93,7 @@ function GraphInner({ file }: Props) {
         type: v.kind === 'epic' ? 'epic' : v.kind === 'feature' ? 'feature' : 'step',
         position: { x: 0, y: 0 },
         data: baseData,
-        hidden: true,
+        style: { opacity: 0, pointerEvents: 'none' as const },
       }
     })
     setRfNodes(initialNodes)
@@ -220,7 +220,14 @@ function GraphInner({ file }: Props) {
 
   const onNodeClick: NodeMouseHandler = useCallback((_, node) => {
     setSelectedId(node.id)
-  }, [])
+    // 确保 React Flow 内部只选中这一个节点
+    reactFlow.setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        selected: n.id === node.id,
+      })),
+    )
+  }, [reactFlow])
 
   const selectedView: FcgViewNode | null = useMemo(() => {
     if (!selectedId) return null
@@ -253,7 +260,10 @@ function GraphInner({ file }: Props) {
         onNodeDragStart={handleNodeDragStart}
         onNodeDrag={handleNodeDrag}
         onNodeDragStop={handleNodeDragStop}
-        onPaneClick={() => setSelectedId(null)}
+        onPaneClick={() => {
+          setSelectedId(null)
+          reactFlow.setNodes((nds) => nds.map((n) => ({ ...n, selected: false })))
+        }}
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="oklch(0.8 0.018 70)" />
         <MiniMap

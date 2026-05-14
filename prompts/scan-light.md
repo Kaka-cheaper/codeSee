@@ -25,20 +25,61 @@
    - 后台任务、定时器、事件订阅、CLI 子命令、UI 上独立的关键操作都算 feature
    - 项目里的功能数通常在 **5-30** 之间；超过 30 你可能误把实现细节当成功能了
 
+   **Feature vs Component 判别**（防止把组件当功能）：
+   - Feature 是"用户用一句话说清楚的能力"，例：用户登录、添加用户、发送通知
+   - Component 是"feature 内部的视觉/逻辑子部分"，例：思考气泡、迷你仪表盘、工具栏
+   - 子组件应作为它所在 feature 的 step 或在 note 里提，不要平级立为 feature
+
 4. **为每个 Feature 写 steps + flow**：
    - step 数量 **3-10** 最佳；> 10 说明粒度过细，应该拆成多个 feature；< 3 说明可能漏了
-   - step.name 用动词短语：`接收请求`、`校验输入`、`查询用户`、`返回响应`
-   - flow.kind：
+   - **step.name 硬约束**：必须是中文动词短语，禁止：
+     - 英文代码标识符（`save_user` / `tickAdvanced` / `RECONNECT_BACKOFF_MS`）
+     - 函数调用形式（含括号、点号链）
+     - 事件名 / 类型名 / 常量名照搬
+     - "调用 X" / "推送 X" 后跟英文（应改成"调用支付网关" / "推送进度事件"这种纯中文）
+   - flow.kind 必填，五种语义：
      - `next` 顺序
-     - `async` 触发后不等待（消息、邮件、webhook）
-     - `conditional` 分支（必须写 condition 描述）
-     - `loop` 循环（必须写 condition 描述）
-     - `error` 错误分支
+     - `async` 触发后不等待 ★ 异步副作用必须用，见下方"异步识别"
+     - `conditional` 分支 ★ 看到 if/else 走不同动作时必须用，写 `condition`
+     - `loop` 循环 ★ 看到对集合反复执行时必须用
+     - `error` 错误分支 ★ 见下方"错误分支强制"
+
+   **异步识别（最容易翻车）**：
+   - 这一步发出事件 / 入队 / 投递到 channel / call_soon_threadsafe → 是 side-effect 且是 async
+   - 这一步触发 webhook / 推 WebSocket / 发邮件 / 写日志 → 是 side-effect 且是 async
+   - 这一步用 fire-and-forget / 不等 await → async
+   - react-query mutation / fetch().then() / Promise 链 → mutation 主线就是 async
+   - 同一个 feature 内既有"主流程返回结果"又有"附带通知"，通知边必须用 async
+   - 如果遇到"sync 接口跨线程往 asyncio 队列推消息"这种发布订阅模式，画两条边：sync 完成是 next，broadcast 那条是 async
+
+   **错误分支强制**：
+   每个有外部输入 / 数据库 / 外部调用的 feature 必须至少思考一条 error 分支：
+   - HTTP 4xx：参数校验失败 / 资源不存在 / 鉴权失败
+   - HTTP 5xx：依赖故障 / 内部异常
+   - 外部调用：超时 / 拒绝 / 限流
+   - 业务规则：金额不足 / 状态非法 / 并发冲突
+   如确实无错误分支（例如纯查询且参数已严格校验），在 feature.note 里说明"无显式 error 分支：原因…"
 
 5. **挂 refs（推荐）**：每个 step 至少挂 1 条 file 引用，方便点开对照源码。
    `lines` 不强制，写不准就省略。
 
-6. **cross_feature**：A 完成后触发 B、A 依赖 B 存在等关系。
+6. **cross_feature**：四种关系判别（避免全写成 triggers）：
+   - `triggers`：A 主动调 B 的入口（前端组件挂着按钮调后端某接口）
+   - `depends_on`：A 不依赖 B 调用，但 B 不在 A 跑不起来（如 lifespan 不启动 WebSocket 接口就不可用）
+   - `publishes`：A 完成后**发出事件 / 状态变更**，谁监听都行 ★ 发布订阅模式必须用
+   - `subscribes`：B **监听** A 发出的事件作出反应（前端 useEvents 监听后端推送）
+   ⚠ 如果你的项目有 WebSocket / 事件总线 / 消息队列 / 状态推送，**publishes/subscribes 比例应该 ≥ 30%**，
+   全是 triggers 说明你只看到了"A 调 B"的同步链条，漏了 "A 发事件 → B 反应"的异步链条。
+
+   **用户主流程**：如果项目有清晰的用户导航链（A 页面 → B 页面 → C 页面），
+   用 `triggers` 在对应 feature 之间画导航边。
+
+7. **confidence 校准**（不要全写 0.85）：
+   - `≥ 0.9`：CRUD / 单文件函数 / 路由+一两个 service，覆盖到位
+   - `0.7-0.85`：跨多文件，但流程清晰可追
+   - `0.5-0.7`：动态调用 / 反射 / 配置驱动 / 异步副作用 / 跨线程，把握不大
+   - `< 0.5`：仅凭命名猜的，没读到核心实现
+   把所有 feature 都写 0.85 是偷懒信号。
 
 ## 完整 Schema
 
@@ -117,10 +158,15 @@ type CrossFeatureLink = {
 
 ## 输出前自检
 
-- [ ] 没有任何 step 写成函数名 / 类名 / 文件名
+- [ ] 没有任何 step 写成函数名 / 类名 / 文件名 / 事件名 / 常量名
+- [ ] 没有 step.name 含 ASCII 标识符（如 "推送 tick_advanced" → 应改成 "推送进度事件"）
 - [ ] 每个 feature 至少有一个入口 step（role=input）和一个出口 step（role=output 或 error）
 - [ ] flow 没有自环、没有指向不存在的 step.id
-- [ ] confidence 真实反映把握：跨多文件且约定模糊→0.5-0.7；明确→0.9+
+- [ ] flow.kind 全部填写（不要 undefined）
+- [ ] 项目存在异步 / 事件 / WebSocket / 消息队列时，至少有一条边是 `async`、cross_feature 至少有 1 条 `publishes`
+- [ ] 有外部输入 / 数据库 / 外部调用的 feature 至少思考过 error 分支
+- [ ] 有 if / else 走不同动作的位置用了 `conditional` 而不是 `next`
+- [ ] confidence 不全是同一个值（不要全 0.85）
 - [ ] manifest.generated_at 用真实 ISO 时间
 - [ ] 输出是单个 JSON 对象，不是数组
 

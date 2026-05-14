@@ -92,6 +92,37 @@ cross.kind:    depends_on | publishes | subscribes | triggers
 不要编造 `logic` / `init` / `cleanup` / `internal` / `lifecycle` / `websocket` 这种值。
 不确定时用兜底值：role=`other`、trigger=`unknown`、flow=`next`。
 
+## Feature vs Component 判定
+
+写 feature 之前先反问："这是用户用一句话能说清楚的能力吗？"
+
+- 是 → 立 feature
+- 否（更像视觉子组件 / 内部辅助逻辑）→ 作为父 feature 的 step
+- 多 tab UI 中每个独立 tab 通常各自是一个 feature
+
+## 异步 / 错误 / 条件三类边的强制规则
+
+- **异步副作用**（async）：推送事件 / 入队 / WebSocket / 跨线程投递 / fire-and-forget / mutation 链
+- **条件分支**（conditional）：if/else 走不同动作，必须填 condition
+- **错误分支**（error）：参数校验失败 / 资源不存在 / 鉴权失败 / 依赖故障 / 业务规则失败 / 降级路径
+
+漏这三类是 features.json 失真最严重的来源。
+
+## cross_feature 关系不要全写 triggers
+
+- `triggers` / `depends_on` / `publishes` / `subscribes` 四类
+- 项目有 WebSocket / 事件总线 / 消息队列 → publishes/subscribes 应占 ≥ 30%
+- 全是 triggers 是漏掉异步链条的信号
+
+## confidence 校准
+
+- ≥ 0.9：单文件 / 简单 CRUD，覆盖到位
+- 0.7-0.85：跨多文件但流程清晰
+- 0.5-0.7：动态 / 反射 / 配置驱动 / 异步副作用 / 跨线程
+- < 0.5：仅凭命名猜
+
+不要全写一个值。
+
 ## 查看效果
 
 用户在 CodeSee viewer 里加载 `.codesee/features.json` 即可看到可视化的功能图。

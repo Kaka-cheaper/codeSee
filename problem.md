@@ -387,3 +387,33 @@
    - 改动：`scripts/install.ps1`、`scripts/install.sh`（拷贝 validator）、`templates/AGENTS.md`、`templates/AGENTS-snippet.md`（自检要求）、`prompts/scan-light.md`、`prompts/scan-heavy.md`、`prompts/sync.md`（写入后自检）、`README.md`
    - 同步：执行 `install.ps1 D:\桌面\github_project\Polisim -Force`，Polisim/.codesee/scripts/validate-features.mjs 已就位
 应当达成的效果：在 Polisim 或任意目标项目，AI 完成扫描或同步后会主动跑 `node .codesee/scripts/validate-features.mjs`：通过则继续；不通过则按 JSONPath 报错精准修复后重跑，**直到 0 错误才回复"完成"**。该脚本不需要联网、不需要 npm install，零依赖；启发式还能反向打"调用 X"、含括号、英文标识符等 step 命名反例，把"语义级"的硬约束之一（动作短语）也带入了机器可检测的范围。下一步建议：在 Polisim 实跑扫描后，结合 docs/review-checklist.md 与 validator 的报告反馈给我，作为 prompt 精修的真实样本。
+
+---
+
+问题18：用户在 viewer 选择 Polisim 真实生成的 features.json 后页面变空白；怀疑是文件过长还是逻辑有问题。
+解决方案：
+1. 用 validator 跑用户文件直接定位真因：314 错误 + 7 警告，根因是 AI 编造了 schema 之外的枚举值——
+   - `step.role` 用了 logic / init / cleanup（不在 11 类内）
+   - `flow.kind` 几乎全为 undefined（schema 里要求必填）
+   - `trigger.kind` 用了 internal / lifecycle / websocket（不在 8 类内）
+2. 渲染崩溃链条：`FLOW_META[undefined]` → undefined → 访问 `.stroke` 抛 TypeError → React 渲染树整体卸载 → 白屏。文件大小完全不是原因。
+3. 双管齐下修复：
+   - **viewer 容错**：所有 enum 访问点加 fallback，避免任何一种 AI 编造都引发崩溃。
+     - GraphCanvas.buildEdge：`FLOW_META[e.kind] ?? FLOW_META.next`
+     - GraphCanvas minimap nodeColor：`ROLE_META[stepRole] ?? ROLE_META.other`
+     - StepNodeView：role/icon 都加 ?? .other 兜底
+     - FeatureNodeView：trigger 图标加 ?? TRIGGER_ICON.unknown
+     - DetailsPanel：两处 ROLE_META 访问统一加 ?? .other
+   - **顶层 ErrorBoundary**：新增 `mvp-web/src/app/ErrorBoundary.tsx`，捕获组件树异常显示友好提示（说明常见原因 + 提示运行 validator + 提供"清空缓存并重载"按钮），main.tsx 用它包住 App。
+   - **loader 自愈**：localStorage 里如果是坏数据，loadFromStorage 校验失败时立刻 removeItem 清掉，避免反复刷新都白屏。
+4. **prompt 精准修订**（基于真实失败样本，比凭感觉改更有效）：
+   - scan.md 入口处加"严格枚举速查表 + 常见编造误区映射"：业务计算 → compute（不是 logic）/ 初始化清理 → other / WebSocket → http / 应用启动 → startup / 内部触发 → event；明示 flow.kind 必填，不确定时用 next；
+   - scan-light.md schema 块的 Trigger / Step / Flow 三类型上方各加 ⚠ 反例对照（不要编造其他 kind）；
+   - AGENTS.md 与 AGENTS-snippet.md 都加"严格枚举"小节 + "不要编造 logic/init/cleanup/internal/lifecycle/websocket，不确定时 role=other / trigger=unknown / flow=next"的兜底规则。
+5. 重新跑 install.ps1 -Force 把更新后的 prompts/AGENTS-snippet/validator 全部铺到 Polisim/.codesee/。
+6. 验证：tsc -b 0 错；vite build 通过（gz 7.13KB css / 148.86KB js）；HMR 已推送至 dev server。
+7. 提交：`fix(viewer): 未知枚举值容错 + ErrorBoundary 防白屏；prompt 强调严格枚举`。
+修改的代码文件：
+   - 新增：`mvp-web/src/app/ErrorBoundary.tsx`
+   - 改动：`mvp-web/src/main.tsx`（包 ErrorBoundary）、`mvp-web/src/graph/{GraphCanvas,StepNodeView,FeatureNodeView,DetailsPanel}.tsx`（enum 访问 fallback）、`mvp-web/src/fcg/loader.ts`（localStorage 自愈）、`prompts/scan.md`（严格枚举速查与误区映射）、`prompts/scan-light.md`（schema 块 ⚠ 反例）、`templates/AGENTS.md` 与 `templates/AGENTS-snippet.md`（严格枚举小节）
+应当达成的效果：用户刷新 viewer 即可正常显示画布（即使 features.json 里有非法 enum，viewer 也会容错降级而不是白屏）；让 AI 在 Polisim 重跑 sync/scan，新写出来的 features.json 应严格遵循枚举不再编造；validator 自检通过后再加载到 viewer，所有节点能按正确 role 着色；本次修复确立了"prompt 优化基于真实失败样本"的方法论——validator 报告就是最好的 prompt 改进依据。

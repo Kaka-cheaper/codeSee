@@ -143,6 +143,9 @@ function validate(data) {
       data.cross_feature.forEach((l, i) => validateCrossFeature(l, i, featureIds))
     }
   }
+
+  // 全局智能检查
+  detectFileLevelSmells(data)
 }
 
 function validateEpic(e, i, epicIds) {
@@ -275,6 +278,31 @@ function detectCodeLikeName(name, p) {
   // 带 . 的限定名（Foo.bar）
   if (/^[A-Za-z][\w]*\.[A-Za-z][\w]*$/.test(name)) {
     warn(p, `name "${name}" 看起来是限定名；应该写成动作短语`)
+    return
+  }
+  // 中文里夹 ASCII 标识符（如 "推送 tick_advanced" / "构造 RECONNECT_BACKOFF_MS"）
+  // 触发条件：含中文 + 含 ASCII 单词且包含下划线 / 大写字母（排除常用术语）
+  const COMMON_ACRONYMS = new Set([
+    'JWT', 'DTO', 'API', 'URL', 'URI', 'HTTP', 'HTTPS', 'WS', 'SSE', 'JSON',
+    'XML', 'YAML', 'CSV', 'PDF', 'HTML', 'CSS', 'SQL', 'CRUD', 'OAuth', 'SAML',
+    'UUID', 'ID', 'RPC', 'gRPC', 'CLI', 'GUI', 'UI', 'UX', 'OK', 'NG',
+    'CRON', 'TLS', 'SSL', 'CORS', 'CSRF', 'XSS', 'SSR', 'CSR',
+  ])
+  const hasChinese = /[\u4e00-\u9fa5]/.test(name)
+  const asciiToken = name.match(/[a-zA-Z][a-zA-Z0-9_]{2,}/g)
+  if (hasChinese && asciiToken) {
+    const suspicious = asciiToken.find((t) => {
+      if (COMMON_ACRONYMS.has(t)) return false
+      // 触发：含下划线（snake_case 标识符），或前小后大的 camelCase（如 tickAdvanced）
+      if (/_/.test(t)) return true
+      if (/^[a-z]/.test(t) && /[A-Z]/.test(t)) return true
+      // 全大写且超过 6 字母（如 RECONNECT_BACKOFF_MS）
+      if (t === t.toUpperCase() && t.length >= 7) return true
+      return false
+    })
+    if (suspicious) {
+      warn(p, `name "${name}" 中文里嵌 ASCII 标识符 "${suspicious}"，疑似事件名/常量名照搬；改成纯中文动作`)
+    }
   }
 }
 
@@ -367,6 +395,135 @@ function validateCrossFeature(l, i, featureIds) {
   }
   if (l.note !== undefined && !isString(l.note)) {
     err(`${p}.note`, '必须是字符串')
+  }
+}
+
+/* ----------------------- 文件级智能警告（启发式）----------------------- */
+
+/**
+ * 这一组警告基于真实使用反馈：
+ *  - AI 容易漏 error 分支
+ *  - AI 容易把异步副作用画成同步
+ *  - AI 写 cross_feature 时只看到 triggers，漏了 publishes/subscribes
+ *  - AI 给所有 feature 一个固定 confidence（默认值惯性）
+ *
+ * 这些是建议（warn），不是结构错误（err）。
+ */
+function detectFileLevelSmells(data) {
+  if (!isArray(data.features) || data.features.length === 0) return
+
+  const features = data.features
+  const total = features.length
+
+  /* 1. error 分支覆盖率 */
+  let withError = 0
+  let externallyExposed = 0 // 有 trigger 或 input role 的 feature
+  for (const f of features) {
+    if (!isObject(f)) continue
+    const flow = isArray(f.flow) ? f.flow : []
+    if (flow.some((fl) => isObject(fl) && fl.kind === 'error')) withError++
+    const triggers = isArray(f.triggers) ? f.triggers : []
+    const steps = isArray(f.steps) ? f.steps : []
+    if (
+      triggers.length > 0 ||
+      steps.some((s) => isObject(s) && s.role === 'input')
+    ) {
+      externallyExposed++
+    }
+  }
+  if (externallyExposed >= 5) {
+    const ratio = withError / externallyExposed
+    if (ratio < 0.4) {
+      warn(
+        '$.features',
+        `有 ${externallyExposed} 个 feature 有外部入口，但只有 ${withError} 个 (${(ratio * 100).toFixed(0)}%) 画了 error 分支。建议补充：参数校验失败 / 资源不存在 / 鉴权失败 / 依赖故障 等错误路径。`,
+      )
+    }
+  }
+
+  /* 2. async 边比例（异步副作用容易被画成同步 next） */
+  let asyncEdges = 0
+  let totalEdges = 0
+  let hasSideEffect = false
+  for (const f of features) {
+    if (!isObject(f)) continue
+    const flow = isArray(f.flow) ? f.flow : []
+    for (const fl of flow) {
+      if (!isObject(fl)) continue
+      totalEdges++
+      if (fl.kind === 'async') asyncEdges++
+    }
+    const steps = isArray(f.steps) ? f.steps : []
+    if (steps.some((s) => isObject(s) && s.role === 'side-effect')) {
+      hasSideEffect = true
+    }
+  }
+  if (hasSideEffect && totalEdges >= 20 && asyncEdges / totalEdges < 0.05) {
+    warn(
+      '$.features',
+      `项目中有 side-effect 类型的 step，但 async 边占比仅 ${(
+        (asyncEdges / totalEdges) * 100
+      ).toFixed(0)}%。WebSocket 推送 / 入队 / fire-and-forget / mutation 链应当用 flow.kind="async"。`,
+    )
+  }
+
+  /* 3. cross_feature 关系类型多样性 */
+  if (isArray(data.cross_feature) && data.cross_feature.length >= 5) {
+    const kindCount = { triggers: 0, depends_on: 0, publishes: 0, subscribes: 0 }
+    for (const l of data.cross_feature) {
+      if (isObject(l) && l.kind in kindCount) kindCount[l.kind]++
+    }
+    const totalLinks = data.cross_feature.length
+    const triggersRatio = kindCount.triggers / totalLinks
+    const pubsubCount = kindCount.publishes + kindCount.subscribes
+    if (triggersRatio > 0.8 && pubsubCount === 0) {
+      warn(
+        '$.cross_feature',
+        `${kindCount.triggers}/${totalLinks} (${(triggersRatio * 100).toFixed(
+          0,
+        )}%) 都是 triggers，且没有 publishes/subscribes。如果项目有 WebSocket / 事件总线 / 消息队列，发布订阅关系应当占 ≥ 30%。`,
+      )
+    }
+  }
+
+  /* 4. confidence 默认值惯性 */
+  const confidences = features
+    .filter((f) => isObject(f) && isNumber(f.confidence))
+    .map((f) => f.confidence)
+  if (confidences.length >= 10) {
+    const counts = new Map()
+    for (const c of confidences) counts.set(c, (counts.get(c) || 0) + 1)
+    let maxCount = 0
+    let maxValue = 0
+    for (const [v, c] of counts) {
+      if (c > maxCount) {
+        maxCount = c
+        maxValue = v
+      }
+    }
+    if (maxCount / confidences.length > 0.7) {
+      warn(
+        '$.features',
+        `${maxCount}/${confidences.length} (${(
+          (maxCount / confidences.length) *
+          100
+        ).toFixed(0)}%) feature 的 confidence 都是 ${maxValue}。请按"覆盖到位 / 跨多文件 / 动态调用"区分给值。`,
+      )
+    }
+  }
+
+  /* 5. tab 类 feature 大概率被合并 */
+  // 如果某个 feature 的 name 含 "tab" 或 step 数 > 9 且名字带"面板"/"看板"/"中心"，提示拆分
+  for (let i = 0; i < features.length; i++) {
+    const f = features[i]
+    if (!isObject(f)) continue
+    const steps = isArray(f.steps) ? f.steps : []
+    if (steps.length >= 9 && /(面板|看板|中心|详情页)/.test(f.name || '')) {
+      warn(
+        `$.features[${i}]`,
+        `feature "${f.name}" 步骤多 (${steps.length})，且名字含"面板/看板/中心/详情页"，可能把多个 tab 或子区合并了。考虑拆成多个 feature。`,
+      )
+    }
   }
 }
 

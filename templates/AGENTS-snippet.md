@@ -64,8 +64,36 @@ node .codesee/scripts/validate-features.mjs
 | `await fetch(...)`           | 调用支付网关               |
 | `setState(...)`              | 更新视图状态               |
 | `调用 UserService.create`    | 创建用户                   |
+| `推送 tick_advanced`         | 推送进度事件               |
+| `构造 RECONNECT_BACKOFF_MS`  | 计算重连等待               |
 
-校验脚本会自动识别"调用..."、含括号、英文标识符等反例，请直接按它的提示改。
+校验脚本会自动识别"调用..."、含括号、英文标识符、中文里嵌 ASCII 标识符等反例，请直接按它的提示改。
+
+### Feature vs Component 判定
+
+写 feature 之前先反问：**"这是用户用一句话能说清楚的能力吗？"**
+
+- 是 → 立 feature（如"添加用户"、"下单结算"）
+- 否 → 它可能是某 feature 内部的视觉子组件 / 内部辅助逻辑，应当作为 step 或在 note 里提
+- 例：思考气泡、迷你仪表盘、单个工具栏 button → 不是 feature，是父 feature 的 step
+- 例：多 tab 详情页里的每个 tab 通常视觉独立 → 每个 tab 至少一个 feature
+
+### 异步 / 错误 / 条件三类边的强制规则
+
+- **异步副作用**（`flow.kind = async`）：推送事件 / 入队 / WebSocket / 跨线程投递 / fire-and-forget / mutation 链
+- **条件分支**（`flow.kind = conditional`）：if/else 走不同动作，必须填 `condition`
+- **错误分支**（`flow.kind = error`）：参数校验失败 / 资源不存在 / 鉴权失败 / 依赖故障 / 业务规则失败 / 降级路径
+- 漏这三类是 features.json 失真最严重的来源，每次 sync 都要主动检查
+
+### cross_feature 关系不要全写 triggers
+
+四类关系比例参考：
+- `triggers`：A 主动调 B 接口
+- `depends_on`：A 不调 B 但 B 不在 A 跑不起来（lifespan / 全局中间件，画 1-2 条代表性的）
+- `publishes`：A 完成后发出事件 / 状态变更 ★ **WebSocket / 事件总线 / 消息队列必须有**
+- `subscribes`：B 监听 A 发出的事件
+
+如果项目有发布订阅模型，publishes/subscribes 应占 ≥ 30%；全是 triggers 是漏掉异步链条的信号。
 
 ### 严格枚举（最容易翻车的地方）
 
@@ -79,6 +107,15 @@ cross.kind:    depends_on | publishes | subscribes | triggers
 
 不要编造 `logic` / `init` / `cleanup` / `internal` / `lifecycle` / `websocket` 这种值——画布会拒绝渲染。
 不确定时用兜底值：role=`other`、trigger=`unknown`、flow=`next`。
+
+### confidence 校准
+
+不要给所有 feature 都写同一个值（如全 0.85）。
+
+- `≥ 0.9`：单文件 / 简单 CRUD / 路由+一两个 service，覆盖到位
+- `0.7-0.85`：跨多文件，但流程清晰可追
+- `0.5-0.7`：动态调用 / 反射 / 配置驱动 / 异步副作用 / 跨线程
+- `< 0.5`：仅凭命名猜的
 
 ### 文件位置
 

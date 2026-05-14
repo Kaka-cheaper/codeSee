@@ -24,7 +24,7 @@
 
 ---
 
-## 阶段 1：建索引
+## 阶段 1：建索引![1778765633424](image/scan-heavy/1778765633424.png)
 
 ### 1.1 读项目骨架
 
@@ -101,8 +101,18 @@
 ### 2.3 step 的粒度规则
 
 - 一个 feature 通常 **3-10 个 step**
+- **step.name 硬约束**：必须中文动词短语，禁止：
+  - 英文代码标识符（`save_user` / `tickAdvanced` / `RECONNECT_BACKOFF_MS`）
+  - 函数调用形式（含括号 / 点号链）
+  - 事件名 / 类型名 / 常量名照搬
+  - 反例：`推送 tick_advanced` → 改写：`推送进度事件`
 - 写出"如果出错怎么办"：超时、外部调用失败、并发冲突等关键错误分支用 `flow.kind=error`
-- 异步副作用必须用 `flow.kind=async`，不要假装是同步
+- 异步副作用必须用 `flow.kind=async`，不要假装是同步：
+  - 推送事件 / 入队 / WebSocket / 跨线程投递 / fire-and-forget → async
+  - react-query mutation 主链是 async；mutation 内部步骤之间是 next；mutation 完成后通知页面跳转的边是 async
+- if / else 走不同动作的位置必须用 `conditional` + `condition`
+- 项目里 WebSocket / 事件总线 / 消息队列 / 状态推送 → 至少 20% 的边是 `async`
+- 跨线程 / asyncio 队列这种关键并发点，在 step.note 写明（如"经 call_soon_threadsafe 投递"）
 
 ### 2.4 边界情况协议
 
@@ -110,6 +120,13 @@
 - **同一段代码被多个 feature 共享**（中间件、auth、log）：不要为它单独建 feature，让它在每个 feature 里以同名 step 出现，role 标 `auth` / `validation` 等
 - **生成代码 / 编译产物**：忽略（dist/build/generated）
 - **测试代码**：默认忽略；除非用户明确说要
+- **组件 vs feature 判别**：
+  - feature 必须是"用户用一句话能说清的能力"
+  - UI 子组件（如思考气泡、迷你仪表盘、单个工具栏 button）应作为它所在 feature 的 step 或在 note 里提
+  - 反问：如果只看节点名，用户能说出"这个功能是做什么的"吗？说不出来就是组件不是 feature
+- **多 tab / 多面板 UI**：每个 tab 视觉上独立呈现 → 至少一个 feature；不要把 5 个 tab 合并成 1 个 feature
+- **客户端健壮性行为**（断线重连 / 缓存失效 / 离线兜底）：是用户能感知的体验，独立成 feature 而不是埋在某个 feature 的 step 里
+- **用户导航主流程**：列出页面跳转路径（A → B → C），用 cross_feature.kind=`triggers` 把对应 feature 串起来
 
 ### 2.5 阶段 2 阶段性报告
 
@@ -122,13 +139,44 @@
 
 只在所有 feature 都填了 steps 之后做。
 
-读所有 features.json 的 feature，找：
+读所有 feature，找四类关系——**不要全写成 triggers**：
 
-- A 完成后会发出消息/事件 → 写 `cross_feature.kind = publishes`
-- A 是 B 的前置依赖 → `depends_on`
-- A 主动调用 B 的入口 → `triggers`
+### 关系判别
 
-每条 cross_feature 必须有可指明的代码线索。**模糊就不要写。**
+- `triggers`（A 调 B 入口）：A 主动调 B 的接口
+  - 例：前端按钮点击调后端 POST /users → 前端 feature triggers 后端 feature
+  - 例：定时器到期调一个 service 函数
+
+- `depends_on`（A 不调 B 但 B 不在 A 跑不起来）：
+  - 例：lifespan 启动失败 → 所有 endpoint 都不可用，但只画 1-2 条代表性 depends_on，不要每个 feature 都画
+  - 例：错误处理中间件是几乎所有 endpoint 的隐式依赖，画 1 条代表性边即可
+
+- `publishes`（A 完成后发出事件 / 状态变更）★ **最容易漏的一类**：
+  - 例：服务端某接口成功后发 `xxx_changed` 事件 → publishes
+  - 例：业务操作完成后写消息到队列 → publishes
+  - 例：状态机推进后通过 WebSocket 推送进度 → publishes
+  - **如果项目有 WebSocket / 事件总线 / 消息队列 / 状态推送，几乎所有"产生事件的 feature"都要有 publishes**
+
+- `subscribes`（B 监听 A 发出的事件作出反应）：
+  - 例：前端 useEvents/useEffect 监听后端推送的事件 → subscribes
+  - 例：另一个 service 用消息消费者监听上一个 service 发的事件 → subscribes
+
+### 用户主导航流程
+
+如果项目有清晰的页面跳转链（Gallery → PreRun → Running → Finished），
+用 `triggers` 在对应 feature 之间画导航边。
+
+### 比例自检
+
+跑完一遍后看 cross_feature 里各 kind 的比例：
+
+- 项目有 WebSocket / 事件总线 → publishes/subscribes 占比应 **≥ 30%**
+- 全是 triggers（占比 > 80%）→ 你只看到了同步调用链，**漏了发布订阅模型**
+- 没有 depends_on → 检查是否漏了 lifespan / 全局中间件 / 配置加载等隐式依赖
+
+### 只画有代码线索的关系
+
+模糊的关系不要写。"应该相关"不是依据。每条 cross_feature 都应当能在代码里指出具体的发出 / 订阅位置。
 
 ---
 
@@ -136,12 +184,75 @@
 
 跑这个 checklist，命中任一条都要修：
 
-- [ ] 是否有路由没被任何 feature 覆盖？（用工具列全路由再对照）
-- [ ] 是否有定时任务、消息消费者、CLI 子命令、startup hook 没被覆盖？
-- [ ] 任何 feature 的 steps 数 > 12？拆成 2 个
-- [ ] 任何 feature 的 steps 数 < 2？合并或丢弃
-- [ ] flow 是否有死路（某 step 没出边，但又不是 output/error）？
-- [ ] 任何 step.name 含代码标识符？改成动词短语
+### 覆盖度（漏没漏）
+
+- [ ] **路由全表对照**：列出项目所有路由（HTTP / WebSocket / SSE / RPC），逐一对照 features.json，漏的补
+- [ ] CLI 子命令是否全覆盖
+- [ ] 定时任务 / 事件消费者 / 启动 / 关闭 hook 是否覆盖
+- [ ] 前端**主导航链**是否在 cross_feature 中体现：列出页面跳转路径（A → B → C），用 `triggers` 边连起来
+- [ ] **多 tab / 多面板 UI**：每个 tab 视觉上独立 → 至少一个 feature；不要把 5 个 tab 合并成 1 个 feature
+- [ ] 客户端断线重连 / 缓存失效 / 离线兜底等"用户能感知的健壮性行为"是否独立成 feature
+
+### 粒度（粗了细了）
+
+- [ ] step 数 > 10 的 feature：尝试拆成 2 个
+- [ ] step 数 < 3 的 feature：尝试合并或扩充
+- [ ] **Feature vs Component 判别**：每个 feature 反问自己"这是用户用一句话说清楚的能力吗？"。如果它是"某 feature 内部的视觉子组件 / 内部辅助函数"，应当并入它所属的 feature 当 step
+
+### step.name 硬约束
+
+- [ ] 没有 ASCII 标识符（如 "推送 tick_advanced" / "构造 RECONNECT_BACKOFF_MS"）
+- [ ] 没有函数调用形式（含括号 / 点号链）
+- [ ] 没有事件名 / 类型名 / 常量名照搬
+- [ ] 全部为中文动词短语
+
+### 异步 / 发布订阅敏感度
+
+- [ ] 项目有 WebSocket / SSE / 事件总线 / 消息队列时，**flow 中至少 20% 的边是 `async`**
+- [ ] **cross_feature 中 publishes/subscribes 占比 ≥ 30%**（除非项目确实没有事件机制）
+- [ ] 跨线程 / asyncio 队列 / call_soon_threadsafe / loop.run_in_executor 这种关键并发点，在对应 step 的 note 里说明
+- [ ] react-query mutation / Promise 链 / await 序列化的多步业务逻辑，主链 next，**触发副作用的边用 async**
+
+### 错误分支强制（最容易漏的一类）
+
+对每个有外部输入 / 数据库 / 外部调用的 feature 走一遍：
+
+- [ ] 参数校验失败 → 是否有 error 分支（如 ValueError → 400）
+- [ ] 资源不存在 → 是否有 error 分支（如 run_id 不存在 → 404）
+- [ ] 鉴权失败 → 是否有 error 分支（如 401 / 403）
+- [ ] 依赖故障 → 是否有 error 分支（如外部接口超时 / 5xx）
+- [ ] 业务规则失败 → 是否有 error 分支（如金额不足 / 状态非法 / 并发冲突 / 队列满）
+- [ ] 降级路径 → 如果代码里有 try/except 走兜底逻辑，必须画 error 边
+- [ ] 如确实不需要 error 分支（如纯查询且参数已严格校验），feature.note 写明原因
+
+### conditional 强制
+
+- [ ] 代码里 if/else 走不同动作的位置（如 wasPaused=true 跳过 auto-resume），是否在 flow 中用 `conditional`
+- [ ] `conditional` / `loop` 的边都填了 `condition` 描述
+
+### cross_feature 关系比例
+
+- [ ] 不要全是 `triggers`。检查：
+      - "A 完成后发出事件，B 监听" → 用 `publishes` + `subscribes`
+      - "A 不调 B 但 B 不在 A 跑不起来" → 用 `depends_on`
+- [ ] 隐式全局依赖（如错误处理中间件）：只画 1-2 条代表性 `depends_on`，不要每个 feature 都画
+
+### confidence 真实性
+
+- [ ] 不要超过 70% 的 feature 都是同一个 confidence 值（默认值惯性）
+- [ ] 跨线程 / 反射 / 配置驱动 / 异步副作用相关的 feature ≤ 0.7
+- [ ] 简单 CRUD / 单文件函数 + 路由的 feature 应当 ≥ 0.9
+
+### tags 真实状态
+
+- [ ] 已知"未实施 / 占位 / TODO"代码段，对应 feature 加 `tags: ['unverified']` 或 `['future']`
+- [ ] 已知废弃但未删除的功能加 `tags: ['deprecated']`
+
+### 结构正确性
+
+- [ ] flow 没有死路（某 step 没出边，但又不是 output/error）
+- [ ] flow 没有自环
+- [ ] 任何 step.name 含代码标识符？改成中文动词短语
 
 写完后用人话简短总结：
 

@@ -177,3 +177,60 @@
    - 新增：`mvp-web/src/graph/aggregation.ts`、`mvp-web/src/graph/GroupNodeView.tsx`
    - 改动：`mvp-web/src/graph/{UcgNodeView,GraphCanvas,NodeDetailsPanel,layout}.ts(x)`、`mvp-web/src/app/TopBar.tsx`
 应当达成的效果：刷新页面后默认只看到包级的关系图（约 6 个节点），节点之间的边显示聚合次数；拖动顺畅、不再卡顿；想看包内细节双击即可展开为模块级；点击任意节点右侧抽屉显示其内部成员、上下游边、跨节点聚合信息——画布从"代码搬运"切换为"功能块/语义骨架"视图。下一步建议做 AI 语义命名，把 `src/graph` 这类路径名替换为"画布渲染"等语义标签，才算真正脱离"看代码"。
+
+---
+
+问题10：进入下一阶段——加入 AI 语义层，让画布不再显示 "src/graph" 这种物理路径，而是 "画布与图渲染" 这种业务语义标签。
+解决方案：
+1. 在 `@codesee/ucg-schema` 末尾追加注解类型（与结构层物理分离）：
+   - `Annotation`：label / summary / tags / confidence / provenance / locked / updated_at
+   - `AnnotationsFile`：version + clusters[] + annotations 字典；annotation key 形如 `node:<id>` 或 `cluster:<id>`
+   - `ClusterDef`：簇定义，支持 pathPrefix 或显式 ids
+   - 工具函数 `annotationKey()`、`emptyAnnotations()`
+   核心规则：annotation 仅可包含 label/summary/tags，不允许触碰任何结构字段。
+2. 新增 workspace 包 `packages/ucg-annotator`：
+   - `clustering.ts`：与画布端 aggregation 同款分组规则（保证 group id 一致），从 UCG 推导默认簇定义；提供 `membersOf()` 用于反查簇成员。
+   - `heuristic.ts`：双线索（路径关键词 + 依赖包名）启发式标签生成；预置 30+ 中文标签 (画布与图渲染/UCG 数据合同/认证与登录/路由/异步任务/通用工具/UI 组件…) 与 20+ 依赖识别 (react-flow/celery/jwt/sqlalchemy…)；external 簇与 main.tsx 入口给出特殊处理；置信度分级：external/精确入口=1.0、命中关键词=0.6、兜底=0.4；额外提供 `annotateNodeByHeuristic` 处理动词起头的函数命名 (get/save/render/parse/...)。
+   - `llm.ts`：OpenAI 兼容协议；按 batchSize 分批；prompt 仅传 members 与 external_deps 与少量示例边，不传源码避免上下文爆炸；强制 `response_format=json_object`；返回结构兼容 `id` 与 `clusterId` 两种字段名。
+   - `annotator.ts`：编排——先跑启发式打底，再对置信度<0.8 的簇做 LLM 升级；LLM 失败自动降级；与 existing.locked 合并保证用户锁定项不被覆盖（除非 `--force`）。
+   - `cli.ts`：`codesee-annotate <ucg.json> [--out] [--llm] [--force]`；`--llm` 走环境变量 `CODESEE_LLM_KEY/BASE/MODEL`；缺 key 时优雅降级。
+3. 根 `package.json` 增加脚本：`build:annotator` 与 `annotate:self`，并把 annotator 串入 `build`。
+4. mvp-web 接入：
+   - 新增 `src/ucg/annotations.ts` 加载 `/annotations.json`，version=0 校验失败回退 null；
+   - `App.tsx` 同时加载 ucg + annotations，下传画布；
+   - `aggregation.ts` 接收 annotations 参数，把对应 cluster/node 的标注挂到 ViewNode.annotation；
+   - `GroupNodeView` 主标题改用语义 label（路径降为副标题）；右上角加 ✨ 徽章（LLM 标注）/ 🔒 徽章（锁定）/ ~ (低置信度) 三态；
+   - `NodeDetailsPanel` 头部展示 label/summary/tags（标签云），右上角徽章区分 auto/AI/user 三类来源；
+   - 左下角"视图分组"控件按钮文本改为优先显示语义 label，hover tooltip 显示 summary；
+   - 顶部栏新增 ✨ "annotated" 徽章，标识当前画布已加载语义标注。
+5. 修复构建过程中遇到的字段名不一致问题：annotator.ts 中将 LLM 返回的 `e.id` 改为契约字段 `e.clusterId`；llm.ts 在解析层做向后兼容映射，避免不同模型输出抖动导致丢标注。
+6. 自分析跑通：33 节点 / 6 簇，启发式 6 ms 全部命中；产物：src/graph→画布与图渲染、src/ucg→UCG 数据合同、src/app→应用主体、src/lib→通用工具、external→外部依赖；唯一偏差：`src` 因 App.tsx 直接 import @xyflow/react 被依赖线索带向"画布与图渲染"，启发式标 0.6 低置信度，正是 LLM 该上的场景。
+7. `.gitignore` 追加 `mvp-web/public/annotations.json`，避免运行产物入库；UCG 与 annotations 都以 sidecar JSON 形式存在，方便人工 review、git diff、回滚。
+8. 全链路构建：schema → ts-adapter → annotator → mvp-web 全部通过；mvp-web tsc -b 0 错；vite build 产物 CSS gzip 6.82KB / JS gzip 132.96KB；HMR 已推送至 dev server。
+9. 提交：`feat(annotator): 加入语义标注层（启发式 + 可选 LLM）`。
+修改的代码文件：
+   - 新增：`packages/ucg-annotator/{package.json,tsconfig.json,src/{index,annotator,clustering,heuristic,llm,cli}.ts}`、`mvp-web/src/ucg/annotations.ts`
+   - 改动：`packages/ucg-schema/src/index.ts`（追加注解类型）、`package.json`（脚本）、`.gitignore`、`mvp-web/src/{App.tsx, app/TopBar.tsx, graph/{aggregation.ts, GroupNodeView.tsx, GraphCanvas.tsx, NodeDetailsPanel.tsx}}`
+应当达成的效果：跑 `npm run annotate:self` 后刷新画布，原本 "src/graph" 的节点主标题切换为 "画布与图渲染"、"src/ucg" 切换为 "UCG 数据合同"、external 切换为 "外部依赖"，路径只剩副标题；右上角徽章区分启发式/LLM/锁定来源；点节点的详情面板显示 summary 与 tags 标签云；顶部 "annotated" 徽章亮起；同时严格遵守"结构是真值，语义是叠加" 的边界——AI 永远不能改 ucg.json 的节点和边，只能往 annotations.json 里追加 label。下一步可三选一：实接 LLM 修正 src 簇的偏差、画布内编辑/锁定标注并写回 annotations.json、影响域查询高亮。
+
+---
+
+问题11：用户复盘核心需求，指出当前方向偏了——他要的是"语义级功能流程图"（类比西红柿炒鸡蛋的步骤链：备菜→处理→下锅→调味→炒），而不是 import/call/contains 这种调用关系图；并指出底层重型静态分析对协作者视角价值不大，更适合直接让 AI 阅读项目或读 diff 来产出语义层；询问是否应让 AI 直接分析+前端直接消费。
+解决方案：
+1. 承认前面方向偏了，根因是把"代码图"当成了"语义图"——以为可以在调用图上叠 label 得到语义层，但语义流程的节点（动作/阶段）与代码节点（函数/模块）粒度错位、来源错位，根本不是叠加关系，而是"两张错位的图"。
+2. 重新评估各组件价值：ts-adapter ≈ 1 星、启发式 annotator ≈ 2 星、LLM 命名 ≈ 2 星，画布 ≈ 5 星，UCG schema 是错误合同。结论：画布与设计系统保留，schema 与底层分析必须重做或大幅降级。
+3. 提出新方向 FCG (Feature & Flow Graph)：以 Feature 为一等公民，每个 Feature 内部包含 steps[] 与 flow[]；可选挂载 trigger（HTTP/定时/事件/CLI/UI）、refs（步骤回溯源码文件+行号）、cross_feature（功能间的发布订阅/前置依赖）。step.name 限定为动作短语，flow.kind 区分 sync/async/conditional/loop——直接表达"然后呢"的语义链条，不需要 AI 再叠一层。
+4. 数据来源转向"AI 主导 + 人工修正"，提供两种工作模式：
+   - 协作模式（主）：每次 AI IDE 完成改动后，读 git diff + 现有 features.json，输出最小 JSON Patch；不得重写未受影响的 feature 以保护人工标注；
+   - 扫描模式：第一次接入既有项目，AI 读全项目产出整份 features.json；
+   - 人工修正：直接改 JSON 或画布编辑，锁定后不被 AI 覆盖。
+5. 静态分析降级方案：ts-adapter / annotator 不删除，但退役为辅助工具，仅承担三件事——验证 refs 文件存在性、输出"自上次以来变更的文件清单"提示 AI 该重审哪个 feature、对 AI 凭空编造的文件路径告警；不再喂画布。
+6. 画布迁移成本评估：节点+自定义渲染、聚合视图（Group→展开）、详情面板、边视觉语言（虚线/计数/方向）、暖白主题全部可复用；主要改动只在数据加载与聚合规则——把"按目录聚合 module"换成"按 Feature 聚合 Step"。
+7. 给出最小破坏迁移路径：新增 FCG schema 包（保留 UCG）→ 手写示例 features.json → 改画布聚合与节点视觉 → 把 UCG/ts-adapter/annotator 移到 legacy/ 或加 --legacy 才启用 → 写两份 AI prompt 模板（扫描/协作）放仓库 → 可选写极轻 fcg-helper 做 refs 校验与变更检测。
+8. 提出三个待用户拍板的问题：
+   - 功能粒度：HTTP 端点级 / 用户故事级 / 自定边界？
+   - 协作 IDE：Cursor / Claude Code / Kiro / Copilot Chat？决定 prompt 模板风格；
+   - ts-adapter / annotator 处置：移到 legacy/ 保留 / 降级当辅助 / 直接删除？
+9. 等用户拍板再动手；首要交付物预计是一份"用户登录 + 添加用户"的手工 features.json + 画布在 FCG 数据下的视觉效果，先验证质感再继续。
+修改的代码文件：无（停下来做方案校正，未动代码）。
+应当达成的效果：用户与 AI 对项目方向重新对齐，明确"代码图 vs 语义流程图"的本质差异，确立 FCG 作为新主合同与"AI 直接产出 + 人工修正"的工作流；同时保留画布与设计系统投入、避免推翻重来；明确等待用户回答三个关键问题后再开始迁移，避免再次走偏。

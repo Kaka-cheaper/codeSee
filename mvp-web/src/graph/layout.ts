@@ -1,19 +1,18 @@
-import type { ViewEdge, ViewNode } from './aggregation'
+import type { FcgViewEdge, FcgViewNode } from './fcgView'
 
 /**
- * 极简层级布局（占位）：BFS 分层 + 同层按 label 排序。
- * 接受聚合后的 ViewNode/ViewEdge，不再依赖具体语言。
- *
- * 后续会换成 dagre 或 ELK；当前节点数不大时这个够用。
+ * 极简层级布局占位：BFS 分层 + 同层按 label 排序。
+ * 后续可换 dagre / ELK；当前节点数不会很大（语义级），够用。
  */
 
-export interface LaidOutNode extends ViewNode {
+export interface LaidOutNode {
+  view: FcgViewNode
   position: { x: number; y: number }
 }
 
 export function layoutView(
-  nodes: ViewNode[],
-  edges: ViewEdge[],
+  nodes: FcgViewNode[],
+  edges: FcgViewEdge[],
 ): LaidOutNode[] {
   const idSet = new Set(nodes.map((n) => n.id))
   const out = new Map<string, string[]>()
@@ -51,25 +50,31 @@ export function layoutView(
     if (!level.has(n.id)) level.set(n.id, 0)
   }
 
-  const buckets = new Map<number, ViewNode[]>()
+  const buckets = new Map<number, FcgViewNode[]>()
   for (const n of nodes) {
     const lv = level.get(n.id) ?? 0
     if (!buckets.has(lv)) buckets.set(lv, [])
     buckets.get(lv)!.push(n)
   }
 
-  const COL_GAP = 320
+  const COL_GAP = 280
   const ROW_GAP = 120
   const result: LaidOutNode[] = []
   const sortedLevels = [...buckets.keys()].sort((a, b) => a - b)
   for (const lv of sortedLevels) {
     const list = buckets.get(lv)!
-    list.sort((a, b) => a.kind.localeCompare(b.kind) || a.label.localeCompare(b.label))
+    list.sort((a, b) => labelOf(a).localeCompare(labelOf(b)))
     const total = list.length
     list.forEach((n, idx) => {
       const y = (idx - (total - 1) / 2) * ROW_GAP
-      result.push({ ...n, position: { x: lv * COL_GAP, y } })
+      result.push({ view: n, position: { x: lv * COL_GAP, y } })
     })
   }
   return result
+}
+
+function labelOf(n: FcgViewNode): string {
+  if (n.kind === 'epic') return n.epic.name
+  if (n.kind === 'feature') return n.feature.name
+  return n.step.name
 }

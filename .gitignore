@@ -1,8 +1,5 @@
 node_modules/
 dist/
-packages/*/dist/
-mvp-web/public/ucg.json
-mvp-web/public/annotations.json
 .DS_Store
 .vscode/
 .idea/

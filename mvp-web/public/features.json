@@ -1,0 +1,142 @@
+{
+  "version": "0",
+  "manifest": {
+    "repo": "demo/sample-app",
+    "generated_at": "2026-05-14T00:00:00.000Z",
+    "generator": "user"
+  },
+  "epics": [
+    {
+      "id": "user",
+      "name": "用户管理",
+      "summary": "用户的注册、登录、查询、更新等",
+      "tags": ["user", "auth"]
+    },
+    {
+      "id": "order",
+      "name": "订单与结算",
+      "summary": "下单、支付回调、对账",
+      "tags": ["order", "payment"]
+    }
+  ],
+  "features": [
+    {
+      "id": "f-login",
+      "name": "用户登录",
+      "summary": "邮箱密码登录，签发 JWT，并异步通知一封登录提醒邮件",
+      "epicId": "user",
+      "triggers": [{ "kind": "http", "detail": "POST /api/login" }],
+      "tags": ["auth", "login"],
+      "steps": [
+        { "id": "input",     "name": "接收登录请求",  "role": "input" },
+        { "id": "validate",  "name": "校验邮箱与密码", "role": "validation" },
+        { "id": "find",      "name": "按邮箱查用户",   "role": "data-read" },
+        { "id": "verify",    "name": "比对密码",       "role": "auth" },
+        { "id": "issue",     "name": "签发 JWT",       "role": "auth" },
+        { "id": "notify",    "name": "发送提醒邮件",   "role": "side-effect" },
+        { "id": "ok",        "name": "返回 token",     "role": "output" },
+        { "id": "fail",      "name": "返回 401",       "role": "error" }
+      ],
+      "flow": [
+        { "from": "input",    "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "find",     "kind": "next" },
+        { "from": "find",     "to": "verify",   "kind": "next" },
+        { "from": "verify",   "to": "issue",    "kind": "conditional", "condition": "密码正确" },
+        { "from": "verify",   "to": "fail",     "kind": "conditional", "condition": "密码错误或用户不存在" },
+        { "from": "issue",    "to": "ok",       "kind": "next" },
+        { "from": "issue",    "to": "notify",   "kind": "async" }
+      ],
+      "confidence": 1,
+      "provenance": "user",
+      "updated_at": "2026-05-14T00:00:00.000Z"
+    },
+    {
+      "id": "f-add-user",
+      "name": "添加用户",
+      "summary": "管理员后台新增一个用户，并触发欢迎邮件",
+      "epicId": "user",
+      "triggers": [{ "kind": "http", "detail": "POST /api/users" }],
+      "tags": ["user", "admin"],
+      "steps": [
+        { "id": "input",   "name": "接收表单",     "role": "input" },
+        { "id": "valid",   "name": "校验必填项",   "role": "validation" },
+        { "id": "uniq",    "name": "查重邮箱",     "role": "data-read" },
+        { "id": "hash",    "name": "哈希密码",     "role": "compute" },
+        { "id": "save",    "name": "写入数据库",   "role": "data-write" },
+        { "id": "welcome", "name": "发送欢迎邮件", "role": "side-effect" },
+        { "id": "ok",      "name": "返回新用户",   "role": "output" }
+      ],
+      "flow": [
+        { "from": "input",  "to": "valid", "kind": "next" },
+        { "from": "valid",  "to": "uniq",  "kind": "next" },
+        { "from": "uniq",   "to": "hash",  "kind": "conditional", "condition": "邮箱可用" },
+        { "from": "hash",   "to": "save",  "kind": "next" },
+        { "from": "save",   "to": "ok",    "kind": "next" },
+        { "from": "save",   "to": "welcome","kind": "async" }
+      ],
+      "confidence": 1,
+      "provenance": "user",
+      "updated_at": "2026-05-14T00:00:00.000Z"
+    },
+    {
+      "id": "f-list-users",
+      "name": "查询用户列表",
+      "summary": "分页查询用户，可按城市过滤",
+      "epicId": "user",
+      "triggers": [{ "kind": "http", "detail": "GET /api/users" }],
+      "tags": ["user", "list"],
+      "steps": [
+        { "id": "input",  "name": "解析查询参数", "role": "input" },
+        { "id": "page",   "name": "构造分页",     "role": "compute" },
+        { "id": "fetch",  "name": "查询数据库",   "role": "data-read" },
+        { "id": "shape",  "name": "整形为 DTO",   "role": "transform" },
+        { "id": "ok",     "name": "返回列表",     "role": "output" }
+      ],
+      "flow": [
+        { "from": "input", "to": "page",  "kind": "next" },
+        { "from": "page",  "to": "fetch", "kind": "next" },
+        { "from": "fetch", "to": "shape", "kind": "loop", "condition": "对每条记录" },
+        { "from": "shape", "to": "ok",    "kind": "next" }
+      ],
+      "confidence": 0.7,
+      "provenance": "ai",
+      "updated_at": "2026-05-14T00:00:00.000Z"
+    },
+    {
+      "id": "f-checkout",
+      "name": "下单结算",
+      "summary": "用户提交订单，调用支付，回调成功后扣库存并通知发货",
+      "epicId": "order",
+      "triggers": [{ "kind": "http", "detail": "POST /api/orders/checkout" }],
+      "tags": ["order", "payment"],
+      "steps": [
+        { "id": "input",   "name": "接收订单",       "role": "input" },
+        { "id": "calc",    "name": "计算总价",       "role": "compute" },
+        { "id": "save",    "name": "落库待支付",     "role": "data-write" },
+        { "id": "pay",     "name": "调用支付网关",   "role": "side-effect" },
+        { "id": "wait",    "name": "等待支付回调",   "role": "other" },
+        { "id": "stock",   "name": "扣减库存",       "role": "data-write" },
+        { "id": "ship",    "name": "发起发货流程",   "role": "side-effect" },
+        { "id": "ok",      "name": "返回订单号",     "role": "output" },
+        { "id": "fail",    "name": "回滚订单",       "role": "error" }
+      ],
+      "flow": [
+        { "from": "input", "to": "calc",  "kind": "next" },
+        { "from": "calc",  "to": "save",  "kind": "next" },
+        { "from": "save",  "to": "pay",   "kind": "next" },
+        { "from": "pay",   "to": "wait",  "kind": "async" },
+        { "from": "wait",  "to": "stock", "kind": "conditional", "condition": "支付成功" },
+        { "from": "wait",  "to": "fail",  "kind": "conditional", "condition": "支付失败或超时" },
+        { "from": "stock", "to": "ship",  "kind": "async" },
+        { "from": "stock", "to": "ok",    "kind": "next" }
+      ],
+      "confidence": 0.6,
+      "provenance": "ai",
+      "updated_at": "2026-05-14T00:00:00.000Z"
+    }
+  ],
+  "cross_feature": [
+    { "from": "f-add-user",   "to": "f-login",    "kind": "triggers", "note": "新用户首次会触发登录流程" },
+    { "from": "f-checkout",   "to": "f-list-users","kind": "depends_on", "note": "依赖用户存在" }
+  ]
+}

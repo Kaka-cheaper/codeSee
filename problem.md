@@ -362,3 +362,28 @@
    - 新增：`mvp-web/src/graph/nodeAnim.ts`、`docs/review-checklist.md`
    - 改动：`mvp-web/package.json`（dagre）、`mvp-web/src/graph/{layout.ts,GraphCanvas.tsx,EpicNodeView.tsx,FeatureNodeView.tsx,StepNodeView.tsx}`、`mvp-web/src/index.css`
 应当达成的效果：刷新画布后所有视图采用 dagre 真布局，节点不再因尺寸不一互相挤压；用户重新加载（同视图）相同结构 + 新增内容的 features.json 时，旧节点位置完全不变，新节点在该有的位置上以淡入动画出现，相关边一并淡入；切视图时各视图独立保持各自布局缓存、视图切换走 fitView 平滑过渡。下一步 prompt 优化等待 Polisim 真实运行反馈，依据 review-checklist 给出结构化问题清单，再针对真实失败样本做精准修订，避免无的放矢。
+
+---
+
+问题17：AI 写完 features.json 后无法自知是否符合预定义格式与字段约束。需要一个独立的校验脚本：只校验结构 / 字段 / 必填 / 引用完整性 / 常见反例，不校验业务语义；放在新项目的 `.codesee/scripts/` 下，源头放在 codeSee 仓库的 `scripts/`；同时更新 install 脚本与 AGENTS / 各 prompt，强制 AI 写完后跑校验。
+解决方案：
+1. 新增 `scripts/validate-features.mjs`：Node.js 单文件、zero-deps，可直接 `node` 跑。
+   - 校验范围：顶层 version=`'0'`、manifest 字段类型与 ISO 时间格式、epics（id 必填唯一/name 必填/tags 数组）、features（id 唯一、name/confidence/provenance/updated_at 必填、epicId 引用存在性、triggers/tags 数组、locked 布尔、steps 至少 1 个、steps 数 1 给警告 / >12 给警告）、steps（id feature 内唯一、role 枚举、refs.lines [start,end] 合法性、name 启发式反例：含括号 / 以"调用"开头 / 全英 camelCase / `Foo.bar` 限定名 / 长度 >16 字）、flow（from/to 引用 step、自环报错、conditional/loop 缺 condition 警告、kind 枚举）、cross_feature（from/to 引用 feature、kind 枚举、自环报错）；并对 steps+flow 做联合分析：检查"无入边节点"作为入口、孤立节点（无入无出且非唯一）。
+   - 退出码：0 通过；1 错误；2 文件/JSON 异常；`--strict` 把警告也视为失败（CI 用）。
+   - 输出：分错误/警告两段，每条带 JSONPath 风格定位（如 `$.features[3].steps[1].name`），结尾给一行结论。
+2. 自检与 fixture 测试：
+   - 用仓库自带的 mvp-web/public/features.json 跑 → "通过：未发现结构问题"，退出 0；
+   - 写一份 .tmp/bad.json 故意带 14 个错误 + 6 个警告（错 version、重复 id、自环 flow、引用不存在、role 拼错、step 名带括号 / "调用 X" / camelCase / 限定名、孤立 step、conditional 缺 condition、provenance="robot"、updated_at 空、cross_feature 引用幽灵 feature 等）→ 全部命中，退出 1；测试后清掉 .tmp。
+3. install 脚本同步：在 ps1 与 sh 之间统一，先 prompts、再 scripts、再 .gitignore；新增 `.codesee/scripts/validate-features.mjs` 拷贝步骤；保持步骤编号一致。重新跑 `install.ps1 ... -Force` 把 validator 也铺到 Polisim/.codesee/scripts/。
+4. AGENTS.md 与 AGENTS-snippet.md 双份模板均加入"写入后必须自检"小节：每次修改 features.json 后强制 `node .codesee/scripts/validate-features.mjs`，按退出码处理（0 继续 / 1 修复重跑直到通过 / 2 排查文件 IO）；"永远不要做"清单追加"❌ 跳过校验直接告诉用户'完成了'"与"❌ 修改 .codesee/scripts/ 下文件"；文件位置索引补 validator 路径。
+5. 三份 prompt 均挂上自检 hook：
+   - scan-light.md "完成后" 节：先跑校验再做总结；
+   - scan-heavy.md 末尾追加"阶段 5：校验"；
+   - sync.md "输出协议" 节：写入后立即跑校验，未通过禁止回复"完成"。
+6. README 更新：架构图加 `.codesee/scripts/validate-features.mjs`；codeSee 仓库结构里把 templates 拆成 AGENTS.md / AGENTS-snippet.md，scripts 拆成 install.{ps1,sh} / validate-features.mjs，并把 docs/review-checklist.md 显式列出。
+7. 提交：`feat(validator): 加结构校验脚本，AI 写完 features.json 必须自检通过`。
+修改的代码文件：
+   - 新增：`scripts/validate-features.mjs`（核心）
+   - 改动：`scripts/install.ps1`、`scripts/install.sh`（拷贝 validator）、`templates/AGENTS.md`、`templates/AGENTS-snippet.md`（自检要求）、`prompts/scan-light.md`、`prompts/scan-heavy.md`、`prompts/sync.md`（写入后自检）、`README.md`
+   - 同步：执行 `install.ps1 D:\桌面\github_project\Polisim -Force`，Polisim/.codesee/scripts/validate-features.mjs 已就位
+应当达成的效果：在 Polisim 或任意目标项目，AI 完成扫描或同步后会主动跑 `node .codesee/scripts/validate-features.mjs`：通过则继续；不通过则按 JSONPath 报错精准修复后重跑，**直到 0 错误才回复"完成"**。该脚本不需要联网、不需要 npm install，零依赖；启发式还能反向打"调用 X"、含括号、英文标识符等 step 命名反例，把"语义级"的硬约束之一（动作短语）也带入了机器可检测的范围。下一步建议：在 Polisim 实跑扫描后，结合 docs/review-checklist.md 与 validator 的报告反馈给我，作为 prompt 精修的真实样本。

@@ -71,7 +71,7 @@ function PanelHeader({ view, onClose }: { view: FcgViewNode; onClose: () => void
       )
     }
   } else {
-    label = ROLE_META[view.step.role].label + ' · Step'
+    label = (ROLE_META[view.step.role] ?? ROLE_META.other).label + ' · Step'
     title = view.step.name
   }
 
@@ -182,7 +182,7 @@ function FeatureBody({
       <Section title={`步骤 (${f.steps.length})`}>
         <ol className="space-y-1">
           {f.steps.map((s, idx) => {
-            const meta = ROLE_META[s.role]
+            const meta = ROLE_META[s.role] ?? ROLE_META.other
             return (
               <li
                 key={s.id}

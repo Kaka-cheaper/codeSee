@@ -40,8 +40,8 @@ const ROLE_ICON: Record<StepRole, LucideIcon> = {
 function StepNodeViewImpl({ data, selected }: NodeProps) {
   const { view, isNew } = data as unknown as StepNodeData
   const s = view.step
-  const meta = ROLE_META[s.role]
-  const Icon = ROLE_ICON[s.role]
+  const meta = ROLE_META[s.role] ?? ROLE_META.other
+  const Icon = ROLE_ICON[s.role] ?? ROLE_ICON.other
 
   return (
     <div

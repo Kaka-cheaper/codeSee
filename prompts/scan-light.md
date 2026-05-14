@@ -76,6 +76,11 @@ type Feature = {
 type Trigger = {
   kind: 'http'|'cli'|'cron'|'event'|'ui'|'manual'|'startup'|'unknown'
   detail: string                      // 'POST /api/users' / '每日凌晨 2 点'
+  // ⚠ 不要编造其他 kind。常见误区：
+  //   - WebSocket / SSE → 用 'http'，detail 写 'WS /ws/foo' 或 'SSE /events/x'
+  //   - 应用启动 / 模块加载 → 用 'startup'
+  //   - 内部模块互相调用产生的入口 → 用 'event' 或 'manual'
+  //   - 不确定 → 用 'unknown'
 }
 
 type Step = {
@@ -86,6 +91,11 @@ type Step = {
     | 'data-read' | 'data-write'
     | 'compute' | 'transform'
     | 'side-effect' | 'output' | 'error' | 'other'
+  // ⚠ 严格只用上述 11 种。常见误区：
+  //   - 业务计算 / 算法 → 'compute'（不是 'logic'）
+  //   - 初始化 / 清理 / 加载资源 → 'other'（不是 'init' / 'cleanup'）
+  //   - 网络调用、写日志、发消息、改外部状态 → 'side-effect'
+  //   - 解析/格式化/序列化 → 'transform'
   note?: string
   refs?: { file: string; lines?: [number, number] }[]
 }
@@ -93,7 +103,7 @@ type Step = {
 type Flow = {
   from: string
   to: string
-  kind: 'next' | 'async' | 'conditional' | 'loop' | 'error'
+  kind: 'next' | 'async' | 'conditional' | 'loop' | 'error'  // ⚠ 必填，不能省略
   condition?: string
 }
 

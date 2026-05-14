@@ -174,7 +174,8 @@ function GraphInner({ file }: Props) {
           nodeColor={(n) => {
             if (n.type === 'step') {
               const data = n.data as unknown as StepNodeData | undefined
-              if (data?.view.kind === 'step') return ROLE_META[data.view.stepRole].minimap
+              if (data?.view.kind === 'step')
+                return (ROLE_META[data.view.stepRole] ?? ROLE_META.other).minimap
             }
             if (n.type === 'feature') return 'oklch(0.78 0.04 60)'
             return 'oklch(0.78 0.05 240)'
@@ -210,7 +211,8 @@ function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
   let dashed = false
   let animated = false
   if (e.scope === 'step') {
-    const m = FLOW_META[e.kind as keyof typeof FLOW_META] ?? FLOW_META.next
+    const m =
+      (e.kind && FLOW_META[e.kind as keyof typeof FLOW_META]) ?? FLOW_META.next
     stroke = m.stroke
     dashed = m.dashed
     animated = m.animated

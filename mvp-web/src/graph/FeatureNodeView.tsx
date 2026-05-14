@@ -40,7 +40,7 @@ function FeatureNodeViewImpl({ data, selected }: NodeProps) {
   const lowConfidence = f.confidence < 0.8
 
   const trigger: Trigger | undefined = f.triggers?.[0]
-  const TriggerIcon = trigger ? TRIGGER_ICON[trigger.kind] : Workflow
+  const TriggerIcon = trigger ? (TRIGGER_ICON[trigger.kind] ?? TRIGGER_ICON.unknown) : Workflow
 
   return (
     <div

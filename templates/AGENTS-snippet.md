@@ -67,6 +67,19 @@ node .codesee/scripts/validate-features.mjs
 
 校验脚本会自动识别"调用..."、含括号、英文标识符等反例，请直接按它的提示改。
 
+### 严格枚举（最容易翻车的地方）
+
+```
+trigger.kind:  http | cli | cron | event | ui | manual | startup | unknown
+step.role:     input | validation | auth | data-read | data-write
+               | compute | transform | side-effect | output | error | other
+flow.kind:     next | async | conditional | loop | error    ⚠ 必填
+cross.kind:    depends_on | publishes | subscribes | triggers
+```
+
+不要编造 `logic` / `init` / `cleanup` / `internal` / `lifecycle` / `websocket` 这种值——画布会拒绝渲染。
+不确定时用兜底值：role=`other`、trigger=`unknown`、flow=`next`。
+
 ### 文件位置
 
 - 扫描 prompt：`.codesee/prompts/scan.md`（→ light/heavy 自动路由）

@@ -79,6 +79,19 @@ step 必须是**动作语义**，不是代码层面的实现细节：
 | `setState(...)`              | 更新视图状态               |
 | `调用 UserService.create`    | 创建用户                   |
 
+## 严格枚举
+
+```
+trigger.kind:  http | cli | cron | event | ui | manual | startup | unknown
+step.role:     input | validation | auth | data-read | data-write
+               | compute | transform | side-effect | output | error | other
+flow.kind:     next | async | conditional | loop | error    ⚠ 必填
+cross.kind:    depends_on | publishes | subscribes | triggers
+```
+
+不要编造 `logic` / `init` / `cleanup` / `internal` / `lifecycle` / `websocket` 这种值。
+不确定时用兜底值：role=`other`、trigger=`unknown`、flow=`next`。
+
 ## 查看效果
 
 用户在 CodeSee viewer 里加载 `.codesee/features.json` 即可看到可视化的功能图。

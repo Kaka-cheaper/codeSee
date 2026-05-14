@@ -93,9 +93,18 @@ function loadFromStorage(): LoadResult {
     if (!raw) return { ok: false, reason: 'missing' }
     const wrap = JSON.parse(raw) as { label: string; data: FeaturesFile }
     const valid = validate(wrap.data)
-    if (!valid.ok) return valid
+    if (!valid.ok) {
+      // 缓存里是坏数据，立刻清掉避免下次刷新继续吃同样数据崩
+      localStorage.removeItem(STORAGE_KEY)
+      return valid
+    }
     return { ok: true, file: wrap.data, sourceLabel: wrap.label, sourceKind: 'storage' }
   } catch {
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      /* noop */
+    }
     return { ok: false, reason: 'missing' }
   }
 }

@@ -78,8 +78,8 @@ async function elkRectPacking(nodes: FcgViewNode[]): Promise<LaidOutNode[]> {
     layoutOptions: {
       'elk.algorithm': 'rectpacking',
       'elk.rectpacking.desiredAspectRatio': '1.6',
-      'elk.spacing.nodeNode': '40',
-      'elk.padding': '[top=20,left=20,bottom=20,right=20]',
+      'elk.spacing.nodeNode': '48',
+      'elk.padding': '[top=24,left=24,bottom=24,right=24]',
     },
     children: nodes.map((n) => ({
       id: n.id,
@@ -113,8 +113,8 @@ async function elkGroupedFeatures(
       layoutOptions: {
         'elk.algorithm': 'rectpacking',
         'elk.rectpacking.desiredAspectRatio': '2.0',
-        'elk.spacing.nodeNode': '28',
-        'elk.padding': '[top=16,left=16,bottom=16,right=16]',
+        'elk.spacing.nodeNode': '44',
+        'elk.padding': '[top=20,left=20,bottom=20,right=20]',
       },
       children: members.map((n) => ({
         id: n.id,

@@ -46,7 +46,7 @@ function StepNodeViewImpl({ data, selected }: NodeProps) {
   return (
     <div
       className={cn(
-        'group relative w-[224px] rounded-2xl border bg-[var(--color-bg-1)]',
+        'group relative min-w-[180px] max-w-[240px] rounded-2xl border bg-[var(--color-bg-1)]',
         'px-3 py-2.5 transition-shadow duration-150',
         'shadow-[0_1px_2px_oklch(0_0_0/0.04)]',
         'hover:shadow-[0_2px_6px_oklch(0_0_0/0.06)]',

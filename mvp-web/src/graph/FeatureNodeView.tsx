@@ -45,7 +45,7 @@ function FeatureNodeViewImpl({ data, selected }: NodeProps) {
   return (
     <div
       className={cn(
-        'group relative w-[304px] rounded-2xl border bg-[var(--color-bg-1)]',
+        'group relative min-w-[240px] max-w-[320px] rounded-2xl border bg-[var(--color-bg-1)]',
         'px-4 py-3 transition-shadow duration-150',
         'shadow-[0_1px_2px_oklch(0_0_0/0.04)]',
         'hover:shadow-[0_2px_8px_oklch(0_0_0/0.06)]',

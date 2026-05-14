@@ -46,18 +46,19 @@ export async function layoutViewAsync(
   nodes: FcgViewNode[],
   edges: FcgViewEdge[],
   epicNames?: Map<string, string>,
+  measuredSizes?: Map<string, { width: number; height: number }>,
 ): Promise<LayoutResult> {
   if (nodes.length === 0) return { nodes: [], groups: [] }
 
   const firstKind = nodes[0].kind
   if (firstKind === 'step') {
-    return { nodes: await elkLayered(nodes, edges, 'RIGHT'), groups: [] }
+    return { nodes: await elkLayered(nodes, edges, 'RIGHT', measuredSizes), groups: [] }
   }
   if (firstKind === 'epic') {
-    return { nodes: await elkRectPacking(nodes), groups: [] }
+    return { nodes: await elkRectPacking(nodes, measuredSizes), groups: [] }
   }
   // feature 视图：按 epicId 分组做 compound layout
-  return elkGroupedFeatures(nodes, edges, epicNames)
+  return elkGroupedFeatures(nodes, edges, epicNames, measuredSizes)
 }
 
 /**
@@ -86,7 +87,7 @@ export function layoutViewSync(
 
 /* --------------------------------------------------------- ELK 实现 */
 
-async function elkRectPacking(nodes: FcgViewNode[]): Promise<LaidOutNode[]> {
+async function elkRectPacking(nodes: FcgViewNode[], measuredSizes?: Map<string, { width: number; height: number }>): Promise<LaidOutNode[]> {
   const graph: ElkNode = {
     id: 'root',
     layoutOptions: {
@@ -95,11 +96,10 @@ async function elkRectPacking(nodes: FcgViewNode[]): Promise<LaidOutNode[]> {
       'elk.spacing.nodeNode': '48',
       'elk.padding': '[top=24,left=24,bottom=24,right=24]',
     },
-    children: nodes.map((n) => ({
-      id: n.id,
-      width: NODE_SIZE[n.kind].width,
-      height: NODE_SIZE[n.kind].height,
-    })),
+    children: nodes.map((n) => {
+      const size = measuredSizes?.get(n.id) ?? NODE_SIZE[n.kind]
+      return { id: n.id, width: size.width, height: size.height }
+    }),
     edges: [],
   }
 
@@ -111,6 +111,7 @@ async function elkGroupedFeatures(
   nodes: FcgViewNode[],
   edges: FcgViewEdge[],
   epicNames?: Map<string, string>,
+  measuredSizes?: Map<string, { width: number; height: number }>,
 ): Promise<LayoutResult> {
   // 按 epicId 分组
   const groups = new Map<string, FcgViewNode[]>()
@@ -142,11 +143,10 @@ async function elkGroupedFeatures(
         'elk.layered.spacing.nodeNodeBetweenLayers': '72',
         'elk.padding': '[top=56,left=32,bottom=32,right=32]',
       },
-      children: members.map((n) => ({
-        id: n.id,
-        width: NODE_SIZE[n.kind].width,
-        height: NODE_SIZE[n.kind].height,
-      })),
+      children: members.map((n) => {
+        const size = measuredSizes?.get(n.id) ?? NODE_SIZE[n.kind]
+        return { id: n.id, width: size.width, height: size.height }
+      }),
       edges: intraEdges,
     })
   }
@@ -215,6 +215,7 @@ async function elkLayered(
   nodes: FcgViewNode[],
   edges: FcgViewEdge[],
   direction: 'RIGHT' | 'DOWN' = 'RIGHT',
+  measuredSizes?: Map<string, { width: number; height: number }>,
 ): Promise<LaidOutNode[]> {
   const elkEdges: ElkExtendedEdge[] = edges.map((e, i) => ({
     id: `elk-edge-${i}`,
@@ -231,11 +232,10 @@ async function elkLayered(
       'elk.layered.spacing.nodeNodeBetweenLayers': '80',
       'elk.padding': '[top=16,left=16,bottom=16,right=16]',
     },
-    children: nodes.map((n) => ({
-      id: n.id,
-      width: NODE_SIZE[n.kind].width,
-      height: NODE_SIZE[n.kind].height,
-    })),
+    children: nodes.map((n) => {
+      const size = measuredSizes?.get(n.id) ?? NODE_SIZE[n.kind]
+      return { id: n.id, width: size.width, height: size.height }
+    }),
     edges: elkEdges,
   }
 

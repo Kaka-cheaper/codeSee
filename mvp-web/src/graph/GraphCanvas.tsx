@@ -19,7 +19,7 @@ import {
   type FcgViewState,
   type ViewMode,
 } from './fcgView'
-import { layoutViewAsync, layoutViewSync, mergeWithPrevious } from './layout'
+import { layoutViewAsync, mergeWithPrevious } from './layout'
 import { EpicNodeView, type EpicNodeData } from './EpicNodeView'
 import { FeatureNodeView, type FeatureNodeData } from './FeatureNodeView'
 import { StepNodeView, type StepNodeData } from './StepNodeView'
@@ -73,38 +73,58 @@ function GraphInner({ file }: Props) {
   /** 布局后的 React Flow 节点和边 */
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
+  const [, setLayoutDone] = useState(false)
 
-  /** 异步布局 */
+  /** 异步布局：先放节点让 RF 测量，测量完后用真实尺寸跑 ELK */
   useEffect(() => {
     let cancelled = false
+    setLayoutDone(false)
 
-    // 先用同步 fallback 给一个初始位置（避免空白闪烁）
-    const syncLaid = layoutViewSync(view.nodes)
-    const prevForView = positionsRef.current.get(viewKey)
-    if (prevForView && prevForView.size > 0) {
-      const { merged, newIds } = mergeWithPrevious({ nodes: syncLaid, groups: [] }, prevForView)
-      setRfNodes(toRfNodes(merged, newIds))
-      setRfEdges(view.edges.map((e) => buildEdge(e, newIds)))
-      setNewNodeIds(newIds)
-    } else {
-      setRfNodes(toRfNodes(syncLaid, new Set()))
-      setRfEdges(view.edges.map((e) => buildEdge(e, new Set())))
-    }
+    // 第一帧：所有节点放 (0,0)，hidden，让 React Flow 测量真实尺寸
+    const initialNodes: Node[] = view.nodes.map((v) => {
+      const baseData = { view: v, isNew: false } as unknown as
+        | EpicNodeData
+        | FeatureNodeData
+        | StepNodeData
+      return {
+        id: v.id,
+        type: v.kind === 'epic' ? 'epic' : v.kind === 'feature' ? 'feature' : 'step',
+        position: { x: 0, y: 0 },
+        data: baseData,
+        hidden: true,
+      }
+    })
+    setRfNodes(initialNodes)
+    setRfEdges(view.edges.map((e) => buildEdge(e, new Set())))
 
-    // 然后跑 ELK 异步布局
-    const epicNames = new Map(file.epics.map((e) => [e.id, e.name]))
-    layoutViewAsync(view.nodes, view.edges, epicNames).then((layoutResult) => {
+    // 等一帧让 RF 渲染并测量
+    const timer = window.setTimeout(async () => {
       if (cancelled) return
+
+      // 从 RF 拿测量后的真实尺寸
+      const measured = reactFlow.getNodes()
+      const sizeMap = new Map<string, { width: number; height: number }>()
+      for (const n of measured) {
+        const w = n.measured?.width ?? n.width ?? 280
+        const h = n.measured?.height ?? n.height ?? 132
+        sizeMap.set(n.id, { width: w, height: h })
+      }
+
+      // 用真实尺寸跑 ELK
+      const epicNames = new Map(file.epics.map((e) => [e.id, e.name]))
+      const layoutResult = await layoutViewAsync(view.nodes, view.edges, epicNames, sizeMap)
+      if (cancelled) return
+
       const prev = positionsRef.current.get(viewKey)
       let finalNodes = layoutResult.nodes
       let newIds = new Set<string>()
-      let groups = layoutResult.groups
+      const groups = layoutResult.groups
       if (prev && prev.size > 0) {
         const r = mergeWithPrevious(layoutResult, prev)
         finalNodes = r.merged
         newIds = r.newIds
-        groups = r.groups
       }
+
       // 写回缓存
       const next = new Map<string, { x: number; y: number }>()
       for (const n of finalNodes) next.set(n.view.id, n.position)
@@ -113,9 +133,13 @@ function GraphInner({ file }: Props) {
       setRfNodes(toRfNodes(finalNodes, newIds, groups))
       setRfEdges(view.edges.map((e) => buildEdge(e, newIds)))
       setNewNodeIds(newIds)
-    })
+      setLayoutDone(true)
+    }, 50) // 50ms 足够 RF 完成一帧渲染和测量
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, viewKey])
 

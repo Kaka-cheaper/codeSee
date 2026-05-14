@@ -100,6 +100,7 @@ step.role:     input | validation | auth | data-read | data-write
                | compute | transform | side-effect | output | error | other
 flow.kind:     next | async | conditional | loop | error    ⚠ 必填，不能省略
 cross.kind:    depends_on | publishes | subscribes | triggers
+epic_flow.kind: next | depends_on | enables
 provenance:    ai | user
 ```
 

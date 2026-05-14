@@ -74,7 +74,20 @@
    **用户主流程**：如果项目有清晰的用户导航链（A 页面 → B 页面 → C 页面），
    用 `triggers` 在对应 feature 之间画导航边。
 
-7. **confidence 校准**（不要全写 0.85）：
+7. **epic_flow（Epic 之间的主线）**：
+   在所有 feature 写完后，站在全局视角分析 Epic 之间的宏观流向：
+   - 用户使用这个系统的主线是什么？（如：配置 → 运行 → 查看结果）
+   - 哪些 Epic 是前置依赖？（如：用户管理 → 所有业务 Epic）
+   - 哪些 Epic 之间有"先后"关系？（如：下单 → 支付 → 发货）
+
+   写入 `epic_flow` 数组，三种 kind：
+   - `next`：A 完成后自然进入 B（用户主流程的顺序）
+   - `depends_on`：B 依赖 A 存在才能工作（基础设施依赖）
+   - `enables`：A 使 B 成为可能（权限 / 前置条件）
+
+   通常 3-8 条即可，不要把所有 Epic 都连起来。只画**用户能感知的主线**。
+
+8. **confidence 校准**（不要全写 0.85）：
    - `≥ 0.9`：CRUD / 单文件函数 / 路由+一两个 service，覆盖到位
    - `0.7-0.85`：跨多文件，但流程清晰可追
    - `0.5-0.7`：动态调用 / 反射 / 配置驱动 / 异步副作用 / 跨线程，把握不大
@@ -153,6 +166,13 @@ type CrossFeatureLink = {
   to: string
   kind: 'depends_on' | 'publishes' | 'subscribes' | 'triggers'
   note?: string
+}
+
+type EpicFlow = {
+  from: string              // epic.id
+  to: string                // epic.id
+  kind: 'next' | 'depends_on' | 'enables'
+  note?: string             // 一句话说明为什么有这个关系
 }
 ```
 

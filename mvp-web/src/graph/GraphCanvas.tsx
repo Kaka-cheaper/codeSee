@@ -92,7 +92,8 @@ function GraphInner({ file }: Props) {
     }
 
     // 然后跑 ELK 异步布局
-    layoutViewAsync(view.nodes, view.edges).then((layoutResult) => {
+    const epicNames = new Map(file.epics.map((e) => [e.id, e.name]))
+    layoutViewAsync(view.nodes, view.edges, epicNames).then((layoutResult) => {
       if (cancelled) return
       const prev = positionsRef.current.get(viewKey)
       let finalNodes = layoutResult.nodes

@@ -45,6 +45,7 @@ const elk = new ELK()
 export async function layoutViewAsync(
   nodes: FcgViewNode[],
   edges: FcgViewEdge[],
+  epicNames?: Map<string, string>,
 ): Promise<LayoutResult> {
   if (nodes.length === 0) return { nodes: [], groups: [] }
 
@@ -56,7 +57,7 @@ export async function layoutViewAsync(
     return { nodes: await elkRectPacking(nodes), groups: [] }
   }
   // feature 视图：按 epicId 分组做 compound layout
-  return elkGroupedFeatures(nodes, edges)
+  return elkGroupedFeatures(nodes, edges, epicNames)
 }
 
 /**
@@ -109,6 +110,7 @@ async function elkRectPacking(nodes: FcgViewNode[]): Promise<LaidOutNode[]> {
 async function elkGroupedFeatures(
   nodes: FcgViewNode[],
   edges: FcgViewEdge[],
+  epicNames?: Map<string, string>,
 ): Promise<LayoutResult> {
   // 按 epicId 分组
   const groups = new Map<string, FcgViewNode[]>()
@@ -136,9 +138,9 @@ async function elkGroupedFeatures(
       layoutOptions: {
         'elk.algorithm': 'layered',
         'elk.direction': 'RIGHT',
-        'elk.spacing.nodeNode': '36',
-        'elk.layered.spacing.nodeNodeBetweenLayers': '56',
-        'elk.padding': '[top=48,left=24,bottom=24,right=24]',
+        'elk.spacing.nodeNode': '52',
+        'elk.layered.spacing.nodeNodeBetweenLayers': '72',
+        'elk.padding': '[top=56,left=32,bottom=32,right=32]',
       },
       children: members.map((n) => ({
         id: n.id,
@@ -167,9 +169,9 @@ async function elkGroupedFeatures(
     layoutOptions: {
       'elk.algorithm': 'layered',
       'elk.direction': 'DOWN',
-      'elk.spacing.nodeNode': '56',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '72',
-      'elk.padding': '[top=24,left=24,bottom=24,right=24]',
+      'elk.spacing.nodeNode': '64',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '80',
+      'elk.padding': '[top=32,left=32,bottom=32,right=32]',
       'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
     },
     children,
@@ -179,11 +181,13 @@ async function elkGroupedFeatures(
   const result = await elk.layout(graph)
   const laidNodes = mapCompoundResult(nodes, result)
 
-  // 提取 group 容器的位置和尺寸
+  // 提取 group 容器的位置和尺寸，用 Epic 的中文 name
   const layoutGroups: LayoutGroup[] = []
   for (const group of result.children ?? []) {
     const groupId = group.id.replace(/^group:/, '')
-    const label = groupId === '__none__' ? '其他' : groupId
+    const label = groupId === '__none__'
+      ? '其他'
+      : (epicNames?.get(groupId) ?? groupId)
     layoutGroups.push({
       id: group.id,
       label,

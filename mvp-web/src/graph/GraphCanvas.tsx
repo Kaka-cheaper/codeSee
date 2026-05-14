@@ -152,16 +152,20 @@ function GraphInner({ file }: Props) {
 
   const handleForceTick = useCallback(
     (positions: Map<string, { x: number; y: number }>) => {
-      setRfNodes((prev) =>
-        prev.map((n) => {
+      // 用 React Flow 的 setNodes 直接 patch 位置，避免整个数组重建导致闪烁
+      reactFlow.setNodes((nds) =>
+        nds.map((n) => {
           const pos = positions.get(n.id)
           if (!pos) return n
-          if (n.position.x === pos.x && n.position.y === pos.y) return n
+          // 只在位置真正变化时更新（避免无意义 re-render）
+          if (Math.abs(n.position.x - pos.x) < 0.5 && Math.abs(n.position.y - pos.y) < 0.5) {
+            return n
+          }
           return { ...n, position: pos }
         }),
       )
     },
-    [],
+    [reactFlow],
   )
 
   const { onDragStart, onDrag, onDragEnd } = useForceLayout({

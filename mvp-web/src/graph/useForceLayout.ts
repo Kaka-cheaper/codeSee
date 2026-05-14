@@ -76,6 +76,7 @@ export function useForceLayout({
         target: e.target,
       }))
 
+    let tickCount = 0
     const sim = forceSimulation<ForceNode>(forceNodes)
       .force(
         'link',
@@ -95,6 +96,9 @@ export function useForceLayout({
       .alphaDecay(0.02)
       .velocityDecay(0.4)
       .on('tick', () => {
+        // 节流：每 2 帧推一次位置更新，减少 React 压力
+        tickCount++
+        if (tickCount % 2 !== 0) return
         const positions = new Map<string, { x: number; y: number }>()
         for (const n of forceNodes) {
           positions.set(n.id, { x: n.x ?? 0, y: n.y ?? 0 })

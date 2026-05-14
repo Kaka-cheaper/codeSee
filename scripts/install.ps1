@@ -1,15 +1,16 @@
 <#
 .SYNOPSIS
-  把 CodeSee 集成文件安装到目标项目。
+  Install CodeSee integration files into a target project.
 
 .DESCRIPTION
-  目标项目根目录会被注入：
-    - AGENTS.md                    入口规则（若已存在则提示是否覆盖）
+  Writes to the target project root:
+    - AGENTS.md                    Entry rules (skipped if exists, use -Force to overwrite)
     - .codesee/prompts/*.md        scan / scan-light / scan-heavy / sync
-    - .codesee/.gitignore          忽略 features.json 之外的临时产物（默认入库 features.json）
+    - .codesee/.gitignore          Allow features.json into git, ignore caches
 
 .EXAMPLE
-  ./scripts/install.ps1 D:\桌面\github_project\Polisim
+  ./scripts/install.ps1 D:\path\to\project
+  ./scripts/install.ps1 D:\path\to\project -Force
 #>
 
 param(
@@ -20,33 +21,62 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
-# 自身定位
+# Locate self
 $Self = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $Templates = Join-Path $Self 'templates'
 $Prompts   = Join-Path $Self 'prompts'
 
-# 校验目标目录
+# Validate target
 if (-not (Test-Path $TargetDir)) {
-  Write-Error "目标目录不存在: $TargetDir"
+  Write-Error "Target directory not found: $TargetDir"
   exit 1
 }
 $TargetDir = (Resolve-Path $TargetDir).Path
 if ($TargetDir -eq $Self) {
-  Write-Error '不能把 CodeSee 安装到自己。请指向另一个项目。'
+  Write-Error 'Cannot install CodeSee onto itself. Point to a different project.'
   exit 1
 }
 
-Write-Host "→ 安装 CodeSee 到: $TargetDir" -ForegroundColor Cyan
+Write-Host "==> Installing CodeSee into: $TargetDir" -ForegroundColor Cyan
 
 # 1. AGENTS.md
-$agentsSrc = Join-Path $Templates 'AGENTS.md'
-$agentsDst = Join-Path $TargetDir 'AGENTS.md'
-if ((Test-Path $agentsDst) -and -not $Force) {
-  Write-Host "  · AGENTS.md 已存在，跳过（用 -Force 覆盖）" -ForegroundColor Yellow
+$agentsSrc     = Join-Path $Templates 'AGENTS.md'
+$snippetSrc    = Join-Path $Templates 'AGENTS-snippet.md'
+$agentsDst     = Join-Path $TargetDir 'AGENTS.md'
+$BeginMarker   = '<!-- BEGIN: CodeSee integration -->'
+
+if (Test-Path $agentsDst) {
+  $existing = Get-Content -Raw -Encoding UTF8 -Path $agentsDst
+  $snippet = Get-Content -Raw -Encoding UTF8 -Path $snippetSrc
+  $EndMarker = '<!-- END: CodeSee integration -->'
+
+  if ($existing -match [regex]::Escape($BeginMarker)) {
+    if ($Force) {
+      $startIdx = $existing.IndexOf($BeginMarker)
+      $endIdx   = $existing.IndexOf($EndMarker)
+      if ($startIdx -ge 0 -and $endIdx -gt $startIdx) {
+        $before = $existing.Substring(0, $startIdx)
+        $after  = $existing.Substring($endIdx + $EndMarker.Length)
+        $updated = $before + $snippet.TrimEnd() + $after
+        [System.IO.File]::WriteAllText($agentsDst, $updated, [System.Text.UTF8Encoding]::new($false))
+        Write-Host "  - AGENTS.md: replaced existing CodeSee section"
+      } else {
+        Write-Host "  - AGENTS.md: malformed CodeSee section, skipped" -ForegroundColor Yellow
+      }
+    } else {
+      Write-Host "  - AGENTS.md: CodeSee section already present, skipped (use -Force to refresh)" -ForegroundColor Yellow
+    }
+  } else {
+    $needsNewline = -not ($existing.EndsWith("`n"))
+    $appended = $existing + ($(if ($needsNewline) { "`n" } else { '' })) + "`n" + $snippet
+    [System.IO.File]::WriteAllText($agentsDst, $appended, [System.Text.UTF8Encoding]::new($false))
+    Write-Host "  - AGENTS.md: appended CodeSee section to existing file"
+  }
 } else {
   Copy-Item -Force $agentsSrc $agentsDst
-  Write-Host "  · 写入 AGENTS.md"
+  Write-Host "  - wrote AGENTS.md (new)"
 }
 
 # 2. .codesee/prompts/*
@@ -56,28 +86,29 @@ foreach ($name in @('scan.md','scan-light.md','scan-heavy.md','sync.md')) {
   $src = Join-Path $Prompts $name
   $dst = Join-Path $dstPrompts $name
   Copy-Item -Force $src $dst
-  Write-Host "  · 写入 .codesee/prompts/$name"
+  Write-Host "  - wrote .codesee/prompts/$name"
 }
 
-# 3. .codesee/.gitignore（默认让 features.json 入库，忽略其余 .codesee 临时产物）
+# 3. .codesee/.gitignore
 $gitignore = Join-Path $TargetDir '.codesee/.gitignore'
 if (-not (Test-Path $gitignore)) {
-  @(
-    '# CodeSee 默认让 features.json 入库（核心数据，需要 review）',
-    '# 这里只忽略后续可能产生的临时/缓存文件。',
+  $gi = @(
+    '# CodeSee keeps features.json under version control (it is the core data).',
+    '# Only transient caches are ignored here.',
     'cache/',
-    '*.tmp',
-    ''
-  ) | Out-File -FilePath $gitignore -Encoding utf8
-  Write-Host "  · 写入 .codesee/.gitignore"
+    '*.tmp'
+  ) -join "`n"
+  # Write as UTF-8 without BOM
+  [System.IO.File]::WriteAllText($gitignore, $gi + "`n", [System.Text.UTF8Encoding]::new($false))
+  Write-Host "  - wrote .codesee/.gitignore"
 }
 
 Write-Host ''
-Write-Host '✓ 安装完成。' -ForegroundColor Green
+Write-Host 'Done.' -ForegroundColor Green
 Write-Host ''
-Write-Host '下一步：' -ForegroundColor Cyan
-Write-Host '  1. 在目标项目里打开 AI IDE，提示 AI 读 AGENTS.md'
-Write-Host '  2. 让它执行扫描（首次 → scan，之后每轮改动 → sync）'
-Write-Host '  3. 在 CodeSee viewer 里打开 .codesee/features.json 即可看到画布'
+Write-Host 'Next steps:' -ForegroundColor Cyan
+Write-Host '  1. Open the target project in your AI IDE; ask it to read AGENTS.md.'
+Write-Host '  2. Let the AI run the scan (first time) or sync (after each change).'
+Write-Host '  3. In the CodeSee viewer, drop or open .codesee/features.json to render.'
 Write-Host ''
-Write-Host "viewer 启动: cd $Self/mvp-web; npm run dev" -ForegroundColor DarkGray
+Write-Host "Viewer:  cd `"$Self/mvp-web`"; npm run dev" -ForegroundColor DarkGray

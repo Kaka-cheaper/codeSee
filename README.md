@@ -45,7 +45,7 @@ codeSee/                           ← viewer 独立放着
 ```
 
 这会把以下文件注入目标项目：
-- `AGENTS.md`（如果已有则跳过，加 `-Force` / `--force` 覆盖）
+- `AGENTS.md`：如果目标项目已经有自己的 AGENTS.md，脚本会**追加** CodeSee 段落到末尾（用 `<!-- BEGIN/END: CodeSee integration -->` 标记），不会覆盖原内容。再次运行幂等；加 `-Force` / `--force` 会原地刷新这一段。
 - `.codesee/prompts/*.md`
 - `.codesee/.gitignore`
 

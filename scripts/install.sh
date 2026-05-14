@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# 把 CodeSee 集成文件安装到目标项目。
-# 用法: ./scripts/install.sh <目标项目路径> [--force]
+# Install CodeSee integration files into a target project.
+# Usage: ./scripts/install.sh <target-project> [--force]
 
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "用法: $0 <目标项目路径> [--force]" >&2
+  echo "Usage: $0 <target-project> [--force]" >&2
   exit 1
 fi
 
@@ -15,53 +15,84 @@ FORCE="${2:-}"
 SELF_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TEMPLATES="$SELF_DIR/templates"
 PROMPTS="$SELF_DIR/prompts"
+BEGIN_MARKER='<!-- BEGIN: CodeSee integration -->'
+END_MARKER='<!-- END: CodeSee integration -->'
 
 if [[ ! -d "$TARGET" ]]; then
-  echo "目标目录不存在: $TARGET" >&2
+  echo "Target directory not found: $TARGET" >&2
   exit 1
 fi
 TARGET="$(cd "$TARGET" && pwd)"
 if [[ "$TARGET" == "$SELF_DIR" ]]; then
-  echo "不能把 CodeSee 安装到自己。请指向另一个项目。" >&2
+  echo 'Cannot install CodeSee onto itself. Point to a different project.' >&2
   exit 1
 fi
 
-echo "→ 安装 CodeSee 到: $TARGET"
+echo "==> Installing CodeSee into: $TARGET"
 
 # 1. AGENTS.md
-if [[ -f "$TARGET/AGENTS.md" && "$FORCE" != "--force" ]]; then
-  echo "  · AGENTS.md 已存在，跳过（加 --force 覆盖）"
+agents_dst="$TARGET/AGENTS.md"
+snippet_src="$TEMPLATES/AGENTS-snippet.md"
+
+if [[ -f "$agents_dst" ]]; then
+  if grep -qF -- "$BEGIN_MARKER" "$agents_dst"; then
+    if [[ "$FORCE" == "--force" ]]; then
+      # Replace existing CodeSee block
+      python3 - "$agents_dst" "$snippet_src" <<'PY'
+import sys, pathlib
+target = pathlib.Path(sys.argv[1])
+snippet = pathlib.Path(sys.argv[2]).read_text(encoding='utf-8').rstrip() + '\n'
+text = target.read_text(encoding='utf-8')
+b = '<!-- BEGIN: CodeSee integration -->'
+e = '<!-- END: CodeSee integration -->'
+si = text.find(b); ei = text.find(e)
+if si >= 0 and ei > si:
+    text = text[:si] + snippet + text[ei + len(e):]
+    target.write_text(text, encoding='utf-8')
+PY
+      echo "  - AGENTS.md: replaced existing CodeSee section"
+    else
+      echo "  - AGENTS.md: CodeSee section already present, skipped (use --force to refresh)"
+    fi
+  else
+    # Append snippet
+    [[ -n "$(tail -c 1 "$agents_dst")" ]] && printf '\n' >> "$agents_dst"
+    printf '\n' >> "$agents_dst"
+    cat "$snippet_src" >> "$agents_dst"
+    echo "  - AGENTS.md: appended CodeSee section to existing file"
+  fi
 else
-  cp -f "$TEMPLATES/AGENTS.md" "$TARGET/AGENTS.md"
-  echo "  · 写入 AGENTS.md"
+  cp -f "$TEMPLATES/AGENTS.md" "$agents_dst"
+  echo "  - wrote AGENTS.md (new)"
 fi
 
 # 2. .codesee/prompts/*
 mkdir -p "$TARGET/.codesee/prompts"
 for name in scan.md scan-light.md scan-heavy.md sync.md; do
   cp -f "$PROMPTS/$name" "$TARGET/.codesee/prompts/$name"
-  echo "  · 写入 .codesee/prompts/$name"
+  echo "  - wrote .codesee/prompts/$name"
 done
 
 # 3. .codesee/.gitignore
-if [[ ! -f "$TARGET/.codesee/.gitignore" ]]; then
-  cat > "$TARGET/.codesee/.gitignore" <<'EOF'
-# CodeSee 默认让 features.json 入库（核心数据，需要 review）
-# 这里只忽略后续可能产生的临时/缓存文件。
+gitignore="$TARGET/.codesee/.gitignore"
+if [[ ! -f "$gitignore" ]]; then
+  cat > "$gitignore" <<'EOF'
+# CodeSee keeps features.json under version control (it is the core data).
+# Only transient caches are ignored here.
 cache/
 *.tmp
 EOF
-  echo "  · 写入 .codesee/.gitignore"
+  echo "  - wrote .codesee/.gitignore"
 fi
 
 cat <<EOF
 
-✓ 安装完成。
+Done.
 
-下一步：
-  1. 在目标项目里打开 AI IDE，提示 AI 读 AGENTS.md
-  2. 让它执行扫描（首次 → scan，之后每轮改动 → sync）
-  3. 在 CodeSee viewer 里打开 .codesee/features.json 即可看到画布
+Next steps:
+  1. Open the target project in your AI IDE; ask it to read AGENTS.md.
+  2. Let the AI run the scan (first time) or sync (after each change).
+  3. In the CodeSee viewer, drop or open .codesee/features.json to render.
 
-viewer 启动: cd "$SELF_DIR/mvp-web" && npm run dev
+Viewer:  cd "$SELF_DIR/mvp-web" && npm run dev
 EOF

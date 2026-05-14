@@ -286,3 +286,29 @@
    - 新增：`prompts/scan-light.md`、`prompts/scan-heavy.md`
    - 改动：`prompts/scan.md`（重写为入口 + 自检 + 路由）、`README.md`（更新扫描流程与目录说明）
 应当达成的效果：用户可在任何 AI IDE 里直接拷用一组分级 prompt，AI 会先报告项目规模再选执行路径；轻型项目一次产出，重型项目按 4 阶段累积、可中途校准、显式落盘；AI 不再被要求重复实现"代码遍历"，而是借助 IDE 自身工具，prompt 仅约束粒度与节奏，跨 IDE 通用。下一步建议：在 Polisim 实跑一次扫描，回看 features.json 在画布上的可读性与覆盖度，再决定 prompt 是否针对特定栈（Python / 前后端分离 / 多服务）补特例。
+
+---
+
+问题14：用户提出使用流程的设想：(a) 把 prompt 拷进新项目；(b) 让 AI 知道首次扫描 / 每轮改动各做什么；(c) 是否应让 AI 先读 README 再自己生成规则文件 (AGENTS.md)；(d) 是否把整个 codeSee 拷到目标项目 Polisim 下面。
+解决方案：
+1. 直接答四个判断：(a)(b) 完全对；(c) 思路对，但应当由 codeSee 提供 AGENTS.md 模板而非让 AI 自行从 README 推导，避免跨项目质量参差不齐；(d) 不可——viewer (mvp-web) 自带数百兆 node_modules 会污染目标项目，多项目使用时升级困难，AI 在目标项目里要看见无关代码。
+2. 确定新架构："viewer 与目标项目解耦"：viewer 留在 codeSee 仓库；目标项目仅注入 5 个小文件 (AGENTS.md + 4 份 prompts) + 1 个 .gitignore，全部位于目标项目根的 `AGENTS.md` 与 `.codesee/` 目录。
+3. 新增 `templates/AGENTS.md`：作为 AI 协作开发的入口规则文件（兼容 Cursor/Claude Code/Codex/Kiro 等约定），定义三个触发：首次扫描（features.json 缺失/空时）、每轮代码改动后默认 sync、用户显式要求；定义"永远不要做"清单（不修改 prompts 文件、不修改 locked feature、不写到 .codesee 之外、不重命名既有 id）；附"调用 → 语义"反例对照表；附文件位置索引；要求 AI 在执行前先告知用户。
+4. 全量改写 prompts 内的写入路径：`mvp-web/public/features.json` → `.codesee/features.json`；跨文件引用 `prompts/...md` → `.codesee/prompts/...md`，保证安装到目标项目后所有路径自洽。
+5. mvp-web 加载层重构（loader.ts）：
+   - `autoLoad`：优先读 localStorage（用户上次拖入的文件），其次 fetch `/features.json`（仓库自带示例）；
+   - `loadFromFile`：File API 加载，校验 version=0 与 features 数组；
+   - `loadFromText`：备用粘贴模式；
+   - `clearStored`：清空 localStorage；
+   - 验证函数返回 `LoadResult` 联合类型，区分 missing / invalid / ok 三态。
+6. App 重构：全局监听拖拽（onDragOver/onDragLeave/onDrop），松手即加载；提供 `<input type=file>` 隐藏元素 + 顶栏"打开"按钮；空状态卡片提示用户拖入 `.codesee/features.json` 或运行 install 脚本；显示半透明 backdrop 蒙层与"松手即可加载"提示。
+7. TopBar 增强：左侧加 sourceLabel 徽章显示当前数据来源（文件名 / "内置示例"）；右侧加"打开"按钮与"清除"按钮；状态徽章 no data / sample / live 区分清晰。
+8. 一键安装脚本：
+   - `scripts/install.ps1`（PowerShell）：参数 `<TargetDir> [-Force]`；自我定位（`$PSScriptRoot/..`）；安全检查（目标 ≠ codeSee 自身、目标存在）；写入 AGENTS.md（默认跳过已有，-Force 覆盖）、`.codesee/prompts/{scan,scan-light,scan-heavy,sync}.md`、`.codesee/.gitignore`（features.json 入库，仅忽略 cache/*.tmp）；末尾打印下一步操作与 viewer 启动命令。
+   - `scripts/install.sh`（Bash）：等效实现，set -euo pipefail，参数 `<目标> [--force]`，便于 macOS/Linux 用户使用。
+9. README 重写：突出"viewer 与目标项目解耦"的整体架构图；给出三步使用流程（install → 启动 viewer → AI 在目标项目里维护 features.json）；明确 viewer 一次启动多项目共享、用户拖入即可切换的工作模式；重写 codeSee 仓库结构说明，区分 viewer / prompts 模板源 / templates / install 脚本。
+10. 验证：viewer `tsc -b` 0 错；vite build 通过（CSS gzip 6.91KB / JS gzip 134.46KB）；提交 `feat: viewer 与目标项目解耦，提供 AGENTS.md 模板与一键安装脚本`。
+修改的代码文件：
+   - 新增：`templates/AGENTS.md`、`scripts/install.ps1`、`scripts/install.sh`
+   - 改动：`prompts/{scan,scan-light,scan-heavy,sync}.md`（路径全量改 .codesee）、`mvp-web/src/{App.tsx,fcg/loader.ts,app/TopBar.tsx}`、`README.md`
+应当达成的效果：用户在 codeSee 根目录跑一次 `./scripts/install.ps1 <目标项目>` 即可完成集成，目标项目除 6 个轻量文件外不被污染；AI IDE 在目标项目里读 AGENTS.md 自动按"首次扫描 / 增量同步"两种触发维护 `.codesee/features.json`；viewer 独立运行，浏览器拖入或选择文件即可切换不同项目，localStorage 记忆上次打开；同一份 viewer + 同一套 prompts/templates 模板可服务任意数量的目标项目，符合"低侵入、可升级、跨项目共享"目标。下一步：在 Polisim 上跑一次 install + AI 扫描，验证整套流程的实际可用性与 features.json 的可读性。

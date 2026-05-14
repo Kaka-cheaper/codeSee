@@ -17,6 +17,19 @@ export interface LaidOutNode {
   height: number
 }
 
+export interface LayoutGroup {
+  id: string
+  label: string
+  position: { x: number; y: number }
+  width: number
+  height: number
+}
+
+export interface LayoutResult {
+  nodes: LaidOutNode[]
+  groups: LayoutGroup[]
+}
+
 const elk = new ELK()
 
 /**
@@ -32,15 +45,15 @@ const elk = new ELK()
 export async function layoutViewAsync(
   nodes: FcgViewNode[],
   edges: FcgViewEdge[],
-): Promise<LaidOutNode[]> {
-  if (nodes.length === 0) return []
+): Promise<LayoutResult> {
+  if (nodes.length === 0) return { nodes: [], groups: [] }
 
   const firstKind = nodes[0].kind
   if (firstKind === 'step') {
-    return elkLayered(nodes, edges, 'RIGHT')
+    return { nodes: await elkLayered(nodes, edges, 'RIGHT'), groups: [] }
   }
   if (firstKind === 'epic') {
-    return elkRectPacking(nodes)
+    return { nodes: await elkRectPacking(nodes), groups: [] }
   }
   // feature 视图：按 epicId 分组做 compound layout
   return elkGroupedFeatures(nodes, edges)
@@ -96,7 +109,7 @@ async function elkRectPacking(nodes: FcgViewNode[]): Promise<LaidOutNode[]> {
 async function elkGroupedFeatures(
   nodes: FcgViewNode[],
   edges: FcgViewEdge[],
-): Promise<LaidOutNode[]> {
+): Promise<LayoutResult> {
   // 按 epicId 分组
   const groups = new Map<string, FcgViewNode[]>()
   for (const n of nodes) {
@@ -105,23 +118,34 @@ async function elkGroupedFeatures(
     groups.get(epicId)!.push(n)
   }
 
-  // 每个 group 是一个 compound node
+  // 每个 group 是一个 compound node（ELK parent）
   const children: ElkNode[] = []
   for (const [groupId, members] of groups) {
+    // 组内的边
+    const memberIds = new Set(members.map((m) => m.id))
+    const intraEdges: ElkExtendedEdge[] = edges
+      .filter((e) => memberIds.has(e.source) && memberIds.has(e.target))
+      .map((e, i) => ({
+        id: `intra-${groupId}-${i}`,
+        sources: [e.source],
+        targets: [e.target],
+      }))
+
     children.push({
       id: `group:${groupId}`,
       layoutOptions: {
-        'elk.algorithm': 'rectpacking',
-        'elk.rectpacking.desiredAspectRatio': '2.0',
-        'elk.spacing.nodeNode': '44',
-        'elk.padding': '[top=20,left=20,bottom=20,right=20]',
+        'elk.algorithm': 'layered',
+        'elk.direction': 'RIGHT',
+        'elk.spacing.nodeNode': '36',
+        'elk.layered.spacing.nodeNodeBetweenLayers': '56',
+        'elk.padding': '[top=48,left=24,bottom=24,right=24]',
       },
       children: members.map((n) => ({
         id: n.id,
         width: NODE_SIZE[n.kind].width,
         height: NODE_SIZE[n.kind].height,
       })),
-      edges: [],
+      edges: intraEdges,
     })
   }
 
@@ -133,7 +157,7 @@ async function elkGroupedFeatures(
       return sGroup !== tGroup
     })
     .map((e, i) => ({
-      id: `elk-edge-${i}`,
+      id: `inter-edge-${i}`,
       sources: [e.source],
       targets: [e.target],
     }))
@@ -143,16 +167,33 @@ async function elkGroupedFeatures(
     layoutOptions: {
       'elk.algorithm': 'layered',
       'elk.direction': 'DOWN',
-      'elk.spacing.nodeNode': '48',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '60',
+      'elk.spacing.nodeNode': '56',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '72',
       'elk.padding': '[top=24,left=24,bottom=24,right=24]',
+      'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
     },
     children,
     edges: elkEdges,
   }
 
   const result = await elk.layout(graph)
-  return mapCompoundResult(nodes, result)
+  const laidNodes = mapCompoundResult(nodes, result)
+
+  // 提取 group 容器的位置和尺寸
+  const layoutGroups: LayoutGroup[] = []
+  for (const group of result.children ?? []) {
+    const groupId = group.id.replace(/^group:/, '')
+    const label = groupId === '__none__' ? '其他' : groupId
+    layoutGroups.push({
+      id: group.id,
+      label,
+      position: { x: group.x ?? 0, y: group.y ?? 0 },
+      width: group.width ?? 300,
+      height: group.height ?? 200,
+    })
+  }
+
+  return { nodes: laidNodes, groups: layoutGroups }
 }
 
 async function elkLayered(
@@ -230,15 +271,15 @@ function findGroup(nodeId: string, groups: Map<string, FcgViewNode[]>): string {
  * - 新增节点：按新布局给的位置
  */
 export function mergeWithPrevious(
-  laid: LaidOutNode[],
+  result: LayoutResult,
   previous: Map<string, { x: number; y: number }>,
-): { merged: LaidOutNode[]; newIds: Set<string> } {
+): { merged: LaidOutNode[]; newIds: Set<string>; groups: LayoutGroup[] } {
   const newIds = new Set<string>()
-  const merged = laid.map((n) => {
+  const merged = result.nodes.map((n) => {
     const prev = previous.get(n.view.id)
     if (prev) return { ...n, position: prev }
     newIds.add(n.view.id)
     return n
   })
-  return { merged, newIds }
+  return { merged, newIds, groups: result.groups }
 }

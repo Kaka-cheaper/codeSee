@@ -93,9 +93,26 @@ function buildOverviewView(file: FeaturesFile): FcgViewResult {
     })
   }
 
-  // overview 边：把跨 feature 的关系上卷到 epic 之间
+  // overview 边：epic_flow（主线）+ cross_feature 上卷
   const edgeKey = new Set<string>()
   const edges: FcgViewEdge[] = []
+
+  // 1. epic_flow 主线
+  for (const ef of file.epic_flow ?? []) {
+    const id = `epic-flow:${ef.from}->${ef.to}`
+    if (edgeKey.has(id)) continue
+    edgeKey.add(id)
+    edges.push({
+      id,
+      source: `epic:${ef.from}`,
+      target: `epic:${ef.to}`,
+      kind: 'epic-link',
+      scope: 'epic',
+      label: ef.note ?? ef.kind,
+    })
+  }
+
+  // 2. cross_feature 上卷到 epic 之间（补充 epic_flow 没覆盖的）
   const featureToEpic = new Map<string, string>()
   for (const f of file.features) {
     featureToEpic.set(f.id, f.epicId ?? '__none__')

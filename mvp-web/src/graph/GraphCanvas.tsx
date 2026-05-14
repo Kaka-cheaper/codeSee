@@ -26,6 +26,8 @@ import { StepNodeView, type StepNodeData } from './StepNodeView'
 import { FLOW_META, ROLE_META } from './roleMeta'
 import { DetailsPanel } from './DetailsPanel'
 
+import { EpicGroupBg, type EpicGroupBgData } from './EpicGroupBg'
+
 interface Props {
   file: FeaturesFile
 }
@@ -34,6 +36,7 @@ const nodeTypes = {
   epic: EpicNodeView,
   feature: FeatureNodeView,
   step: StepNodeView,
+  epicGroup: EpicGroupBg,
 }
 
 const defaultEdgeOptions = { type: 'smoothstep' as const }
@@ -68,7 +71,7 @@ function GraphInner({ file }: Props) {
   const [newNodeIds, setNewNodeIds] = useState<Set<string>>(new Set())
 
   /** 布局后的 React Flow 节点和边 */
-  const [rfNodes, setRfNodes] = useState<Node<EpicNodeData | FeatureNodeData | StepNodeData>[]>([])
+  const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
 
   /** 异步布局 */
@@ -79,7 +82,7 @@ function GraphInner({ file }: Props) {
     const syncLaid = layoutViewSync(view.nodes)
     const prevForView = positionsRef.current.get(viewKey)
     if (prevForView && prevForView.size > 0) {
-      const { merged, newIds } = mergeWithPrevious(syncLaid, prevForView)
+      const { merged, newIds } = mergeWithPrevious({ nodes: syncLaid, groups: [] }, prevForView)
       setRfNodes(toRfNodes(merged, newIds))
       setRfEdges(view.edges.map((e) => buildEdge(e, newIds)))
       setNewNodeIds(newIds)
@@ -89,22 +92,24 @@ function GraphInner({ file }: Props) {
     }
 
     // 然后跑 ELK 异步布局
-    layoutViewAsync(view.nodes, view.edges).then((laid) => {
+    layoutViewAsync(view.nodes, view.edges).then((layoutResult) => {
       if (cancelled) return
       const prev = positionsRef.current.get(viewKey)
-      let finalLaid = laid
+      let finalNodes = layoutResult.nodes
       let newIds = new Set<string>()
+      let groups = layoutResult.groups
       if (prev && prev.size > 0) {
-        const r = mergeWithPrevious(laid, prev)
-        finalLaid = r.merged
+        const r = mergeWithPrevious(layoutResult, prev)
+        finalNodes = r.merged
         newIds = r.newIds
+        groups = r.groups
       }
       // 写回缓存
       const next = new Map<string, { x: number; y: number }>()
-      for (const n of finalLaid) next.set(n.view.id, n.position)
+      for (const n of finalNodes) next.set(n.view.id, n.position)
       positionsRef.current.set(viewKey, next)
 
-      setRfNodes(toRfNodes(finalLaid, newIds))
+      setRfNodes(toRfNodes(finalNodes, newIds, groups))
       setRfEdges(view.edges.map((e) => buildEdge(e, newIds)))
       setNewNodeIds(newIds)
     })
@@ -208,13 +213,25 @@ function GraphInner({ file }: Props) {
 
 /* --------------------------------------------------------- helpers */
 
-import type { LaidOutNode } from './layout'
+import type { LaidOutNode, LayoutGroup } from './layout'
 
 function toRfNodes(
   laid: LaidOutNode[],
   newIds: Set<string>,
-): Node<EpicNodeData | FeatureNodeData | StepNodeData>[] {
-  return laid.map(({ view: v, position }) => {
+  groups: LayoutGroup[] = [],
+): Node[] {
+  // group 背景节点放最前面（z-index 最低）
+  const groupNodes: Node<EpicGroupBgData>[] = groups.map((g) => ({
+    id: g.id,
+    type: 'epicGroup',
+    position: g.position,
+    draggable: false,
+    selectable: false,
+    data: { label: g.label, width: g.width, height: g.height },
+    style: { zIndex: -1 },
+  }))
+
+  const featureNodes = laid.map(({ view: v, position }) => {
     const isNew = newIds.has(v.id)
     const baseData = { view: v, isNew } as unknown as
       | EpicNodeData
@@ -228,6 +245,8 @@ function toRfNodes(
     }
     return { id: v.id, type: 'step', position, data: baseData }
   })
+
+  return [...groupNodes, ...featureNodes] as Node[]
 }
 
 function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {

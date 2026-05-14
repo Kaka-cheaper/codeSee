@@ -114,6 +114,15 @@ export interface CrossFeatureLink {
   note?: string
 }
 
+export type EpicFlowKind = 'next' | 'depends_on' | 'enables'
+
+export interface EpicFlow {
+  from: string  // epic id
+  to: string    // epic id
+  kind: EpicFlowKind
+  note?: string
+}
+
 export interface FcgManifest {
   repo?: string
   commit?: string
@@ -127,6 +136,8 @@ export interface FeaturesFile {
   epics: Epic[]
   features: Feature[]
   cross_feature?: CrossFeatureLink[]
+  /** Epic 之间的主线关系：用户故事的宏观流向 */
+  epic_flow?: EpicFlow[]
 }
 
 export function emptyFeatures(): FeaturesFile {

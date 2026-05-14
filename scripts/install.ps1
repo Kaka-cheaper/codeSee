@@ -89,7 +89,15 @@ foreach ($name in @('scan.md','scan-light.md','scan-heavy.md','sync.md')) {
   Write-Host "  - wrote .codesee/prompts/$name"
 }
 
-# 3. .codesee/.gitignore
+# 3. .codesee/scripts/* (validator)
+$dstScripts = Join-Path $TargetDir '.codesee/scripts'
+New-Item -ItemType Directory -Force -Path $dstScripts | Out-Null
+$validatorSrc = Join-Path $Self 'scripts/validate-features.mjs'
+$validatorDst = Join-Path $dstScripts 'validate-features.mjs'
+Copy-Item -Force $validatorSrc $validatorDst
+Write-Host "  - wrote .codesee/scripts/validate-features.mjs"
+
+# 4. .codesee/.gitignore
 $gitignore = Join-Path $TargetDir '.codesee/.gitignore'
 if (-not (Test-Path $gitignore)) {
   $gi = @(

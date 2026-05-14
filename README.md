@@ -21,6 +21,7 @@
 ├── AGENTS.md                      ← 入口规则（AI 自动读取）
 ├── .codesee/
 │   ├── prompts/{scan,scan-light,scan-heavy,sync}.md
+│   ├── scripts/validate-features.mjs   ← 结构校验器
 │   ├── .gitignore
 │   └── features.json              ← AI 写入 / 人工编辑
 └── ... 项目自己的代码
@@ -29,7 +30,9 @@ codeSee/                           ← viewer 独立放着
 ├── mvp-web/                       ← 起 dev server，加载远程 features.json
 ├── prompts/                       ← 模板源
 ├── templates/AGENTS.md            ← 模板源
-└── scripts/install.{ps1,sh}       ← 一键安装到目标项目
+└── scripts/
+    ├── install.{ps1,sh}           ← 一键安装到目标项目
+    └── validate-features.mjs      ← 校验脚本源（被 install 拷到目标项目 .codesee/scripts/）
 ```
 
 ## 使用流程（推荐）
@@ -47,6 +50,7 @@ codeSee/                           ← viewer 独立放着
 这会把以下文件注入目标项目：
 - `AGENTS.md`：如果目标项目已经有自己的 AGENTS.md，脚本会**追加** CodeSee 段落到末尾（用 `<!-- BEGIN/END: CodeSee integration -->` 标记），不会覆盖原内容。再次运行幂等；加 `-Force` / `--force` 会原地刷新这一段。
 - `.codesee/prompts/*.md`
+- `.codesee/scripts/validate-features.mjs`：结构校验器，AI 写完 features.json 后必须 `node .codesee/scripts/validate-features.mjs` 自检
 - `.codesee/.gitignore`
 
 ### 启动 viewer（一次启动，多项目共享）
@@ -124,8 +128,13 @@ codeSee/
 │   ├── scan-light.md            轻型项目（一次产出）
 │   ├── scan-heavy.md            重型项目（四阶段累积）
 │   └── sync.md                  增量同步
-├── templates/AGENTS.md          AI 入口规则模板
-├── scripts/install.{ps1,sh}     一键安装到目标项目
+├── templates/                   AGENTS 模板源
+│   ├── AGENTS.md                空白项目用的完整模板
+│   └── AGENTS-snippet.md        已有 AGENTS.md 时追加用的片段
+├── scripts/
+│   ├── install.{ps1,sh}         一键安装到目标项目
+│   └── validate-features.mjs    features.json 校验器源（被 install 拷到 .codesee/scripts/）
+├── docs/review-checklist.md     人工评审 features.json 的清单
 ├── problem.md                   开发历史归档
 └── README.md
 ```

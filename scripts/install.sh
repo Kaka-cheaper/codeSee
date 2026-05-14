@@ -73,7 +73,12 @@ for name in scan.md scan-light.md scan-heavy.md sync.md; do
   echo "  - wrote .codesee/prompts/$name"
 done
 
-# 3. .codesee/.gitignore
+# 3. .codesee/scripts/* (validator)
+mkdir -p "$TARGET/.codesee/scripts"
+cp -f "$SELF_DIR/scripts/validate-features.mjs" "$TARGET/.codesee/scripts/validate-features.mjs"
+echo "  - wrote .codesee/scripts/validate-features.mjs"
+
+# 4. .codesee/.gitignore
 gitignore="$TARGET/.codesee/.gitignore"
 if [[ ! -f "$gitignore" ]]; then
   cat > "$gitignore" <<'EOF'

@@ -334,3 +334,31 @@
    - 新增：`templates/AGENTS-snippet.md`
    - 改动：`scripts/install.ps1`（ASCII 输出 + 三态追加逻辑）、`scripts/install.sh`（同步改造）、`README.md`
 应当达成的效果：用户跑 install 脚本可以无视目标项目是否已有 AGENTS.md：没有就建、有就追加、再跑就幂等、加 -Force 就刷新；ASCII 输出在任意 PowerShell 版本下都不会被编码截断；Polisim 端 AGENTS.md 末尾已带完整 CodeSee 段落，AI 读到即可按触发 1 执行扫描，进入正式可用阶段。下一步：在 Polisim 实际触发扫描，跑完后把 .codesee/features.json 拖入 viewer 验证可视化效果。
+
+---
+
+问题16：用户提出三件需要优化的事——(1) 前端布局算法和细节；(2) AI 写 features.json 的 prompt 是真正的护城河，需要重点优化；(3) 实时更新时新节点淡入、并应当先在新旧节点合并后的图上做布局再让新节点淡入。
+解决方案：
+1. 排序优先级，明确 1+3 是确定性工作可以立刻做、2 应该基于一次真实运行的失败样本做精准修订（闭门改 prompt 浪费 token 且不知改对没改对）。
+2. 接入 dagre 布局：
+   - 安装 `@dagrejs/dagre`，重写 `layout.ts`：节点尺寸按 kind 分档（epic 280×96 / feature 280×132 / step 220×80），rankdir 默认 LR、ranksep=90、nodesep=36，acyclicer=greedy 容忍 loop 边；
+   - 新增 `layoutWithMemory(nodes, edges, previous)`：先用 dagre 跑一遍新布局，已存在节点复用上次位置，新节点按新布局给出位置并返回 `newIds` 集合——这是"先布好局再让新节点淡入"的关键。
+3. GraphCanvas 重构：
+   - 引入"视图键"`viewKeyOf(state)`：overview / features / steps:{featureId}；不同视图各自一桶 positionsRef，避免跨视图节点位置串台；
+   - useMemo 内调用 layoutWithMemory，写回当前视图桶；通过 queueMicrotask 把 newIds 上抛到 setNewNodeIds 触发淡入；
+   - 边检测端点是否是新节点，是则用 `edge-fade-in` keyframe 让连线也淡入；
+   - 切视图时通过 useEffect + setTimeout 调 `reactFlow.fitView({ duration: 320 })` 做软过渡；
+   - 顶部居中加 "+N 个新节点" 小徽章提示用户 AI 这一轮加了几个。
+4. 三个节点视图（Epic / Feature / Step）NodeData 增加 isNew 字段，节点根容器命中 isNew 时叠加 `is-new-node` className。
+5. CSS 在 index.css 加两个 keyframe：
+   - `new-node-fade-in`（420ms cubic-bezier）：opacity 0→1 + scale 0.96→1，比之前的 `node-enter` 更克制不抖动；
+   - `edge-fade-in`（360ms ease-out）：opacity 0→0.9，与节点淡入协调；
+   保留原 `node-enter` 用作备用。
+6. 关键设计校验：用户重新打开新文件（loadFromFile）→ App 触发 setFile → GraphCanvas 重渲染 → useMemo 拿到新 view + 旧 positionsRef.current → 自动 diff 出 newIds → 节点淡入。整个流程不需要任何文件 watch，单 tab 内反复"打开"即可获得"实时更新"体验。
+7. 暂不动 prompt，但产出准备性工作：新增 `docs/review-checklist.md`——七大维度（覆盖度、粒度、语义质量、cross_feature、refs、置信度真实性、Epic 划分）与反馈格式模板，引导用户跑完 Polisim 后用结构化反馈代替凭感觉判断。
+8. 验证：tsc -b 0 错；vite build 通过（CSS gzip 7.05KB / JS gzip 148.27KB，dagre 增加约 14KB gzip 可接受）；HMR 已推送至 dev server。
+9. 提交两次：`feat(canvas): 接入 dagre 布局 + 新节点稳定淡入`、`docs: 新增 features.json 评审清单，便于真实运行后定向改 prompt`。
+修改的代码文件：
+   - 新增：`mvp-web/src/graph/nodeAnim.ts`、`docs/review-checklist.md`
+   - 改动：`mvp-web/package.json`（dagre）、`mvp-web/src/graph/{layout.ts,GraphCanvas.tsx,EpicNodeView.tsx,FeatureNodeView.tsx,StepNodeView.tsx}`、`mvp-web/src/index.css`
+应当达成的效果：刷新画布后所有视图采用 dagre 真布局，节点不再因尺寸不一互相挤压；用户重新加载（同视图）相同结构 + 新增内容的 features.json 时，旧节点位置完全不变，新节点在该有的位置上以淡入动画出现，相关边一并淡入；切视图时各视图独立保持各自布局缓存、视图切换走 fitView 平滑过渡。下一步 prompt 优化等待 Polisim 真实运行反馈，依据 review-checklist 给出结构化问题清单，再针对真实失败样本做精准修订，避免无的放矢。

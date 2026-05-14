@@ -116,7 +116,18 @@ type CrossFeatureLink = {
 
 ## 完成后
 
-写入 `.codesee/features.json`，然后用人话**简短**总结：
+写入 `.codesee/features.json`，然后**立即跑校验**：
+
+```bash
+node .codesee/scripts/validate-features.mjs
+```
+
+读取退出码：
+- 0 → 通过
+- 1 → 有结构错误，按报错修复后再跑，**直到通过**
+- 2 → 文件/JSON 异常
+
+通过校验后，再用人话**简短**总结：
 
 ```
 - 发现 N 个 epic、M 个 feature

@@ -39,6 +39,16 @@ step 必须是**动作语义**，不是代码层面的实现细节：
 只输出一个完整 JSON，结构完全等同 `features.json`，不要 markdown 包裹。
 然后把它**覆盖写入** `.codesee/features.json`。
 
+写入后**立即跑校验**：
+
+```bash
+node .codesee/scripts/validate-features.mjs
+```
+
+- 退出码 0 → 通过，进入下方"变更摘要"
+- 退出码 1 → 必须按报错修复并再跑校验，**直到通过**才能告诉用户"完成"
+- 退出码 2 → 排查文件/JSON 问题
+
 写完后用人话简短总结这一轮：
 
 ```

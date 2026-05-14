@@ -1,132 +1,95 @@
-# CodeSee · 扫描模式 Prompt
+# CodeSee · 扫描模式 Prompt（入口）
 
-> 用途：第一次接入一个项目，让 AI 通读代码后产出一份语义化的 `features.json`。
-> 适用：任何 AI IDE（Cursor / Claude Code / Kiro / Copilot Chat / ChatGPT 等）。
-> 用法：把整段拷给 AI，按需替换 `<项目根>` 等占位符。
+> 用途：第一次接入一个项目，让 AI 通读代码后产出 `features.json`。
+> 用法：把整段拷给 AI（任何 IDE 都行），它会先做项目规模自检，再选对应子 prompt 执行。
 
 ---
 
-## 你的任务
+## 我希望你做什么
 
-阅读项目代码，从**用户/业务可感知的功能**视角，生成 `features.json`，
+阅读项目代码，从**用户/业务可感知的功能**视角，生成一份 `features.json`，
 让另一个不看代码的人能在画布上理解"这个项目都有哪些功能、每个功能怎么发生的"。
 
-**核心要求：你描述的是语义流程，不是调用关系。**
-不要写 import / call / 函数名拼接的链路；要写"先做什么、然后做什么"的人类语言步骤。
-
+> **核心要求：你描述的是语义流程，不是调用关系。**
 > 类比：如果功能是"西红柿炒鸡蛋"，你要写的是"备菜 → 打蛋 → 热油 → 下锅 → 调味 → 出锅"，
 > 不是"`prepare()` 调用 `slice()`，再调用 `whisk()`"。
 
-## 输出要求
+## 工具策略
 
-只输出一个完整的 JSON，不要 markdown 代码块包裹，不要解释。
-JSON 结构严格遵守下方 schema。
+**用你所在 IDE 自带的代码探索能力**（@Codebase / @workspace / Agent / file search / grep / read_file 等），不要自己模拟遍历或猜测目录结构。
 
-```ts
-type FeaturesFile = {
-  version: '0'
-  manifest: {
-    repo?: string         // 项目名/路径
-    commit?: string       // 当前 commit 短 hash（可选）
-    generated_at: string  // ISO 时间
-    generator?: string    // 例 'ai@claude-3.5-sonnet'
-  }
-  epics: Epic[]                       // 业务大块（"用户管理"、"订单"）
-  features: Feature[]                 // 用户可感知的功能（"添加用户"、"下单"）
-  cross_feature?: CrossFeatureLink[]  // 功能之间的关系
-}
+我不告诉你怎么探索代码，那是工具的事；我只告诉你**要找什么、产出什么**。
 
-type Epic = {
-  id: string                // 短 slug，如 'user'
-  name: string              // 中文名
-  summary?: string          // 一句话
-  tags?: string[]
-}
+## 第一步：项目规模自检
 
-type Feature = {
-  id: string                // 短 slug，如 'f-add-user'
-  name: string              // 中文名，2-10 字
-  summary?: string          // <=30 字描述
-  epicId?: string           // 归属的 epic id
-  triggers?: Trigger[]      // 触发方式
-  steps: Step[]             // 步骤数组
-  flow: Flow[]              // 步骤之间的"然后"关系
-  confidence: number        // 你的把握；不确定写 0.6
-  provenance: 'ai'          // 永远写 'ai'，除非用户已经手改过
-  locked?: boolean          // 永远不要把现有的 locked=true 改回 false
-  tags?: string[]
-  updated_at: string        // ISO 时间
-}
+先用工具读以下文件（存在就读，不存在跳过）：
 
-type Trigger = {
-  kind: 'http' | 'cli' | 'cron' | 'event' | 'ui' | 'manual' | 'startup' | 'unknown'
-  detail: string            // 'POST /api/users' / '每日凌晨 2 点' / '用户点击保存'
-}
+- `README.md` / `README*.md`
+- `package.json` / `pyproject.toml` / `requirements.txt` / `pom.xml` / `Cargo.toml` / `go.mod`
+- 顶层目录列表（一级 + 二级）
+- 路由 / 端点入口的目录（`routes/`、`api/`、`controllers/`、`urls.py`、`main.py` 等存在性）
 
-type Step = {
-  id: string                // feature 内唯一，短 slug
-  name: string              // 动作短语，2-8 字：'校验邮箱'、'查询用户'
-  role:
-    | 'input' | 'validation' | 'auth'
-    | 'data-read' | 'data-write'
-    | 'compute' | 'transform'
-    | 'side-effect' | 'output' | 'error' | 'other'
-  note?: string             // 一句话补充
-  refs?: { file: string; lines?: [number, number] }[]  // 指回源码
-}
+然后判断项目规模并**告诉我你的判断**：
 
-type Flow = {
-  from: string              // step.id
-  to: string                // step.id
-  kind: 'next' | 'async' | 'conditional' | 'loop' | 'error'
-  condition?: string        // conditional / loop 的条件描述
-}
-
-type CrossFeatureLink = {
-  from: string              // feature.id
-  to: string                // feature.id
-  kind: 'depends_on' | 'publishes' | 'subscribes' | 'triggers'
-  note?: string
-}
+```
+| 维度              | 轻型 (light)              | 重型 (heavy)                  |
+| ----------------- | ------------------------- | ----------------------------- |
+| 文件数            | < 100 个源码文件          | ≥ 100 个源码文件              |
+| 子模块/包          | 1-3 个                    | ≥ 4 个，或多服务/多前后端      |
+| 路由/端点数       | < 30                      | ≥ 30，或难以一次列全          |
+| 上下文一次能读完  | 是                        | 否，必须分块读                |
+| 业务领域数        | 1-3                       | ≥ 4                           |
 ```
 
-## 工作步骤
+只要任意 2 项命中"重型"，就走 heavy 流程。
 
-1. **快速通读项目**：路由表、入口、定时任务、事件订阅、CLI、UI 主要操作。
-2. **划 Epic**：按业务领域分 3-8 个，比如"用户、订单、支付、内容、运维"。
-3. **抽 Feature**：每个用户/业务能用一句话说清楚的能力都是一个 feature。粒度建议：
-   - 一个 HTTP 端点通常 = 一个 feature
-   - 一组 CRUD 端点可以共享 epic 但分别写 feature
-   - 后台任务、定时器、事件订阅都算 feature
-4. **为每个 Feature 写 steps + flow**：
-   - step 数量建议 3-10 个，太多说明粒度太细，应该拆成多个 feature
-   - 用动作短语命名（动词起头）：'接收请求'、'校验输入'、'查询用户'、'返回响应'
-   - 别把语法层细节当 step（比如"调用 bcrypt.compare"应该写成"比对密码"）
-   - flow 用 next 表示顺序，async 表示触发后不等待，conditional 表示分支，error 表示错误分支
-5. **挂 refs**（可选但推荐）：每个 step 至少挂一条 file 引用，方便后续点开看代码。
-6. **cross_feature**：如果功能 A 完成后会触发功能 B，写一条 triggers/publishes 关系。
+## 第二步：按规模选择子 prompt 执行
 
-## 命名约束
+- **轻型项目** → 完整执行 `prompts/scan-light.md`
+- **重型项目** → 完整执行 `prompts/scan-heavy.md`
 
-- feature.id 用 `f-xxx` 前缀，slug 全小写连字符
-- epic.id 用单词或短词组，如 `user`、`order`、`content`
-- step.id 在 feature 内唯一，短 slug：`input`、`validate`、`save`、`ok`、`fail`
-- step.name 必须中文动词短语，禁止用代码标识符做名字
+**告诉我你选了哪一档**，再开始执行对应文件里的步骤。如果你看不到那两份子文件，请要求我提供。
 
-## 质量自检（输出前自查一遍）
+## 通用约束（两档都适用）
 
-- [ ] 没有任何 step 写成函数名 / 类名 / 文件名
-- [ ] 每个 feature 有清晰的入口 step 和至少一个出口 step
-- [ ] flow 没有自环，没有指向不存在的 step.id
-- [ ] confidence 真实反映把握：跨多个文件且约定模糊的写 0.5-0.7，明确的写 0.9+
-- [ ] manifest.generated_at 是真实 ISO 时间
-- [ ] 输出是单个 JSON 对象，不是数组，不带 markdown
+### 命名
 
-## 写入位置
+- `feature.id` 用 `f-xxx` 前缀，slug 全小写连字符
+- `epic.id` 用单词或短词组：`user`、`order`、`content`
+- `step.id` 在 feature 内唯一：`input`、`validate`、`save`、`ok`、`fail`
+- `step.name` 必须**中文动词短语**，2-8 字，禁止用代码标识符做名字
 
-把生成的 JSON **覆盖写入**：
+### "调用 → 语义"反例对照
+
+| 不要写                       | 要写                       |
+| ---------------------------- | -------------------------- |
+| `调用 bcrypt.compare`        | 比对密码                   |
+| `执行 SQL select`            | 查询用户                   |
+| `用 zod 解析 body`           | 校验输入                   |
+| `await fetch(...)`           | 调用支付网关               |
+| `setState(...)`              | 更新视图状态               |
+| `调用 UserService.create`    | 创建用户                   |
+
+### 写入位置
+
+最终把生成的 JSON **覆盖写入**：
+
 ```
 mvp-web/public/features.json
 ```
 
-完成后简短总结：发现 N 个 epic、M 个 feature，最复杂的功能是哪个，还有哪些没把握的地方。
+只输出**单个 JSON 对象**到该文件，不要 markdown 包裹、不要解释、不要数组顶层。
+
+### Schema（速查；完整定义见对应子 prompt）
+
+```ts
+type FeaturesFile = {
+  version: '0'
+  manifest: { repo?: string; commit?: string; generated_at: string; generator?: string }
+  epics: Epic[]
+  features: Feature[]
+  cross_feature?: CrossFeatureLink[]
+}
+```
+
+完整字段约束写在 `scan-light.md` / `scan-heavy.md` 里。

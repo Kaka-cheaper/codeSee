@@ -234,3 +234,35 @@
 9. 等用户拍板再动手；首要交付物预计是一份"用户登录 + 添加用户"的手工 features.json + 画布在 FCG 数据下的视觉效果，先验证质感再继续。
 修改的代码文件：无（停下来做方案校正，未动代码）。
 应当达成的效果：用户与 AI 对项目方向重新对齐，明确"代码图 vs 语义流程图"的本质差异，确立 FCG 作为新主合同与"AI 直接产出 + 人工修正"的工作流；同时保留画布与设计系统投入、避免推翻重来；明确等待用户回答三个关键问题后再开始迁移，避免再次走偏。
+
+---
+
+问题12：用户拍板三个关键问题——功能粒度全要（Epic + Feature + Step 三层）、IDE 不影响 prompt、ts-adapter/annotator 直接删干净（git 仓库可回溯），授权开始迁移。
+解决方案：
+1. 删除全部历史包：`packages/ucg-schema`、`packages/ts-adapter`、`packages/ucg-annotator`、根 `package.json`（workspaces）、`package-lock.json`、`mvp-web/src/ucg/`、`mvp-web/public/{ucg,annotations}.json`，以及旧节点视图 `UcgNodeView.tsx` / `GroupNodeView.tsx` / `NodeDetailsPanel.tsx` / `aggregation.ts` / `kindMeta.ts`。期间因 dev server 占用 .node 文件，先停进程再二次清理 node_modules。共净删 4080 行（含 lockfile）。
+2. 新增 FCG (Feature & Flow Graph) schema 在 `mvp-web/src/fcg/types.ts`：三层粒度 Epic→Feature→Step；Feature 包含 triggers (http/cli/cron/event/ui/manual/startup/unknown)、steps (11 类 role) 与 flow (next/async/conditional/loop/error)；可选 cross_feature 跨功能关系（depends_on/publishes/subscribes/triggers）；Feature 自带 confidence/provenance/locked/tags/updated_at；提供 `emptyFeatures()` 工厂。
+3. `mvp-web/public/features.json` 写入示例数据：用户管理 + 订单结算两个 Epic、4 个 Feature（用户登录 / 添加用户 / 查询列表 / 下单结算），覆盖 next/async/conditional/loop/error 全部 flow kind 与全部 11 类 role，便于一次性验证视觉效果。
+4. `src/fcg/loader.ts` 简单 fetch + 校验 version=0；`src/graph/fcgView.ts` 实现三种视图模式 buildView：
+   - overview：渲染 Epics，cross_feature 关系上卷为 Epic 之间的虚线；
+   - features：渲染所有 Feature 卡片 + cross_feature 关系；
+   - steps（带 focusedFeatureId）：渲染单个 Feature 内部的 Step + Flow；
+   - 未归属 Epic 的 features 会落入虚拟 Epic '其他'。
+5. `src/graph/roleMeta.ts` 集中节点角色与 flow kind 的视觉元数据：11 类 role 各自一对 bg/fg/minimap 颜色（同饱和度不同色相，认证/副作用/错误用暖色族，数据/校验用冷色族），保持暖白主题统一调；FlowKind 的视觉 dashed/animated 也在这里集中。
+6. 三个新节点视图 `EpicNodeView` / `FeatureNodeView` / `StepNodeView`，均 React.memo：
+   - Epic：层叠图标 + 名称 + featureCount + summary；
+   - Feature：trigger 类型决定图标（HTTP→Network、CLI→Terminal、Cron→Clock 等），AI 来源带 Bot 图标，locked 带锁，低置信度显示 ~confidence；
+   - Step：按 role 渲染图标与色块（11 个 LucideIcon 映射），可选展示 note；
+7. `GraphCanvas.tsx` 重构：用 buildView 构建视图、`onNodeDoubleClick` 把 epic 双击→features 视图、feature 双击→该 feature 的 steps 视图；左上角加视图切换器（概览/功能/流程，三段开关 + 当前 focused feature 名提示）；保留 onlyRenderVisibleElements / nodesConnectable=false / smoothstep 默认边 / dashed-async 视觉。
+8. `DetailsPanel.tsx` 重写：Epic 节点显示 summary 与包含的 features 列表；Feature 节点显示 summary、triggers、有序 steps（带 role 色块）、关联功能、tags 标签云；Step 节点显示所属功能、note、refs 源码位置；header 区分 Epic/Feature/Step 三类徽标，AI/locked 显式标识。
+9. `App.tsx` 改为加载 features.json，没有时显示空状态卡片（提示用户 prompt 路径与文件位置）；`TopBar.tsx` 顶部统计改为 epics 数 + features 数；移除全部 ucg 相关引用。
+10. mvp-web `package.json` 移除 `@codesee/ucg-schema` 依赖；重新 npm install；`tsc -b` 0 错；vite build 通过（CSS gzip 6.73KB / JS gzip 133.17KB）；dev server 起在 `http://localhost:5173/`。
+11. 新增 `prompts/scan.md`（扫描模式）与 `prompts/sync.md`（增量同步）：均为通用 prompt，不绑定特定 IDE；scan 包含完整 schema、命名约束、质量自检；sync 强调"只动受影响的 feature、永不改 locked"、提供"调用→语义"的反例对照表、列出边界情况（纯重构 / 跨多 feature / 新文件未接入 / 删除功能）的处理协议。
+12. 新增 `README.md`：核心理念（语义级流程图、AI 主导数据源、画布只读 JSON、人工锁定）、三层粒度示意、扫描/协作/启动三种工作流、项目结构、FCG schema 速查、设计原则。
+13. `.gitignore` 简化：移除对 ucg.json/annotations.json 的忽略；features.json **入库**——它是项目核心数据，需要 review 与 git diff 跟踪。
+14. 提交：`feat: 转向 FCG（语义流程图），删除旧的 UCG/调用图链路`，46 个文件改动（删 23 / 增 14 / 改 9），净 -4080 行。
+修改的代码文件：
+   - 删除：`packages/`、`mvp-web/src/ucg/`、`mvp-web/public/{ucg,annotations}.json`、四个旧节点视图与聚合层、根 workspace package.json/lockfile
+   - 新增：`mvp-web/src/fcg/{types,loader}.ts`、`mvp-web/src/graph/{fcgView,roleMeta,EpicNodeView,FeatureNodeView,StepNodeView,DetailsPanel}.tsx`、`mvp-web/public/features.json`、`prompts/{scan,sync}.md`、`README.md`
+   - 改动：`mvp-web/{App,app/TopBar,graph/GraphCanvas,graph/layout,package.json}`、`.gitignore`
+应当达成的效果：刷新 `http://localhost:5173/` 可看到示例 4 个功能、2 个 Epic 的语义流程图；左上角"概览/功能/流程"三档切换，双击 Epic→功能、双击 Feature→流程；流程视图里能直观看到"接收→校验→查用户→比对→签 token→返回 / 异步发邮件"这种动作链；详情面板可下钻到 step 的源码 refs（如 AI 在 prompt 中如实填写）；项目代码量大幅瘦身，仅保留 mvp-web 单仓库；任何 AI IDE 拷 prompts/scan.md 即可产出 features.json，prompts/sync.md 用于每轮改动后的增量同步；features.json 入库以便 review 与回滚。
+下一步建议：在真实项目跑一次扫描模式，验证 AI 产出的 features.json 在画布上的真实质感与可读性，再决定是否补"画布内编辑标注 + 写回"或"细化跨 feature 视觉/搜索筛选"等增强。

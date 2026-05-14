@@ -28,8 +28,13 @@ Epic       业务大块            (用户管理 / 订单)
 
 ### 第一次接入项目（扫描模式）
 
-把 [`prompts/scan.md`](./prompts/scan.md) 整段拷给 AI（Cursor / Claude / Kiro / 任何 IDE），
-让 AI 通读项目后产出一份 `features.json` 写到 `mvp-web/public/features.json`。
+把 [`prompts/scan.md`](./prompts/scan.md) 整段拷给 AI（任何 IDE 都行）。
+它会先做一次项目规模自检，然后自动选 [`scan-light.md`](./prompts/scan-light.md) 或 [`scan-heavy.md`](./prompts/scan-heavy.md) 执行：
+
+- **轻型** (< 100 文件)：一次性产出完整 `features.json`
+- **重型** (≥ 100 文件 / 多模块 / 多服务)：分四阶段累积——建索引 → 分块深入 → 交叉关系 → 自检回补
+
+最终输出到 `mvp-web/public/features.json`。
 
 ### 协作开发中（增量同步）
 
@@ -62,8 +67,10 @@ codeSee/
 │   └── public/
 │       └── features.json    ★ 数据源：AI 产出 / 人工编辑
 ├── prompts/
-│   ├── scan.md              扫描模式 prompt
-│   └── sync.md              增量同步 prompt
+│   ├── scan.md              扫描模式入口（自检规模 → 路由）
+│   ├── scan-light.md        轻型项目（一次产出）
+│   ├── scan-heavy.md        重型项目（四阶段累积）
+│   └── sync.md              增量同步
 ├── problem.md               问题与方案历史归档
 └── README.md
 ```

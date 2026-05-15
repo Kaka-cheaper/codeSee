@@ -417,3 +417,146 @@
    - 新增：`mvp-web/src/app/ErrorBoundary.tsx`
    - 改动：`mvp-web/src/main.tsx`（包 ErrorBoundary）、`mvp-web/src/graph/{GraphCanvas,StepNodeView,FeatureNodeView,DetailsPanel}.tsx`（enum 访问 fallback）、`mvp-web/src/fcg/loader.ts`（localStorage 自愈）、`prompts/scan.md`（严格枚举速查与误区映射）、`prompts/scan-light.md`（schema 块 ⚠ 反例）、`templates/AGENTS.md` 与 `templates/AGENTS-snippet.md`（严格枚举小节）
 应当达成的效果：用户刷新 viewer 即可正常显示画布（即使 features.json 里有非法 enum，viewer 也会容错降级而不是白屏）；让 AI 在 Polisim 重跑 sync/scan，新写出来的 features.json 应严格遵循枚举不再编造；validator 自检通过后再加载到 viewer，所有节点能按正确 role 着色；本次修复确立了"prompt 优化基于真实失败样本"的方法论——validator 报告就是最好的 prompt 改进依据。
+
+---
+
+问题19：用户基于 docs/review-checklist.md 在 Polisim 跑完扫描后给出系统化反馈：(a) 漏 feature（PreRun 介绍页 / WS 重连 / Finished 页 5 个 tab 中 4 个 / lifespan error 分支）；(b) 多余 feature（f-thought-bubble、f-mini-dashboard 应是组件不是 feature）；(c) step.name 25 处英文标识符（"推送 tick_advanced"），prompt 没硬约束；(d) 流程顺序错（auto-repause 与 broadcast 并行画成线性，掩盖"广播 model_copy 改写后 result"关键事实）；(e) 22/40 漏 error 分支；(f) cross_feature 全是 triggers（24/40 = 60%），publishes 仅 4 条 = 10%，结构性失衡——AI 对发布订阅模型敏感度差；(g) 用户主导航链 Gallery→PreRun→Running→Finished 没在 cross_feature 体现；(h) confidence 33/40 都是 0.85（默认值惯性）；(i) v0.2 vs v0.3+ 状态信息丢失（未实施代码段没标 unverified）。
+解决方案：
+1. 把 8 大类问题归到 prompt 缺什么的根因层：AI 默认走快乐路径 / 把组件当 feature / 路由全表对照缺失 / 异步与发布订阅敏感度低 / 默认值惯性 / 用户主流程连续性丢失。
+2. scan-light 大幅扩充"工作步骤"：
+   - 新增 Feature vs Component 判别（反问"用户用一句话能说清楚的能力吗？"，多 tab UI 每 tab 至少一个 feature）
+   - step.name 硬约束扩展为四类禁忌（英文标识符 / 函数调用形式 / 事件名照搬 / "调用 X" 后跟英文）
+   - "异步识别"专节：消息/队列/WebSocket/跨线程/fire-and-forget/mutation 链 → flow.kind=async；同 feature 内既返回结果又通知则通知边必须 async
+   - "错误分支强制"专节：参数/资源/鉴权/依赖/业务规则五类必须思考一遍
+   - cross_feature 关系比例约束：项目有 WebSocket / 事件总线 → publishes/subscribes ≥ 30%
+   - confidence 校准：4 档明示，全 0.85 视为偷懒信号
+3. scan-heavy 同样规则下沉到"阶段 2.3 step 粒度规则"和"阶段 2.4 边界情况协议"，确保写过程中就避免，不仅仅是阶段 4 才修。阶段 4 自检 checklist 由 6 条扩展到 7 大类约 30 条。
+4. scan-heavy 阶段 3 完全重写——四类关系判别明确化（trigger/depends_on/publishes/subscribes 各给具体例子）；用户主导航流程显式化；比例自检（项目有事件机制 → publishes/subscribes ≥ 30%）；强调"模糊不写"。
+5. validator 增加文件级智能警告 5 类（启发式不报错，作为建议）：
+   - error 分支覆盖率 < 40% 且暴露 feature ≥ 5 → 警告
+   - side-effect step 存在但 async 边占比 < 5% → 警告
+   - cross_feature triggers 占比 > 80% 且 publishes/subscribes = 0 → 警告
+   - 70% 以上 feature 同一 confidence 值 → 警告
+   - 大型 feature（≥9 step）名字含 "面板/看板/中心/详情页" → 警告（疑似多 tab 合并）
+6. validator step.name 启发式扩展：原 4 条（括号 / 调用前缀 / 全英标识 / 限定名）+ 新 1 条（中文里嵌 ASCII 标识符），并加 30 个常用术语白名单（JWT/DTO/API/HTTP/WS/SSE/JSON/CLI/UI...）避免误报。
+7. 自检验证：用 Polisim 真实 features.json 跑新 validator，三条新警告全部命中——"async 0%"对应 broadcast 画成 next、"33/40 confidence=0.85"对应默认值惯性、"运行中控制面板 10 步可能合并多 tab"完美命中 Finished 页问题。
+8. 同步到 Polisim：scripts/install.ps1 -Force 刷新所有 prompts 与 validator。
+9. 提交：`fix(viewer): ...`、`feat(prompt): ...`，validator 8 大类问题中机器自动捕获 5 类，剩 3 类（漏 feature / 关系结构性失衡 / 主流程缺失）由 prompt 硬约束承接。
+修改的代码文件：
+   - 改动：`prompts/{scan,scan-light,scan-heavy,sync}.md`、`templates/{AGENTS.md,AGENTS-snippet.md}`、`scripts/validate-features.mjs`
+应当达成的效果：基于 Polisim 真实失败样本对 prompt 做了一次精准修订；validator 能机器自动捕获 5 类常见 AI 失误并给出具体 path 与提示；下一次 AI 在任何项目跑 scan 后写出的 features.json，feature 粒度、async/error/conditional 边覆盖、cross_feature 关系类型多样性、confidence 真实度都会显著改善。
+
+---
+
+问题20：用户在 viewer 选择 Polisim 真实生成的 features.json 后页面变空白；怀疑是文件过长。
+解决方案：
+1. 用 validator 直接定位真因：314 错误，AI 编造了 schema 之外的枚举值——`step.role` 用 logic/init/cleanup（不在 11 类）、`flow.kind` 几乎全 undefined（schema 要求必填）、`trigger.kind` 用 internal/lifecycle/websocket（不在 8 类）。
+2. 渲染崩溃链：`FLOW_META[undefined]` → 访问 .stroke 抛 TypeError → React 渲染树整体卸载 → 白屏。文件长度无关。
+3. viewer 容错：所有 enum 访问点加 fallback——FLOW_META[e.kind] ?? FLOW_META.next；ROLE_META[stepRole] ?? ROLE_META.other；TRIGGER_ICON[trigger.kind] ?? TRIGGER_ICON.unknown；DetailsPanel/MiniMap nodeColor 同步处理。
+4. 顶层加 ErrorBoundary：捕获组件树异常显示友好错误卡（说明常见原因 + 提示运行 validator + 提供"清空缓存并重载"按钮），main.tsx 用它包住 App。
+5. loader 自愈：localStorage 里如果是坏数据，loadFromStorage 校验失败时立刻 removeItem 清掉，避免反复刷新都白屏。
+6. prompt 精准修订：
+   - scan.md 入口加"严格枚举速查表 + 常见编造误区映射"：业务计算 → compute（不是 logic）/ 初始化清理 → other / WebSocket → http / 应用启动 → startup / 内部触发 → event；明示 flow.kind 必填，不确定 next。
+   - scan-light schema 块的 Trigger / Step / Flow 三类型上方各加 ⚠ 反例对照。
+   - AGENTS.md 与 AGENTS-snippet.md 加"严格枚举"小节 + 兜底规则（不确定时 role=other / trigger=unknown / flow=next）。
+7. 重新跑 install.ps1 -Force 把更新后的 prompts/AGENTS-snippet/validator 全部铺到 Polisim/.codesee/。
+8. 提交：`fix(viewer): 未知枚举值容错 + ErrorBoundary 防白屏；prompt 强调严格枚举`。
+修改的代码文件：
+   - 新增：`mvp-web/src/app/ErrorBoundary.tsx`
+   - 改动：`mvp-web/src/main.tsx`、`mvp-web/src/graph/{GraphCanvas,StepNodeView,FeatureNodeView,DetailsPanel}.tsx`、`mvp-web/src/fcg/loader.ts`、`prompts/scan.md`、`prompts/scan-light.md`、`templates/AGENTS.md` 与 `templates/AGENTS-snippet.md`
+应当达成的效果：用户刷新即可正常显示画布（即使 features.json 里有非法 enum，viewer 也会容错降级而不是白屏）；让 AI 在 Polisim 重跑 sync/scan，新写出来的 features.json 应严格遵循枚举不再编造；本次修复确立"prompt 优化基于真实失败样本"的方法论——validator 报告就是最好的 prompt 改进依据。
+
+---
+
+问题21：功能视图布局问题——节点重叠、超出容器、容器没标题、内部节点挤在一起；用户提出"应当先布局节点再算容器尺寸"。
+解决方案：
+1. 引入"测量后布局"模式：第一帧把所有节点放 (0,0) 用 `style: { opacity: 0, pointerEvents: 'none' }` 渲染，让 React Flow 测量真实尺寸；50ms 后从 `reactFlow.getNodes()` 拿到 `measured.width/height`，再用真实尺寸跑 ELK。
+2. 节点尺寸恢复自适应（min-w/max-w）；layout 各 elk* 函数全部接受 `measuredSizes?: Map<string, {width, height}>`，存在则用真实尺寸否则退回 NODE_SIZE 默认。
+3. 容器 label 从 epicId 切到 Epic.name（中文）；ELK rectpacking 节点间距加大（28→52）+ padding 加大（top 16→56 容纳容器标题）。
+4. 用户反馈"功能界面所有容器排成一横排"——根因是 ELK direction:DOWN 但所有容器同层。改为：有跨组边时用 layered（方向感），无跨组边时用 rectpacking（紧凑瀑布流）。再次反馈"还是一横排"，根因是固定节点尺寸 280×132 与实际渲染尺寸不匹配。
+5. 实施 ELK compound nodes：每个 group 是一个 layered 子图（组内 cross_feature 边作为子图边），group 之间是父图的 layered/rectpacking。
+6. 提交：`feat(canvas): 功能视图加 Epic 容器分组 + cross_feature 连线 + schema 加 epic_flow`、`fix(layout): 容器用 Epic 中文名、加大组内间距`、`fix(layout): 加大 ELK rectpacking 节点间距，避免边框重叠`、`fix(layout): 节点固定宽度与 ELK 尺寸对齐`、`feat(layout): 测量后布局——先渲染拿真实尺寸，再用真实尺寸跑 ELK`。
+修改的代码文件：
+   - 新增：`mvp-web/src/graph/EpicGroupBg.tsx`、`mvp-web/src/fcg/types.ts` 加 EpicFlow 类型
+   - 改动：`mvp-web/src/graph/{layout,GraphCanvas,fcgView}.ts(x)`、`mvp-web/src/graph/{Epic,Feature,Step}NodeView.tsx`
+应当达成的效果：节点不再重叠或溢出容器；容器尺寸由 ELK 按真实节点尺寸算出；容器标题显示 Epic 中文名；同组内 features 按 cross_feature 边排出层次；跨组按方向或紧凑模式自动选择。
+
+---
+
+问题22：用户提出节点+容器拖动 + Obsidian 风格的力导向交互。
+解决方案：
+1. 给出三个选项：A 保持 ELK + 拖动跟随；B 全部换 d3-force；C 概览用力导向、功能/流程用 ELK。用户选 C。
+2. 安装 d3-force；新增 `useForceLayout` hook：forceManyBody(-800)、forceLink(distance=280, strength=0.4)、forceCollide(节点半径+30)、forceCenter(0.05)；onTick 推位置；onDragStart/Drag/End 通过 fx/fy 固定节点。
+3. 概览视图启用力导向；功能/流程视图用 ELK 静态布局；节点固定宽度后又改回自适应；容器内 layered + 容器间 layered/rectpacking。
+4. 一系列连锁问题：(a) 闪烁——力导向每帧 setRfNodes 重建数组；改用 `reactFlow.setNodes` patch + tick 节流（每 2 帧）+ 位置 diff 阈值 0.5px；(b) 拖动失效——React Flow 受控模式下没接 onNodesChange 导致拖动位置被覆盖；加 `applyNodeChanges`/`applyEdgeChanges`；(c) 选中高亮不取消——同上根因，由 onNodesChange 一并解决；(d) 容器随节点拖动实时调整——onNodesChange 后跑 updateGroupBounds 算包围盒+padding；(e) 容器拖动时内部节点跟随——监听 group 节点 position 变化，将 delta 应用到组内节点。
+5. 用户反馈"力导向拖动闪烁"+"功能/流程视图拖不动"+"选中高亮失常"——分析根因：受控模式必须接 onNodesChange/onEdgesChange，所有内部状态变化（拖动、选中、删除）都通过 changes 数组传递，外部 state 不响应回调就被下一次 render 冲掉。彻底修复后所有视图拖动正常、选中正常。
+6. 用户反馈"概览太乱"——分析力导向不适合"看清主线"，只适合"探索关系"。
+7. 提交多次：`feat(canvas): 概览视图用 d3-force 力导向布局`、`fix(force): 用 reactFlow.setNodes patch 位置 + tick 节流`、`fix(canvas): 加 onNodesChange/onEdgesChange 修复受控模式下拖动和选中`、`feat(canvas): 容器随内部节点拖动实时调整大小；拖动容器时内部节点跟随`。
+修改的代码文件：
+   - 新增：`mvp-web/src/graph/useForceLayout.ts`
+   - 改动：`mvp-web/src/graph/GraphCanvas.tsx`、`mvp-web/package.json`（d3-force）
+应当达成的效果：三视图节点均可拖动 + 边实时跟随；功能视图容器实时随节点变形；容器可拖动+内部节点跟随；选中状态正确；React Flow 受控模式下数据流闭环。
+
+---
+
+问题23：基于 Polisim 真实截图，用户指出概览/功能视图仍然乱、箭头标签太细且不语义化、看不清主线。
+解决方案：
+1. 分析根因：力导向给的位置无逻辑含义（只是物理力平衡）；cross_feature 上卷到 Epic 之间产生大量重复边（同对 Epic 之间多条 triggers/publishes/depends_on）；边标签是 `triggers`/`depends_on` 这种技术词不是语义级。
+2. 给出 4 个方案 (A/B/C/D)，用户选 D（A+B+C 组合）：
+   - 概览改回 ELK layered DOWN（有方向感）
+   - 概览只画 epic_flow 边（3-8 条主线），不再上卷 cross_feature
+   - 边标签用 epic_flow.note（语义级中文短句）
+   - 加重置布局按钮 ↺
+3. 改 fcgView.buildOverviewView：去掉 cross_feature 上卷，只用 epic_flow；label 取 epic_flow.note。
+4. 改 layout：概览从 elkRectPacking 改回 elkLayered DOWN。
+5. GraphCanvas：去掉力导向相关代码；ViewSwitcher 加 ↺ 重置按钮；新增 `layoutVersion` state，重置时 +1 触发 useEffect 重算。
+6. prompt 配套：
+   - scan-heavy 新增"阶段 3.5：epic_flow（Epic 之间的主线）"完整章节——3 种 kind 解释 + 硬约束（3-8 条 / note 必填且中文语义短句 / 不要把所有 Epic 都连）。
+   - scan-light 已有 epic_flow 段落，补"note 必填且必须中文语义短句"硬约束。
+   - sync.md 新增 "epic_flow 维护"段落——Epic 增删时更新，note 必须中文语义短句，不重写整个数组。
+   - scan.md 入口枚举速查加 `epic_flow.note: ⚠ 必填，中文语义短句`。
+   - validator 加 epic_flow 校验：from/to 引用存在 epic、kind 枚举、note 必填。
+7. 提交：`feat(overview): 改回 ELK layered + 只画 epic_flow 主线 + 重置布局按钮`、`feat(prompt): scan-heavy 加阶段 3.5 epic_flow 撰写规则；sync 加 epic_flow 维护；validator 加 epic_flow 校验`。
+修改的代码文件：
+   - 改动：`mvp-web/src/graph/{layout,GraphCanvas,fcgView}.ts(x)`、`prompts/{scan,scan-light,scan-heavy,sync}.md`、`scripts/validate-features.mjs`
+应当达成的效果：概览视图变成"只显示 Epic + epic_flow 主线箭头"的干净版本；边标签是中文语义（"配置完成后运行"）而不是技术词；用户拖乱了可一键重置；features.json 里无 epic_flow 时概览也是干净的 Epic 节点排列（不会有乱线）。
+
+---
+
+问题24：用户反馈"概览还是有点乱，看不出主线，布局算法应该从逻辑上考虑"。
+解决方案：
+1. 分析根因：ELK layered 只按"边的方向"分层，不理解"业务逻辑顺序"。当 10 个 Epic 之间只有 3-5 条 epic_flow 边时，大部分 Epic 之间没有边，ELK 把它们堆在同一层——视觉上看不出主线。
+2. 给出 4 个方案：A 强制线性、B 主线+分支、C AI 写 epic.order 字段前端按 order 排、D 泳道按"阶段"分列。用户选 C——最简单、最可控、不依赖布局算法、AI 控制顺序。
+3. schema 加 `Epic.order?: number`：从 0 开始，表示用户旅程顺序；同 order 横排，不同 order 纵排。
+4. layout.ts 新增 `layoutByOrder`：按 order 分组（无 order 视为 99 排在最后），同组横排居中对齐，组间纵排，确定性 100% 不依赖任何算法。layoutViewAsync 中 epic 视图改用此函数（不再调 elkLayered）。
+5. prompt 配套：
+   - scan-light 步骤 2 "划 Epic" 加 order 编号规则（0=最先接触/基础设施/登录，递增到最后接触/分析/导出/国际化，同 order = 并行模块）。
+   - scan-heavy 阶段 1.2 "划 Epic" 加同样规则。
+   - scan-light schema 块 Epic 类型加 `order?: number`。
+   - scan.md 入口枚举速查加 `epic.order: 数字，从 0 开始，表示用户旅程顺序；同 order 横排`。
+6. 提交：`feat(layout): 概览按 Epic.order 排列（AI 控制顺序），不再依赖布局算法`。
+修改的代码文件：
+   - 改动：`mvp-web/src/fcg/types.ts`（Epic 加 order）、`mvp-web/src/graph/layout.ts`（新增 layoutByOrder）、`prompts/{scan,scan-light,scan-heavy}.md`
+应当达成的效果：让 AI 在 Polisim 重跑 scan，每个 Epic 会被赋予 order（0-N）；概览视图按 order 从上到下排列，同 order 横排；加上 epic_flow 箭头就是一张干净的、有逻辑顺序的主线图；布局完全确定性，不会因为算法启发式产生不同结果；本次确立"无法用算法表达的逻辑就让 AI 显式写出来"的设计原则。
+
+---
+
+问题25：用户从一系列实践中提炼出原则——"针对这个项目的真实需求和目前架构，真正重要的就是 features.json，一切能通过 features.json 修改的东西都不应该改前端"。
+解决方案：
+1. 确认原则方向正确，但补充精确化：避免推到极端把前端沦为"渲染 JSON 的傻瓜"。前端仍承担三类职责：UI 通用能力（拖动/缩放/选中/视图切换/容错）、视觉系统（颜色/字体/动效/主题）、布局算法实现（ELK/网格/测量后布局，但顺序由 JSON 决定）。
+2. 提炼为三条核心原则：
+   - 原则 1：语义控制权归 AI / features.json——节点顺序、命名、分组、关系、注释由 JSON 写
+   - 原则 2：视觉与交互能力归前端——任何项目都需要的能力写在前端
+   - 原则 3：不确定就让 AI 显式写出来——前端不做启发式推断
+3. 给出职责边界四象限表（项目/业务相关 → JSON；UI 通用能力 / 视觉系统 / 兜底容错 → 前端）。
+4. 给出反例对照（启发式生成 epic_flow / 按目录推断 epicId / 按边数算 confidence / 节点固定宽度等"看起来很聪明"的做法都违反原则）。
+5. 给出自检清单（"换个项目会变吗""怎么做 vs 什么内容""AI 知道答案吗"三问）。
+6. 用项目历史教训反向验证原则：力导向作为主布局违反原则 3、节点固定宽度违反原则 2、ts-adapter 早期违反原则 1——三件返工都是因为没遵守原则。
+7. 落地到代码与文档：
+   - 新增 `docs/principles.md`：完整三原则 + 职责边界 + 反例对照 + 自检清单 + 历史教训
+   - `README.md` 新增"职责边界（硬约束）"小节，链接到 principles.md
+   - 本次 problem.md 记录确立这条原则的过程
+应当达成的效果：之后任何代码改动违反这三条原则都应被打回重做；当我们和 AI 想在前端写"if 启发式"时，先问自己三个自检问题；当 features.json 表达力不够时优先扩 schema 与 prompt 而非前端；这条原则一定程度上解释了之前一系列返工，未来类似返工应能避免。
+修改的代码文件：
+   - 新增：`docs/principles.md`
+   - 改动：`README.md`、`problem.md`

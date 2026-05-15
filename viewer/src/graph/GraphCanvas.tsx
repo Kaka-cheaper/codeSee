@@ -240,6 +240,7 @@ function GraphInner({ file }: Props) {
           if (n.type === 'epicGroup') continue
           positionMap.set(n.id, { x: n.position.x, y: n.position.y })
         }
+        console.log('[CodeSee Drag] 写入缓存, viewKey:', viewKey, 'size:', positionMap.size)
         // 自动保存：localStorage 立即写（草稿），文件防抖写
         if (autoSave) {
           savePositions(repoId, positionsRef.current)
@@ -282,15 +283,18 @@ function GraphInner({ file }: Props) {
 
       const epicNames = new Map(file.epics.map((e) => [e.id, e.name]))
       const overviewPositions = positionsRef.current.get('overview')
+      console.log('[CodeSee Layout] 功能视图布局, overviewPositions size:', overviewPositions?.size ?? 'undefined', 'keys:', overviewPositions ? [...overviewPositions.keys()].slice(0, 5) : 'N/A')
       const layoutResult = await layoutViewAsync(view.nodes, view.edges, epicNames, sizeMap, overviewPositions)
       if (cancelled) return
 
-      // 缓存有就用（拖动后切视图回来能保持），重置布局时缓存已被清空
+      // 缓存逻辑：
+      // - 如果用了概览锚点布局（overviewPositions 有值），不用功能视图旧缓存——每次都按最新概览位置重算
+      // - 否则（ELK 兜底），用缓存保持用户拖动的位置
       const prev = positionsRef.current.get(viewKey)
       let finalNodes = layoutResult.nodes
       let newIds = new Set<string>()
       const groups = layoutResult.groups
-      if (prev && prev.size > 0) {
+      if (prev && prev.size > 0 && !overviewPositions) {
         const r = mergeWithPrevious(layoutResult, prev)
         finalNodes = r.merged
         newIds = r.newIds

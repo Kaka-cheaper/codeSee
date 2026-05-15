@@ -1,73 +1,48 @@
 # CodeSee
 
-�?AI 协作开发的过程中，�?*项目的功能逻辑**以可视化画布的形式呈现给你�?
+**Visualize your project's feature logic as a semantic flow graph.**
 
-不是调用图，不是 import 图——是**语义级流程图**�?
+Not call graphs. Not import maps. A human-readable story of what your project does.
 
-> 类比：一个功能就是一道菜，画布告诉你"备菜 �?处理 �?下锅 �?调味 �?出锅"�?
-> 而不�?哪个函数 import 了哪个文�?�?
+> Think of it like this: if a feature is "making scrambled eggs with tomatoes",
+> the graph shows "prep → crack eggs → heat oil → stir-fry → season → plate" —
+> not "`prepare()` calls `slice()` then `whisk()`".
 
-## 设计原则
+<!-- TODO: Add screenshot/GIF here -->
 
-- **数据来自 AI**。代码本身没�?语义流程"这种信息，让 AI 读项目（或读 diff）直接产�?`features.json`�?
-- **viewer 与目标项目解�?*。viewer 留在 codeSee 仓库；目标项目只�?`.codesee/` 子目录�?
-- **画布只消�?JSON**，不做静态分析、不做调用图、不依赖任何具体语言�?
-- **人工修正可锁�?*。任�?feature �?`locked: true` 后，AI 同步时不会再覆盖�?
+---
 
-## 职责边界（硬约束�?
+## Features
 
-```
-| 类型              | 归属          | 含义                                       |
-| ----------------- | ------------- | ------------------------------------------ |
-| 项目 / 业务相关   | features.json | 节点顺序、命名、分组、关系、注释、置信度   |
-| UI 通用能力       | 前端          | 拖动、缩放、选中、视图切换、搜索、容�?    |
-| 视觉系统          | 前端          | 颜色、字体、间距、动�?                    |
-| 布局算法实现      | 前端          | ELK / 网格 / 测量后布局——但顺序�?JSON 决定|
-```
+- **AI-powered** — AI reads your code and writes `features.json`; you see the story on a canvas
+- **Three zoom levels** — Epic (business domains) → Feature (user-facing capabilities) → Step (action flow)
+- **Language-agnostic** — Works with any tech stack; the viewer only consumes JSON
+- **Human-in-the-loop** — Drag nodes, lock features, undo/redo; AI won't overwrite your edits
+- **Zero coupling** — `features.json` has no layout data; `layout.json` has no semantics
+- **Incremental sync** — After each code change, AI updates only affected features
 
-**核心准则**：能通过修改 features.json 解决的问题，都不应该改前端�?
-完整的判断方法、反例对照、自检清单�?[`docs/principles.md`](./docs/principles.md)�?
+---
 
-## 整体架构
+## Quick Start
 
-```
-你的项目 Polisim/                  �?目标项目（任意语言/框架�?
-├── AGENTS.md                      �?入口规则（AI 自动读取�?
-├── .codesee/
-�?  ├── prompts/{scan,scan-light,scan-heavy,sync}.md
-�?  ├── scripts/validate-features.mjs   �?结构校验�?
-�?  ├── .gitignore
-�?  └── features.json              �?AI 写入 / 人工编辑
-└── ... 项目自己的代�?
-
-codeSee/                           �?viewer 独立放着
-├── viewer/                       �?�?dev server，加载远�?features.json
-├── prompts/                       �?模板�?
-├── templates/AGENTS.md            �?模板�?
-└── scripts/
-    ├── install.{ps1,sh}           �?一键安装到目标项目
-    └── validate-features.mjs      �?校验脚本源（�?install 拷到目标项目 .codesee/scripts/�?
-```
-
-## 使用流程（推荐）
-
-### 一次性安装（per project�?
+### 1. Install into your project
 
 ```powershell
-# Windows PowerShell
+# Windows
 .\scripts\install.ps1 D:\path\to\your\project
 
 # macOS / Linux
 ./scripts/install.sh /path/to/your/project
 ```
 
-这会把以下文件注入目标项目：
-- `AGENTS.md`：如果目标项目已经有自己�?AGENTS.md，脚本会**追加** CodeSee 段落到末尾（�?`<!-- BEGIN/END: CodeSee integration -->` 标记），不会覆盖原内容。再次运行幂等；�?`-Force` / `--force` 会原地刷新这一段�?
-- `.codesee/prompts/*.md`
-- `.codesee/scripts/validate-features.mjs`：结构校验器，AI 写完 features.json 后必�?`node .codesee/scripts/validate-features.mjs` 自检
-- `.codesee/.gitignore`
+This injects `AGENTS.md` + `.codesee/` (prompts, validator) into your project.
 
-### 启动 viewer（一次启动，多项目共享）
+### 2. Let AI scan
+
+Open your project in any AI IDE (Cursor / Claude Code / Kiro / Copilot).
+The AI reads `AGENTS.md` and automatically generates `.codesee/features.json`.
+
+### 3. View the graph
 
 ```bash
 cd codeSee/viewer
@@ -75,85 +50,83 @@ npm install
 npm run dev
 ```
 
-打开 `http://localhost:5173/`，把目标项目�?`.codesee/features.json` **拖进画布**或点"打开"�?
-浏览器会记住上次打开的文件，下次刷新自动还原�?
+Open `http://localhost:5173/`, drag in your `.codesee/features.json`.
 
-### �?AI 维护功能�?
+---
 
-在目标项目的 AI IDE（Cursor / Claude Code / Kiro / Codex 等）里，AI 会自动读 `AGENTS.md`�?
-
-- **第一�?*：根�?`AGENTS.md` 触发 1，AI 执行 `.codesee/prompts/scan.md`，自检规模后�?light/heavy
-- **每轮改动�?*：AI 自动执行 `.codesee/prompts/sync.md`，增量更�?`.codesee/features.json`
-- **人工修正**：直接改 JSON 或在画布里编辑（开发中），�?`locked: true` 防止覆盖
-
-如果你的 IDE 不识�?`AGENTS.md`，重命名/复制为对应文件即可（例：`CLAUDE.md`、`.cursor/rules/codesee.mdc`）�?
-
-## 三层粒度
+## How It Works
 
 ```
-Epic       业务大块            (用户管理 / 订单)
-  └─ Feature   单个用户可感知的功能   (添加用户 / 下单结算)
-       └─ Step      功能内的一步动�?    (校验邮箱 / 写入数据�?
+Your Project/                      CodeSee Viewer/
+├── AGENTS.md          ←───────── templates/AGENTS.md
+├── .codesee/                      viewer/
+│   ├── prompts/*.md   ←───────── prompts/*.md
+│   ├── scripts/       ←───────── scripts/validate-features.mjs
+│   ├── features.json  ──────────→ Drag into viewer
+│   └── layout.json    ←───────── Saved from viewer (FSA)
+└── your code
 ```
 
-画布顶部"概览 / 功能 / 流程"切换三档，双击节点向下钻�?
+| Layer | What | Who maintains |
+| ----- | ---- | ------------- |
+| `features.json` | Semantic flow (epics, features, steps, relations) | AI + human review |
+| `layout.json` | Node positions on canvas | User drag + auto-save |
+| Viewer | Rendering, interaction, layout algorithms | This repo |
 
-## FCG Schema 速查
+---
 
-```ts
-type FeaturesFile = {
-  version: '0'
-  manifest: { repo?: string; commit?: string; generated_at: string; generator?: string }
-  epics: Epic[]
-  features: Feature[]
-  cross_feature?: CrossFeatureLink[]
-}
+## Three Views
 
-type Feature = {
-  id: string; name: string; summary?: string; epicId?: string
-  triggers?: { kind: 'http'|'cli'|'cron'|'event'|'ui'|'manual'|'startup'|'unknown'; detail: string }[]
-  steps: { id: string; name: string; role: StepRole; note?: string; refs?: SourceRef[] }[]
-  flow:  { from: string; to: string; kind: 'next'|'async'|'conditional'|'loop'|'error'; condition?: string }[]
-  confidence: number
-  provenance: 'ai' | 'user'
-  locked?: boolean
-  tags?: string[]
-  updated_at: string
-}
+| View | Shows | Interaction |
+| ---- | ----- | ----------- |
+| **Overview** | Epics as nodes, `epic_flow` as edges | Drag to arrange; double-click → Features |
+| **Features** | Features grouped in Epic containers | Drag nodes/containers; double-click → Steps |
+| **Steps** | Step-by-step flow within one feature | Directed graph with async/conditional/error edges |
 
-type StepRole =
-  | 'input' | 'validation' | 'auth'
-  | 'data-read' | 'data-write'
-  | 'compute' | 'transform'
-  | 'side-effect' | 'output' | 'error' | 'other'
-```
+---
 
-完整定义�?[`viewer/src/fcg/types.ts`](./viewer/src/fcg/types.ts)�?
+## Design Principles
 
-## codeSee 仓库结构
+1. **Semantic control belongs to AI / features.json** — node order, naming, grouping, relations
+2. **Visual & interaction belongs to the viewer** — drag, zoom, theme, layout algorithms
+3. **When in doubt, let AI write it explicitly** — no heuristic inference in the frontend
+
+Full details: [`docs/principles.md`](./docs/principles.md)
+
+---
+
+## Project Structure
 
 ```
 codeSee/
-├── viewer/                     画布前端（Vite + React + React Flow + Tailwind v4�?
-�?  ├── src/{fcg,graph,app,lib}
-�?  └── public/features.json     仓库自带的示例图（首次访问无外部文件时显示）
-├── prompts/                     模板�?�?通过 install 脚本拷贝到目标项�?
-�?  ├── scan.md                  扫描模式入口（自检规模 �?路由�?
-�?  ├── scan-light.md            轻型项目（一次产出）
-�?  ├── scan-heavy.md            重型项目（四阶段累积�?
-�?  └── sync.md                  增量同步
-├── templates/                   AGENTS 模板�?
-�?  ├── AGENTS.md                空白项目用的完整模板
-�?  └── AGENTS-snippet.md        已有 AGENTS.md 时追加用的片�?
-├── scripts/
-�?  ├── install.{ps1,sh}         一键安装到目标项目
-�?  └── validate-features.mjs    features.json 校验器源（被 install 拷到 .codesee/scripts/�?
-├── docs/
-�?  ├── principles.md            三条核心设计原则
-�?  ├── review-checklist.md      人工评审 features.json 的清�?
-�?  ├── problem.md               开发历史归�?
-�?  └── requirements.md          初始需求分�?
-├── LICENSE
-├── .editorconfig
+├── viewer/                  Canvas frontend (Vite + React + React Flow + Tailwind v4 + ELK)
+│   ├── src/{fcg,graph,app,lib}
+│   └── public/{features,layout}.json   Example data
+├── prompts/                 AI prompt templates (copied to target projects)
+│   ├── scan.md              Entry point (routes to light/heavy)
+│   ├── scan-light.md        Light projects (one-shot)
+│   ├── scan-heavy.md        Heavy projects (phased)
+│   ├── sync.md              Incremental sync
+│   ├── _schema.md           Schema + enums + example (single source of truth)
+│   └── _rules.md            Constraints (MUST/SHOULD/MAY)
+├── templates/               AGENTS.md templates
+├── scripts/                 Install script + validator
+├── docs/                    Design docs
+├── LICENSE                  MIT
 └── README.md
 ```
+
+---
+
+## Contributing
+
+1. Fork & clone
+2. `cd viewer && npm install && npm run dev`
+3. Make changes, ensure `npm run build` passes
+4. Open a PR
+
+---
+
+## License
+
+[MIT](./LICENSE)

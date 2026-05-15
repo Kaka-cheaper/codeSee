@@ -83,6 +83,11 @@ function GraphInner({ file }: Props) {
     Map<string, Map<string, { x: number; y: number }>>
   >(loadPositions(repoId))
 
+  // 概览版本号：每次概览视图中发生拖动时递增
+  // 功能视图只在概览版本变化时才重新从概览计算基准位置
+  const overviewVersionRef = useRef(0)
+  const lastOverviewVersionForFeaturesRef = useRef(-1)
+
   // 启动时尝试加载布局：先从 FSA（用户授权的目录），再从 /layout.json（内置示例）
   useEffect(() => {
     let cancelled = false
@@ -291,6 +296,11 @@ function GraphInner({ file }: Props) {
           }
         }
 
+        // 概览视图拖动时递增版本号，通知功能视图需要重算基准
+        if (viewKey === 'overview') {
+          overviewVersionRef.current += 1
+        }
+
         // 自动保存：localStorage 立即写（草稿），文件防抖写
         if (autoSave) {
           savePositions(repoId, positionsRef.current)
@@ -346,55 +356,75 @@ function GraphInner({ file }: Props) {
       const groups = layoutResult.groups
 
       if (isFeatureView) {
-        // 功能视图：先叠加容器级偏移量，再叠加节点级偏移量
-        const groupOffsets = positionsRef.current.get('features-group-offset')
-        if (groupOffsets && groupOffsets.size > 0) {
-          finalNodes = finalNodes.map((n) => {
-            if (n.view.kind !== 'feature') return n
-            const epicId = n.view.feature.epicId ?? '__none__'
-            const gOffset = groupOffsets.get(epicId)
-            if (!gOffset) return n
-            return { ...n, position: { x: n.position.x + gOffset.x, y: n.position.y + gOffset.y } }
-          })
-        }
-        const offsets = positionsRef.current.get('features-offset')
-        if (offsets && offsets.size > 0) {
-          finalNodes = finalNodes.map((n) => {
-            const offset = offsets.get(n.view.id)
-            if (!offset) return n
-            return { ...n, position: { x: n.position.x + offset.x, y: n.position.y + offset.y } }
-          })
-        }
+        // 如果概览没变过且已有功能视图缓存，直接用缓存（不重算基准）
+        const featuresCache = positionsRef.current.get('features')
+        const overviewUnchanged = lastOverviewVersionForFeaturesRef.current === overviewVersionRef.current
+        if (overviewUnchanged && featuresCache && featuresCache.size > 0) {
+          // 直接用缓存位置
+          const r = mergeWithPrevious(layoutResult, featuresCache)
+          finalNodes = r.merged
+          newIds = r.newIds
+          // 用缓存位置修正容器包围盒
+          if (groups.length > 0) {
+            const corrected = recalcGroupBounds(finalNodes, groups)
+            for (let gi = 0; gi < groups.length; gi++) {
+              groups[gi] = corrected[gi]
+            }
+          }
+        } else {
+          // 概览变了或首次进入：从概览重算基准 + 叠加偏移量
+          lastOverviewVersionForFeaturesRef.current = overviewVersionRef.current
 
-        // 偏移量叠加后，对容器做碰撞检测（防止偏移导致容器重叠）
-        if (groups.length > 1) {
-          // 先根据当前节点位置计算容器的实际包围盒（偏移后的）
-          const preCollisionGroups = recalcGroupBounds(finalNodes, groups)
-          const updatedGroups = resolveContainerCollisions(finalNodes, groups)
-          // 如果容器被推开了，内部节点也要跟着动
-          for (let gi = 0; gi < groups.length; gi++) {
-            const beforeG = preCollisionGroups[gi]
-            const afterG = updatedGroups[gi]
-            const dx = afterG.position.x - beforeG.position.x
-            const dy = afterG.position.y - beforeG.position.y
-            if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue
-            const epicId = afterG.id.replace(/^group:/, '')
+          // 先叠加容器级偏移量，再叠加节点级偏移量
+          const groupOffsets = positionsRef.current.get('features-group-offset')
+          if (groupOffsets && groupOffsets.size > 0) {
             finalNodes = finalNodes.map((n) => {
               if (n.view.kind !== 'feature') return n
-              if ((n.view.feature.epicId ?? '__none__') !== epicId) return n
-              return { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
+              const epicId = n.view.feature.epicId ?? '__none__'
+              const gOffset = groupOffsets.get(epicId)
+              if (!gOffset) return n
+              return { ...n, position: { x: n.position.x + gOffset.x, y: n.position.y + gOffset.y } }
             })
           }
-          // 更新 groups 引用
-          for (let gi = 0; gi < groups.length; gi++) {
-            groups[gi] = updatedGroups[gi]
+          const offsets = positionsRef.current.get('features-offset')
+          if (offsets && offsets.size > 0) {
+            finalNodes = finalNodes.map((n) => {
+              const offset = offsets.get(n.view.id)
+              if (!offset) return n
+              return { ...n, position: { x: n.position.x + offset.x, y: n.position.y + offset.y } }
+            })
           }
-        }
 
-        // 存基准位置（用于后续计算偏移量）
-        const basePositions = new Map<string, { x: number; y: number }>()
-        for (const n of layoutResult.nodes) basePositions.set(n.view.id, n.position)
-        positionsRef.current.set('features-base', basePositions)
+          // 偏移量叠加后，对容器做碰撞检测（防止偏移导致容器重叠）
+          if (groups.length > 1) {
+            // 先根据当前节点位置计算容器的实际包围盒（偏移后的）
+            const preCollisionGroups = recalcGroupBounds(finalNodes, groups)
+            const updatedGroups = resolveContainerCollisions(finalNodes, groups)
+            // 如果容器被推开了，内部节点也要跟着动
+            for (let gi = 0; gi < groups.length; gi++) {
+              const beforeG = preCollisionGroups[gi]
+              const afterG = updatedGroups[gi]
+              const dx = afterG.position.x - beforeG.position.x
+              const dy = afterG.position.y - beforeG.position.y
+              if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue
+              const epicId = afterG.id.replace(/^group:/, '')
+              finalNodes = finalNodes.map((n) => {
+                if (n.view.kind !== 'feature') return n
+                if ((n.view.feature.epicId ?? '__none__') !== epicId) return n
+                return { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
+              })
+            }
+            // 更新 groups 引用
+            for (let gi = 0; gi < groups.length; gi++) {
+              groups[gi] = updatedGroups[gi]
+            }
+          }
+
+          // 存基准位置（用于后续计算偏移量）
+          const basePositions = new Map<string, { x: number; y: number }>()
+          for (const n of layoutResult.nodes) basePositions.set(n.view.id, n.position)
+          positionsRef.current.set('features-base', basePositions)
+        }
       } else {
         // 概览/流程视图：用缓存保持用户拖动
         const prev = positionsRef.current.get(viewKey)
@@ -431,6 +461,8 @@ function GraphInner({ file }: Props) {
     positionsRef.current.delete('features-offset')
     positionsRef.current.delete('features-base')
     positionsRef.current.delete('features-group-offset')
+    // 强制功能视图下次进入时重算基准
+    lastOverviewVersionForFeaturesRef.current = -1
     clearPositions(repoId, viewKey)
     setLayoutVersion((v) => v + 1)
   }, [viewKey, repoId])

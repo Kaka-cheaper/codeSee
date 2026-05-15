@@ -98,9 +98,20 @@ function GraphInner({ file }: Props) {
         })
       }
 
-      return updateGroupBounds(updated)
+      const finalNodes = updateGroupBounds(updated)
+
+      // 同步用户拖动的位置到 positionsRef，下次切视图回来能恢复
+      const positionMap = positionsRef.current.get(viewKey)
+      if (positionMap) {
+        for (const n of finalNodes) {
+          if (n.type === 'epicGroup') continue
+          positionMap.set(n.id, { x: n.position.x, y: n.position.y })
+        }
+      }
+
+      return finalNodes
     })
-  }, [])
+  }, [viewKey])
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     setRfEdges((eds) => applyEdgeChanges(changes, eds))
   }, [])
@@ -135,12 +146,12 @@ function GraphInner({ file }: Props) {
       const layoutResult = await layoutViewAsync(view.nodes, view.edges, epicNames, sizeMap)
       if (cancelled) return
 
-      // 重置布局时清掉缓存，让节点回到 ELK 算的位置
+      // 缓存有就用（拖动后切视图回来能保持），重置布局时缓存已被清空
       const prev = positionsRef.current.get(viewKey)
       let finalNodes = layoutResult.nodes
       let newIds = new Set<string>()
       const groups = layoutResult.groups
-      if (prev && prev.size > 0 && layoutVersion === 0) {
+      if (prev && prev.size > 0) {
         const r = mergeWithPrevious(layoutResult, prev)
         finalNodes = r.merged
         newIds = r.newIds

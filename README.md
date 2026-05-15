@@ -12,7 +12,7 @@ The feature-level canvas for AI-collaborative development. AI maintains a semant
 [![Prompts](https://img.shields.io/badge/Prompts-6-blue.svg)](./prompts/)
 [![Viewer](https://img.shields.io/badge/Viewer-React_Flow-purple.svg)](./viewer/)
 [![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/AGENTS.md)
-[![Demo](https://img.shields.io/badge/Live_Demo-▶-brightgreen.svg)](https://user.github.io/codeSee/)
+[![Demo](https://img.shields.io/badge/Live_Demo-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/)
 [![中文](https://img.shields.io/badge/Lang-中文-red.svg)](./README.zh-CN.md)
 
 ![Cursor](https://img.shields.io/badge/Cursor-Skill-black?logo=cursor)

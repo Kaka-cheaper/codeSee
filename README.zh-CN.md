@@ -12,7 +12,7 @@
 [![Prompts](https://img.shields.io/badge/Prompts-6-blue.svg)](./prompts/)
 [![Viewer](https://img.shields.io/badge/Viewer-React_Flow-purple.svg)](./viewer/)
 [![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/AGENTS.md)
-[![Demo](https://img.shields.io/badge/在线演示-▶-brightgreen.svg)](https://user.github.io/codeSee/)
+[![Demo](https://img.shields.io/badge/在线演示-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/)
 [![English](https://img.shields.io/badge/Lang-English-red.svg)](./README.md)
 
 ![Cursor](https://img.shields.io/badge/Cursor-Skill-black?logo=cursor)

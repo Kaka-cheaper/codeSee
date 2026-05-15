@@ -255,7 +255,8 @@ function GraphInner({ file }: Props) {
       measuredSizesRef.current = sizeMap
 
       const epicNames = new Map(file.epics.map((e) => [e.id, e.name]))
-      const layoutResult = await layoutViewAsync(view.nodes, view.edges, epicNames, sizeMap)
+      const overviewPositions = positionsRef.current.get('overview')
+      const layoutResult = await layoutViewAsync(view.nodes, view.edges, epicNames, sizeMap, overviewPositions)
       if (cancelled) return
 
       // 缓存有就用（拖动后切视图回来能保持），重置布局时缓存已被清空

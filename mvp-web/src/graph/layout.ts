@@ -47,6 +47,7 @@ export async function layoutViewAsync(
   edges: FcgViewEdge[],
   epicNames?: Map<string, string>,
   measuredSizes?: Map<string, { width: number; height: number }>,
+  overviewPositions?: Map<string, { x: number; y: number }>,
 ): Promise<LayoutResult> {
   if (nodes.length === 0) return { nodes: [], groups: [] }
 
@@ -57,7 +58,10 @@ export async function layoutViewAsync(
   if (firstKind === 'epic') {
     return { nodes: layoutByOrder(nodes), groups: [] }
   }
-  // feature 视图：按 epicId 分组做 compound layout
+  // feature 视图：如果有概览位置缓存，用锚点布局；否则走 ELK
+  if (overviewPositions && overviewPositions.size > 0) {
+    return layoutFeaturesFromOverview(nodes, edges, overviewPositions, epicNames, measuredSizes)
+  }
   return elkGroupedFeatures(nodes, edges, epicNames, measuredSizes)
 }
 
@@ -416,4 +420,117 @@ export function mergeWithPrevious(
     return n
   })
   return { merged, newIds, groups: result.groups }
+}
+
+
+/* --------------------------------------------------------- 概览锚点布局（方案 C） */
+
+const CELL_W = 300
+const CELL_H = 200
+const MAX_COLS = 3
+const CONTAINER_PAD = 80
+const CONTAINER_GAP = 120
+const CANVAS_SCALE = 4
+
+/**
+ * 功能视图布局：用概览视图的 Epic 坐标作为锚点，容器内按网格排列，全局矩形排斥防重叠。
+ */
+function layoutFeaturesFromOverview(
+  nodes: FcgViewNode[],
+  _edges: FcgViewEdge[],
+  overviewPositions: Map<string, { x: number; y: number }>,
+  epicNames?: Map<string, string>,
+  _measuredSizes?: Map<string, { width: number; height: number }>,
+): LayoutResult {
+  // 1. 按 epicId 分组
+  const groups = new Map<string, FcgViewNode[]>()
+  for (const n of nodes) {
+    const epicId = n.kind === 'feature' ? (n.feature.epicId ?? '__none__') : '__none__'
+    if (!groups.has(epicId)) groups.set(epicId, [])
+    groups.get(epicId)!.push(n)
+  }
+
+  // 2. 计算每个容器的锚点（概览坐标 × 放大系数）和尺寸
+  interface ContainerInfo {
+    epicId: string
+    anchorX: number
+    anchorY: number
+    width: number
+    height: number
+    members: FcgViewNode[]
+  }
+  const containers: ContainerInfo[] = []
+  for (const [epicId, members] of groups) {
+    const overviewKey = `epic:${epicId}`
+    const pos = overviewPositions.get(overviewKey)
+    const anchorX = pos ? pos.x * CANVAS_SCALE : 0
+    const anchorY = pos ? pos.y * CANVAS_SCALE : 0
+    const cols = Math.min(MAX_COLS, members.length)
+    const rows = Math.ceil(members.length / cols)
+    const width = cols * CELL_W + CONTAINER_PAD * 2
+    const height = rows * CELL_H + CONTAINER_PAD * 2
+    containers.push({ epicId, anchorX, anchorY, width, height, members })
+  }
+
+  // 3. 矩形排斥：保证容器不重叠
+  for (let iter = 0; iter < 10; iter++) {
+    let moved = false
+    for (let i = 0; i < containers.length; i++) {
+      for (let j = i + 1; j < containers.length; j++) {
+        const a = containers[i]
+        const b = containers[j]
+        const overlapX = (a.width / 2 + b.width / 2 + CONTAINER_GAP) - Math.abs(a.anchorX - b.anchorX)
+        const overlapY = (a.height / 2 + b.height / 2 + CONTAINER_GAP) - Math.abs(a.anchorY - b.anchorY)
+        if (overlapX > 0 && overlapY > 0) {
+          // 推开：沿重叠较小的轴推
+          if (overlapX < overlapY) {
+            const push = overlapX / 2 + 1
+            if (a.anchorX < b.anchorX) { a.anchorX -= push; b.anchorX += push }
+            else { a.anchorX += push; b.anchorX -= push }
+          } else {
+            const push = overlapY / 2 + 1
+            if (a.anchorY < b.anchorY) { a.anchorY -= push; b.anchorY += push }
+            else { a.anchorY += push; b.anchorY -= push }
+          }
+          moved = true
+        }
+      }
+    }
+    if (!moved) break
+  }
+
+  // 4. 容器内按网格排列 Feature
+  const result: LaidOutNode[] = []
+  const layoutGroups: LayoutGroup[] = []
+
+  for (const c of containers) {
+    const cols = Math.min(MAX_COLS, c.members.length)
+    const startX = c.anchorX - c.width / 2 + CONTAINER_PAD
+    const startY = c.anchorY - c.height / 2 + CONTAINER_PAD
+
+    c.members.forEach((n, idx) => {
+      const col = idx % cols
+      const row = Math.floor(idx / cols)
+      const size = NODE_SIZE[n.kind]
+      result.push({
+        view: n,
+        width: size.width,
+        height: size.height,
+        position: {
+          x: startX + col * CELL_W + (CELL_W - size.width) / 2,
+          y: startY + row * CELL_H + (CELL_H - size.height) / 2,
+        },
+      })
+    })
+
+    layoutGroups.push({
+      id: `group:${c.epicId}`,
+      label: epicNames?.get(c.epicId) ?? c.epicId,
+      position: { x: c.anchorX - c.width / 2, y: c.anchorY - c.height / 2 },
+      width: c.width,
+      height: c.height,
+    })
+  }
+
+  return { nodes: result, groups: layoutGroups }
 }

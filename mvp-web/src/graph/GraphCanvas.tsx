@@ -25,6 +25,14 @@ import {
 } from './fcgView'
 import { layoutViewAsync, mergeWithPrevious } from './layout'
 import { loadPositions, savePositions, clearPositions } from './positionStorage'
+import {
+  isFSASupported,
+  loadLayoutFile,
+  pickDirectory,
+  saveLayoutFile,
+  hasAuthorized,
+  type LayoutFile,
+} from '@/fcg/fileSystem'
 import { EpicNodeView, type EpicNodeData } from './EpicNodeView'
 import { FeatureNodeView, type FeatureNodeData } from './FeatureNodeView'
 import { StepNodeView, type StepNodeData } from './StepNodeView'
@@ -70,10 +78,27 @@ function GraphInner({ file }: Props) {
     [file.manifest.repo],
   )
 
-  // 节点位置缓存（按 viewKey 分桶）：启动时从 localStorage 加载
+  // 节点位置缓存（按 viewKey 分桶）：启动时从 localStorage 加载（草稿）
   const positionsRef = useRef<
     Map<string, Map<string, { x: number; y: number }>>
   >(loadPositions(repoId))
+
+  // 启动时尝试从 .codesee/layout.json 加载（覆盖 localStorage 草稿）
+  useEffect(() => {
+    let cancelled = false
+    loadLayoutFile(repoId).then((layout) => {
+      if (cancelled || !layout) return
+      const restored = new Map<string, Map<string, { x: number; y: number }>>()
+      for (const [viewKey, positions] of Object.entries(layout.views)) {
+        restored.set(viewKey, new Map(Object.entries(positions)))
+      }
+      positionsRef.current = restored
+      // 触发当前视图重布局
+      setLayoutVersion((v) => v + 1)
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repoId])
 
   // 自动保存开关（持久化到 localStorage）
   const [autoSave, setAutoSave] = useState<boolean>(() => {
@@ -91,10 +116,57 @@ function GraphInner({ file }: Props) {
     })
   }, [])
 
-  // 手动保存：把当前 positionsRef 写入 localStorage
-  const saveLayout = useCallback(() => {
+  // 保存状态（用于 UI 提示）
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'downloaded' | 'failed'>('idle')
+
+  /** 把当前 positionsRef 序列化为 LayoutFile */
+  const serializeLayout = useCallback((): LayoutFile => {
+    const views: Record<string, Record<string, { x: number; y: number }>> = {}
+    for (const [viewKey, positions] of positionsRef.current) {
+      if (positions.size === 0) continue
+      views[viewKey] = Object.fromEntries(positions)
+    }
+    return {
+      version: '0',
+      views,
+      generated_at: new Date().toISOString(),
+    }
+  }, [])
+
+  // 手动保存：先存 localStorage（草稿），再尝试写文件
+  // 首次保存时若支持 FSA 但还没授权 → 先弹目录选择器
+  const saveLayout = useCallback(async () => {
     savePositions(repoId, positionsRef.current)
-  }, [repoId])
+
+    // 首次保存：FSA 支持但还没授权 → 主动弹选择器
+    if (isFSASupported()) {
+      const authorized = await hasAuthorized(repoId)
+      if (!authorized) {
+        const handle = await pickDirectory(repoId)
+        if (!handle) {
+          // 用户取消授权，降级为下载
+          const result = await saveLayoutFile(repoId, serializeLayout())
+          setSaveStatus(result === 'downloaded' ? 'downloaded' : 'failed')
+          setTimeout(() => setSaveStatus('idle'), 2500)
+          return
+        }
+      }
+    }
+
+    const result = await saveLayoutFile(repoId, serializeLayout())
+    setSaveStatus(result === 'wrote' ? 'saved' : result === 'downloaded' ? 'downloaded' : 'failed')
+    setTimeout(() => setSaveStatus('idle'), 2500)
+  }, [repoId, serializeLayout])
+
+  // 文件自动保存防抖（拖动时 onTick 高频，但落盘只需偶尔一次）
+  const autoSaveTimerRef = useRef<number | null>(null)
+  const scheduleAutoSaveFile = useCallback(() => {
+    if (!isFSASupported()) return // 不支持 FSA 的浏览器不自动写文件（避免反复弹下载）
+    if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      saveLayoutFile(repoId, serializeLayout()).catch(() => { /* noop */ })
+    }, 800) // 拖动停止 800ms 后落盘
+  }, [repoId, serializeLayout])
   const [newNodeIds, setNewNodeIds] = useState<Set<string>>(new Set())
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
@@ -142,15 +214,16 @@ function GraphInner({ file }: Props) {
             positionMap.set(n.id, { x: n.position.x, y: n.position.y })
           }
         }
-        // 自动保存到 localStorage
+        // 自动保存：localStorage 立即写（草稿），文件防抖写
         if (autoSave) {
           savePositions(repoId, positionsRef.current)
+          scheduleAutoSaveFile()
         }
       }
 
       return finalNodes
     })
-  }, [viewKey, autoSave, repoId])
+  }, [viewKey, autoSave, repoId, scheduleAutoSaveFile])
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     setRfEdges((eds) => applyEdgeChanges(changes, eds))
   }, [])
@@ -304,6 +377,7 @@ function GraphInner({ file }: Props) {
         autoSave={autoSave}
         onToggleAutoSave={toggleAutoSave}
         onSaveLayout={saveLayout}
+        saveStatus={saveStatus}
       />
 
       {newNodeIds.size > 0 && state.mode === 'features' && (
@@ -440,7 +514,7 @@ function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
 
 /* --------------------------------------------------------- UI */
 
-function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, autoSave, onToggleAutoSave, onSaveLayout }: {
+function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, autoSave, onToggleAutoSave, onSaveLayout, saveStatus }: {
   mode: ViewMode
   focusedFeatureName?: string
   onChangeMode: (m: ViewMode) => void
@@ -448,13 +522,13 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
   autoSave: boolean
   onToggleAutoSave: () => void
   onSaveLayout: () => void
+  saveStatus: 'idle' | 'saved' | 'downloaded' | 'failed'
 }) {
-  const [savedTip, setSavedTip] = useState(false)
-  const handleSave = () => {
-    onSaveLayout()
-    setSavedTip(true)
-    setTimeout(() => setSavedTip(false), 1500)
-  }
+  const tipText =
+    saveStatus === 'saved' ? '已保存到 layout.json' :
+    saveStatus === 'downloaded' ? '已下载（请放回 .codesee/）' :
+    saveStatus === 'failed' ? '保存失败' :
+    null
   return (
     <div className="pointer-events-none absolute top-4 left-4 z-10">
       <div className="pointer-events-auto flex items-center gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-1)] px-1.5 py-1 shadow-[0_1px_2px_oklch(0_0_0/0.04)]">
@@ -464,7 +538,7 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
         <span className="mx-0.5 h-4 w-px bg-[var(--color-border)]" />
         <button
           onClick={onToggleAutoSave}
-          title={autoSave ? '自动保存：开（拖动后自动写入浏览器记忆）' : '自动保存：关（需手动点 💾 保存）'}
+          title={autoSave ? '自动保存：开（拖动后自动写入 layout.json）' : '自动保存：关（需手动点 💾）'}
           className={
             'rounded-md px-1.5 py-1 text-[11px] transition-colors ' +
             (autoSave
@@ -475,16 +549,11 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
           自动
         </button>
         <button
-          onClick={handleSave}
-          title="手动保存当前布局到浏览器记忆"
+          onClick={onSaveLayout}
+          title="保存当前布局到 .codesee/layout.json（首次会请求授权选择 .codesee 目录）"
           className="relative rounded-md px-2 py-1 text-[11px] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]"
         >
           💾
-          {savedTip && (
-            <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-[var(--color-bg-1)] border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-muted)]">
-              已保存
-            </span>
-          )}
         </button>
         <button
           onClick={onResetLayout}
@@ -494,6 +563,11 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
           ↺
         </button>
       </div>
+      {tipText && (
+        <div className="pointer-events-none mt-2 inline-flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-1)] px-2.5 py-1 text-[11px] text-[var(--color-fg-muted)] shadow-[0_1px_2px_oklch(0_0_0/0.04)]">
+          {tipText}
+        </div>
+      )}
       {mode === 'steps' && focusedFeatureName && (
         <div className="pointer-events-auto mt-2 inline-flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-1)] px-2.5 py-1 text-[11px] text-[var(--color-fg-muted)] shadow-[0_1px_2px_oklch(0_0_0/0.04)]">
           <span className="text-[var(--color-fg-subtle)]">流程：</span>

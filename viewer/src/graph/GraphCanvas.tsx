@@ -101,10 +101,11 @@ function GraphInner({ file }: Props) {
     async function loadLayout() {
       // 1. 尝试 FSA
       let layout = await loadLayoutFile(repoId)
-      // 2. 兜底：fetch /layout.json（内置示例用）
+      // 2. 兜底：fetch layout.json（内置示例用）
       if (!layout) {
         try {
-          const res = await fetch('/layout.json', { cache: 'no-cache' })
+          const base = import.meta.env.BASE_URL ?? '/'
+          const res = await fetch(`${base}layout.json`, { cache: 'no-cache' })
           if (res.ok) {
             const data = await res.json()
             if (data?.version === '0' && data?.views) layout = data

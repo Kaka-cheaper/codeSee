@@ -12,7 +12,8 @@ export async function autoLoad(): Promise<LoadResult> {
   if (fromStorage.ok) return fromStorage
 
   try {
-    const res = await fetch('/features.json', { cache: 'no-cache' })
+    const base = import.meta.env.BASE_URL ?? '/'
+    const res = await fetch(`${base}features.json`, { cache: 'no-cache' })
     if (!res.ok) return { ok: false, reason: 'missing' }
     const data = (await res.json()) as FeaturesFile
     const valid = validate(data)

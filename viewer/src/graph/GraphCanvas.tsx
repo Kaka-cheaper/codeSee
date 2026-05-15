@@ -231,12 +231,14 @@ function GraphInner({ file }: Props) {
       // 不能对所有 change 类型都同步——React Flow 内部的 dimensions/select 等 change
       // 在节点位置还是初始 (0,0) 时也会触发，会把 (0,0) 写入缓存污染数据
       if (userDragging) {
-        const positionMap = positionsRef.current.get(viewKey)
-        if (positionMap) {
-          for (const n of finalNodes) {
-            if (n.type === 'epicGroup') continue
-            positionMap.set(n.id, { x: n.position.x, y: n.position.y })
-          }
+        let positionMap = positionsRef.current.get(viewKey)
+        if (!positionMap) {
+          positionMap = new Map()
+          positionsRef.current.set(viewKey, positionMap)
+        }
+        for (const n of finalNodes) {
+          if (n.type === 'epicGroup') continue
+          positionMap.set(n.id, { x: n.position.x, y: n.position.y })
         }
         // 自动保存：localStorage 立即写（草稿），文件防抖写
         if (autoSave) {

@@ -327,6 +327,30 @@ function GraphInner({ file }: Props) {
             return { ...n, position: { x: n.position.x + offset.x, y: n.position.y + offset.y } }
           })
         }
+
+        // 偏移量叠加后，对容器做碰撞检测（防止偏移导致容器重叠）
+        if (groups.length > 1) {
+          const updatedGroups = resolveContainerCollisions(finalNodes, groups)
+          // 如果容器被推开了，内部节点也要跟着动
+          for (let gi = 0; gi < groups.length; gi++) {
+            const oldG = groups[gi]
+            const newG = updatedGroups[gi]
+            const dx = newG.position.x - oldG.position.x
+            const dy = newG.position.y - oldG.position.y
+            if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue
+            const epicId = oldG.id.replace(/^group:/, '')
+            finalNodes = finalNodes.map((n) => {
+              if (n.view.kind !== 'feature') return n
+              if ((n.view.feature.epicId ?? '__none__') !== epicId) return n
+              return { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
+            })
+          }
+          // 更新 groups 引用
+          for (let gi = 0; gi < groups.length; gi++) {
+            groups[gi] = updatedGroups[gi]
+          }
+        }
+
         // 存基准位置（用于后续计算偏移量）
         const basePositions = new Map<string, { x: number; y: number }>()
         for (const n of layoutResult.nodes) basePositions.set(n.view.id, n.position)
@@ -607,6 +631,84 @@ function updateGroupBounds(nodes: Node[]): Node[] {
     ) return n
     return { ...n, position: newPos, data: { ...oldData, width: newWidth, height: newHeight } }
   })
+}
+
+/**
+ * 容器级碰撞检测：偏移量叠加后容器可能重叠，推开到刚好不重叠。
+ * 输入：当前所有 feature 节点的最终位置 + groups 列表
+ * 输出：推开后的 groups（位置和尺寸可能变了）
+ * 不改偏移量——纯后处理。
+ */
+function resolveContainerCollisions(
+  nodes: LaidOutNode[],
+  groups: LayoutGroup[],
+): LayoutGroup[] {
+  const CONTAINER_GAP = 60
+
+  // 重新计算每个容器的包围盒（基于当前节点位置）
+  const updatedGroups = groups.map((g) => {
+    const epicId = g.id.replace(/^group:/, '')
+    const members = nodes.filter(
+      (n) => n.view.kind === 'feature' && (n.view.feature.epicId ?? '__none__') === epicId,
+    )
+    if (members.length === 0) return { ...g }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const m of members) {
+      minX = Math.min(minX, m.position.x)
+      minY = Math.min(minY, m.position.y)
+      maxX = Math.max(maxX, m.position.x + m.width)
+      maxY = Math.max(maxY, m.position.y + m.height)
+    }
+    const PAD = 60
+    return {
+      ...g,
+      position: { x: minX - PAD, y: minY - PAD },
+      width: (maxX - minX) + PAD * 2,
+      height: (maxY - minY) + PAD * 2,
+    }
+  })
+
+  // 矩形排斥迭代
+  for (let iter = 0; iter < 15; iter++) {
+    let moved = false
+    for (let i = 0; i < updatedGroups.length; i++) {
+      for (let j = i + 1; j < updatedGroups.length; j++) {
+        const a = updatedGroups[i]
+        const b = updatedGroups[j]
+        const aCx = a.position.x + a.width / 2
+        const aCy = a.position.y + a.height / 2
+        const bCx = b.position.x + b.width / 2
+        const bCy = b.position.y + b.height / 2
+        const overlapX = (a.width / 2 + b.width / 2 + CONTAINER_GAP) - Math.abs(aCx - bCx)
+        const overlapY = (a.height / 2 + b.height / 2 + CONTAINER_GAP) - Math.abs(aCy - bCy)
+        if (overlapX > 0 && overlapY > 0) {
+          if (overlapX < overlapY) {
+            const push = overlapX / 2 + 1
+            if (aCx <= bCx) {
+              updatedGroups[i] = { ...a, position: { x: a.position.x - push, y: a.position.y } }
+              updatedGroups[j] = { ...b, position: { x: b.position.x + push, y: b.position.y } }
+            } else {
+              updatedGroups[i] = { ...a, position: { x: a.position.x + push, y: a.position.y } }
+              updatedGroups[j] = { ...b, position: { x: b.position.x - push, y: b.position.y } }
+            }
+          } else {
+            const push = overlapY / 2 + 1
+            if (aCy <= bCy) {
+              updatedGroups[i] = { ...a, position: { x: a.position.x, y: a.position.y - push } }
+              updatedGroups[j] = { ...b, position: { x: b.position.x, y: b.position.y + push } }
+            } else {
+              updatedGroups[i] = { ...a, position: { x: a.position.x, y: a.position.y + push } }
+              updatedGroups[j] = { ...b, position: { x: b.position.x, y: b.position.y - push } }
+            }
+          }
+          moved = true
+        }
+      }
+    }
+    if (!moved) break
+  }
+
+  return updatedGroups
 }
 
 function toRfNodes(

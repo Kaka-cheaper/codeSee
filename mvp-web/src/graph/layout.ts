@@ -55,7 +55,7 @@ export async function layoutViewAsync(
     return { nodes: await elkLayered(nodes, edges, 'RIGHT', measuredSizes), groups: [] }
   }
   if (firstKind === 'epic') {
-    return { nodes: await elkRectPacking(nodes, measuredSizes), groups: [] }
+    return { nodes: await elkLayered(nodes, edges, 'DOWN', measuredSizes), groups: [] }
   }
   // feature 视图：按 epicId 分组做 compound layout
   return elkGroupedFeatures(nodes, edges, epicNames, measuredSizes)
@@ -87,7 +87,8 @@ export function layoutViewSync(
 
 /* --------------------------------------------------------- ELK 实现 */
 
-async function elkRectPacking(nodes: FcgViewNode[], measuredSizes?: Map<string, { width: number; height: number }>): Promise<LaidOutNode[]> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function elkRectPacking(nodes: FcgViewNode[], measuredSizes?: Map<string, { width: number; height: number }>): Promise<LaidOutNode[]> {
   const graph: ElkNode = {
     id: 'root',
     layoutOptions: {

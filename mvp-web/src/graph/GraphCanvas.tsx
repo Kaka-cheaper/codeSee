@@ -14,7 +14,6 @@ import {
   type Node,
   type NodeChange,
   type NodeMouseHandler,
-  type OnNodeDrag,
 } from '@xyflow/react'
 import type { FeaturesFile } from '@/fcg/types'
 import {
@@ -25,7 +24,6 @@ import {
   type ViewMode,
 } from './fcgView'
 import { layoutViewAsync, mergeWithPrevious } from './layout'
-import { useForceLayout } from './useForceLayout'
 import { EpicNodeView, type EpicNodeData } from './EpicNodeView'
 import { FeatureNodeView, type FeatureNodeData } from './FeatureNodeView'
 import { StepNodeView, type StepNodeData } from './StepNodeView'
@@ -64,7 +62,6 @@ function GraphInner({ file }: Props) {
 
   const view = useMemo(() => buildView(file, state), [file, state])
   const viewKey = viewKeyOf(state)
-  const isOverview = state.mode === 'overview'
 
   const positionsRef = useRef<
     Map<string, Map<string, { x: number; y: number }>>
@@ -73,6 +70,7 @@ function GraphInner({ file }: Props) {
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
   const measuredSizesRef = useRef<Map<string, { width: number; height: number }>>(new Map())
+  const [layoutVersion, setLayoutVersion] = useState(0) // 用于重置布局
 
   // React Flow 受控模式：拖动/选中等内部变化必须通过这两个回调同步到 state
   const onNodesChange = useCallback((changes: NodeChange[]) => {
@@ -107,11 +105,8 @@ function GraphInner({ file }: Props) {
     setRfEdges((eds) => applyEdgeChanges(changes, eds))
   }, [])
 
-  /* ==================== ELK 布局（功能/流程视图） ==================== */
+  /* ==================== ELK 布局（所有视图统一） ==================== */
   useEffect(() => {
-    // 概览视图由力导向管理，跳过 ELK
-    if (isOverview) return
-
     let cancelled = false
 
     const initialNodes: Node[] = view.nodes.map((v) => ({
@@ -140,11 +135,12 @@ function GraphInner({ file }: Props) {
       const layoutResult = await layoutViewAsync(view.nodes, view.edges, epicNames, sizeMap)
       if (cancelled) return
 
+      // 重置布局时清掉缓存，让节点回到 ELK 算的位置
       const prev = positionsRef.current.get(viewKey)
       let finalNodes = layoutResult.nodes
       let newIds = new Set<string>()
       const groups = layoutResult.groups
-      if (prev && prev.size > 0) {
+      if (prev && prev.size > 0 && layoutVersion === 0) {
         const r = mergeWithPrevious(layoutResult, prev)
         finalNodes = r.merged
         newIds = r.newIds
@@ -161,65 +157,20 @@ function GraphInner({ file }: Props) {
 
     return () => { cancelled = true; window.clearTimeout(timer) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, viewKey, isOverview])
-
-  /* ==================== 力导向布局（概览视图） ==================== */
-  // 概览视图切入时初始化节点
-  useEffect(() => {
-    if (!isOverview) return
-    const nodes: Node[] = view.nodes.map((v) => ({
-      id: v.id,
-      type: 'epic',
-      position: { x: Math.random() * 400 - 200, y: Math.random() * 300 - 150 },
-      data: { view: v, isNew: false } as unknown as EpicNodeData,
-    }))
-    setRfNodes(nodes)
-    setRfEdges(view.edges.map((e) => buildEdge(e, new Set())))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOverview, view])
-
-  const handleForceTick = useCallback(
-    (positions: Map<string, { x: number; y: number }>) => {
-      setRfNodes((prev) =>
-        prev.map((n) => {
-          const pos = positions.get(n.id)
-          if (!pos) return n
-          if (Math.abs(n.position.x - pos.x) < 0.5 && Math.abs(n.position.y - pos.y) < 0.5) return n
-          return { ...n, position: pos }
-        }),
-      )
-    },
-    [],
-  )
-
-  const { onDragStart, onDrag, onDragEnd } = useForceLayout({
-    nodes: view.nodes,
-    edges: view.edges,
-    measuredSizes: measuredSizesRef.current,
-    enabled: isOverview,
-    onTick: handleForceTick,
-  })
-
-  const handleNodeDragStart: OnNodeDrag = useCallback(
-    (_event, node) => { if (isOverview) onDragStart(node.id) },
-    [isOverview, onDragStart],
-  )
-  const handleNodeDrag: OnNodeDrag = useCallback(
-    (_event, node) => { if (isOverview) onDrag(node.id, node.position.x, node.position.y) },
-    [isOverview, onDrag],
-  )
-  const handleNodeDragStop: OnNodeDrag = useCallback(
-    (_event, node) => { if (isOverview) onDragEnd(node.id) },
-    [isOverview, onDragEnd],
-  )
+  }, [view, viewKey, layoutVersion])
 
   /* ==================== 通用交互 ==================== */
   useEffect(() => {
     const t = window.setTimeout(() => {
       reactFlow.fitView({ padding: 0.3, duration: 320 })
-    }, isOverview ? 500 : 80)
+    }, 80)
     return () => window.clearTimeout(t)
-  }, [viewKey, reactFlow, isOverview])
+  }, [viewKey, reactFlow, layoutVersion])
+
+  const resetLayout = useCallback(() => {
+    positionsRef.current.delete(viewKey)
+    setLayoutVersion((v) => v + 1)
+  }, [viewKey])
 
   const onNodeDoubleClick: NodeMouseHandler = useCallback(
     (_, node) => {
@@ -269,9 +220,6 @@ function GraphInner({ file }: Props) {
         elementsSelectable
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
-        onNodeDragStart={handleNodeDragStart}
-        onNodeDrag={handleNodeDrag}
-        onNodeDragStop={handleNodeDragStop}
         onPaneClick={onPaneClick}
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="oklch(0.8 0.018 70)" />
@@ -301,6 +249,7 @@ function GraphInner({ file }: Props) {
             : undefined
         }
         onChangeMode={goMode}
+        onResetLayout={resetLayout}
       />
 
       {newNodeIds.size > 0 && state.mode === 'features' && (
@@ -437,17 +386,23 @@ function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
 
 /* --------------------------------------------------------- UI */
 
-function ViewSwitcher({ mode, focusedFeatureName, onChangeMode }: {
-  mode: ViewMode; focusedFeatureName?: string; onChangeMode: (m: ViewMode) => void
+function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout }: {
+  mode: ViewMode; focusedFeatureName?: string; onChangeMode: (m: ViewMode) => void; onResetLayout: () => void
 }) {
   return (
     <div className="pointer-events-none absolute top-4 left-4 z-10">
-      <div className="pointer-events-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-1)] px-1.5 py-1 shadow-[0_1px_2px_oklch(0_0_0/0.04)]">
-        <div className="flex items-center gap-0.5">
-          <ModeBtn active={mode === 'overview'} onClick={() => onChangeMode('overview')}>概览</ModeBtn>
-          <ModeBtn active={mode === 'features'} onClick={() => onChangeMode('features')}>功能</ModeBtn>
-          <ModeBtn active={mode === 'steps'} onClick={() => mode === 'steps' && onChangeMode('steps')} disabled={mode !== 'steps'} title={mode !== 'steps' ? '请先在功能视图双击一个功能' : undefined}>流程</ModeBtn>
-        </div>
+      <div className="pointer-events-auto flex items-center gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-1)] px-1.5 py-1 shadow-[0_1px_2px_oklch(0_0_0/0.04)]">
+        <ModeBtn active={mode === 'overview'} onClick={() => onChangeMode('overview')}>概览</ModeBtn>
+        <ModeBtn active={mode === 'features'} onClick={() => onChangeMode('features')}>功能</ModeBtn>
+        <ModeBtn active={mode === 'steps'} onClick={() => mode === 'steps' && onChangeMode('steps')} disabled={mode !== 'steps'} title={mode !== 'steps' ? '请先在功能视图双击一个功能' : undefined}>流程</ModeBtn>
+        <span className="mx-0.5 h-4 w-px bg-[var(--color-border)]" />
+        <button
+          onClick={onResetLayout}
+          title="重置布局"
+          className="rounded-md px-2 py-1 text-[11px] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]"
+        >
+          ↺
+        </button>
       </div>
       {mode === 'steps' && focusedFeatureName && (
         <div className="pointer-events-auto mt-2 inline-flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-1)] px-2.5 py-1 text-[11px] text-[var(--color-fg-muted)] shadow-[0_1px_2px_oklch(0_0_0/0.04)]">

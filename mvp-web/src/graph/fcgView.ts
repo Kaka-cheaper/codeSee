@@ -93,44 +93,20 @@ function buildOverviewView(file: FeaturesFile): FcgViewResult {
     })
   }
 
-  // overview 边：epic_flow（主线）+ cross_feature 上卷
-  const edgeKey = new Set<string>()
+  // overview 边：只用 epic_flow 主线，不再上卷 cross_feature（那些细节留给功能视图）
   const edges: FcgViewEdge[] = []
-
-  // 1. epic_flow 主线
   for (const ef of file.epic_flow ?? []) {
-    const id = `epic-flow:${ef.from}->${ef.to}`
-    if (edgeKey.has(id)) continue
-    edgeKey.add(id)
+    const sourceId = `epic:${ef.from}`
+    const targetId = `epic:${ef.to}`
+    // 确保两端 Epic 都存在
+    if (!nodes.some((n) => n.id === sourceId) || !nodes.some((n) => n.id === targetId)) continue
     edges.push({
-      id,
-      source: `epic:${ef.from}`,
-      target: `epic:${ef.to}`,
+      id: `epic-flow:${ef.from}->${ef.to}`,
+      source: sourceId,
+      target: targetId,
       kind: 'epic-link',
       scope: 'epic',
-      label: ef.note ?? ef.kind,
-    })
-  }
-
-  // 2. cross_feature 上卷到 epic 之间（补充 epic_flow 没覆盖的）
-  const featureToEpic = new Map<string, string>()
-  for (const f of file.features) {
-    featureToEpic.set(f.id, f.epicId ?? '__none__')
-  }
-  for (const link of file.cross_feature ?? []) {
-    const s = featureToEpic.get(link.from)
-    const t = featureToEpic.get(link.to)
-    if (!s || !t || s === t) continue
-    const id = `epic-link:${s}->${t}:${link.kind}`
-    if (edgeKey.has(id)) continue
-    edgeKey.add(id)
-    edges.push({
-      id,
-      source: `epic:${s}`,
-      target: `epic:${t}`,
-      kind: 'epic-link',
-      scope: 'epic',
-      label: link.kind,
+      label: ef.note ?? undefined, // 语义级标签，如"配置完成后运行"
     })
   }
 

@@ -1,142 +1,330 @@
 {
   "version": "0",
   "manifest": {
-    "repo": "demo/sample-app",
-    "generated_at": "2026-05-14T00:00:00.000Z",
+    "repo": "demo/online-shop",
+    "commit": "abc1234",
+    "generated_at": "2026-05-15T00:00:00.000Z",
     "generator": "user"
   },
   "epics": [
-    {
-      "id": "user",
-      "name": "用户管理",
-      "summary": "用户的注册、登录、查询、更新等",
-      "tags": ["user", "auth"]
-    },
-    {
-      "id": "order",
-      "name": "订单与结算",
-      "summary": "下单、支付回调、对账",
-      "tags": ["order", "payment"]
-    }
+    { "id": "auth", "name": "用户认证", "summary": "注册、登录、权限管理", "order": 0, "importance": "normal" },
+    { "id": "catalog", "name": "商品浏览", "summary": "商品列表、搜索、详情", "order": 1, "importance": "core" },
+    { "id": "cart", "name": "购物车", "summary": "加购、改数量、清空", "order": 1, "importance": "core" },
+    { "id": "order", "name": "订单与支付", "summary": "下单、支付、回调、发货", "order": 2, "importance": "core" },
+    { "id": "admin", "name": "后台管理", "summary": "商品上架、订单处理、数据看板", "order": 3, "importance": "auxiliary" }
   ],
   "features": [
     {
+      "id": "f-register",
+      "name": "用户注册",
+      "summary": "邮箱注册，发送验证邮件",
+      "epicId": "auth",
+      "triggers": [{ "kind": "http", "detail": "POST /api/auth/register" }],
+      "tags": ["auth"],
+      "steps": [
+        { "id": "input", "name": "接收注册表单", "role": "input" },
+        { "id": "validate", "name": "校验邮箱格式", "role": "validation" },
+        { "id": "check-dup", "name": "查重邮箱", "role": "data-read" },
+        { "id": "hash", "name": "哈希密码", "role": "compute" },
+        { "id": "save", "name": "写入用户表", "role": "data-write" },
+        { "id": "send-email", "name": "发送验证邮件", "role": "side-effect" },
+        { "id": "ok", "name": "返回注册成功", "role": "output" },
+        { "id": "fail-dup", "name": "返回邮箱已存在", "role": "error" }
+      ],
+      "flow": [
+        { "from": "input", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "check-dup", "kind": "next" },
+        { "from": "check-dup", "to": "hash", "kind": "conditional", "condition": "邮箱可用" },
+        { "from": "check-dup", "to": "fail-dup", "kind": "conditional", "condition": "邮箱已存在" },
+        { "from": "hash", "to": "save", "kind": "next" },
+        { "from": "save", "to": "ok", "kind": "next" },
+        { "from": "save", "to": "send-email", "kind": "async" }
+      ],
+      "confidence": 0.95,
+      "provenance": "user",
+      "updated_at": "2026-05-15T00:00:00.000Z"
+    },
+    {
       "id": "f-login",
       "name": "用户登录",
-      "summary": "邮箱密码登录，签发 JWT，并异步通知一封登录提醒邮件",
-      "epicId": "user",
-      "triggers": [{ "kind": "http", "detail": "POST /api/login" }],
-      "tags": ["auth", "login"],
+      "summary": "邮箱密码登录，签发 JWT",
+      "epicId": "auth",
+      "triggers": [{ "kind": "http", "detail": "POST /api/auth/login" }],
+      "tags": ["auth"],
       "steps": [
-        { "id": "input",     "name": "接收登录请求",  "role": "input" },
-        { "id": "validate",  "name": "校验邮箱与密码", "role": "validation" },
-        { "id": "find",      "name": "按邮箱查用户",   "role": "data-read" },
-        { "id": "verify",    "name": "比对密码",       "role": "auth" },
-        { "id": "issue",     "name": "签发 JWT",       "role": "auth" },
-        { "id": "notify",    "name": "发送提醒邮件",   "role": "side-effect" },
-        { "id": "ok",        "name": "返回 token",     "role": "output" },
-        { "id": "fail",      "name": "返回 401",       "role": "error" }
+        { "id": "input", "name": "接收登录请求", "role": "input" },
+        { "id": "find", "name": "查询用户", "role": "data-read" },
+        { "id": "verify", "name": "比对密码", "role": "auth" },
+        { "id": "issue", "name": "签发令牌", "role": "compute" },
+        { "id": "ok", "name": "返回令牌", "role": "output" },
+        { "id": "fail", "name": "返回认证失败", "role": "error" }
       ],
       "flow": [
-        { "from": "input",    "to": "validate", "kind": "next" },
-        { "from": "validate", "to": "find",     "kind": "next" },
-        { "from": "find",     "to": "verify",   "kind": "next" },
-        { "from": "verify",   "to": "issue",    "kind": "conditional", "condition": "密码正确" },
-        { "from": "verify",   "to": "fail",     "kind": "conditional", "condition": "密码错误或用户不存在" },
-        { "from": "issue",    "to": "ok",       "kind": "next" },
-        { "from": "issue",    "to": "notify",   "kind": "async" }
+        { "from": "input", "to": "find", "kind": "next" },
+        { "from": "find", "to": "verify", "kind": "next" },
+        { "from": "verify", "to": "issue", "kind": "conditional", "condition": "密码正确" },
+        { "from": "verify", "to": "fail", "kind": "conditional", "condition": "密码错误" },
+        { "from": "issue", "to": "ok", "kind": "next" }
       ],
-      "confidence": 1,
+      "confidence": 0.95,
       "provenance": "user",
-      "updated_at": "2026-05-14T00:00:00.000Z"
+      "updated_at": "2026-05-15T00:00:00.000Z"
     },
     {
-      "id": "f-add-user",
-      "name": "添加用户",
-      "summary": "管理员后台新增一个用户，并触发欢迎邮件",
-      "epicId": "user",
-      "triggers": [{ "kind": "http", "detail": "POST /api/users" }],
-      "tags": ["user", "admin"],
+      "id": "f-product-list",
+      "name": "商品列表",
+      "summary": "分页查询商品，支持分类筛选",
+      "epicId": "catalog",
+      "triggers": [{ "kind": "http", "detail": "GET /api/products" }],
+      "tags": ["catalog"],
       "steps": [
-        { "id": "input",   "name": "接收表单",     "role": "input" },
-        { "id": "valid",   "name": "校验必填项",   "role": "validation" },
-        { "id": "uniq",    "name": "查重邮箱",     "role": "data-read" },
-        { "id": "hash",    "name": "哈希密码",     "role": "compute" },
-        { "id": "save",    "name": "写入数据库",   "role": "data-write" },
-        { "id": "welcome", "name": "发送欢迎邮件", "role": "side-effect" },
-        { "id": "ok",      "name": "返回新用户",   "role": "output" }
+        { "id": "input", "name": "解析查询参数", "role": "input" },
+        { "id": "query", "name": "查询商品表", "role": "data-read" },
+        { "id": "format", "name": "格式化列表", "role": "transform" },
+        { "id": "ok", "name": "返回商品列表", "role": "output" }
       ],
       "flow": [
-        { "from": "input",  "to": "valid", "kind": "next" },
-        { "from": "valid",  "to": "uniq",  "kind": "next" },
-        { "from": "uniq",   "to": "hash",  "kind": "conditional", "condition": "邮箱可用" },
-        { "from": "hash",   "to": "save",  "kind": "next" },
-        { "from": "save",   "to": "ok",    "kind": "next" },
-        { "from": "save",   "to": "welcome","kind": "async" }
+        { "from": "input", "to": "query", "kind": "next" },
+        { "from": "query", "to": "format", "kind": "next" },
+        { "from": "format", "to": "ok", "kind": "next" }
       ],
-      "confidence": 1,
+      "confidence": 0.95,
       "provenance": "user",
-      "updated_at": "2026-05-14T00:00:00.000Z"
+      "updated_at": "2026-05-15T00:00:00.000Z"
     },
     {
-      "id": "f-list-users",
-      "name": "查询用户列表",
-      "summary": "分页查询用户，可按城市过滤",
-      "epicId": "user",
-      "triggers": [{ "kind": "http", "detail": "GET /api/users" }],
-      "tags": ["user", "list"],
+      "id": "f-product-search",
+      "name": "商品搜索",
+      "summary": "关键词全文搜索商品",
+      "epicId": "catalog",
+      "triggers": [{ "kind": "http", "detail": "GET /api/products/search" }],
+      "tags": ["catalog", "search"],
       "steps": [
-        { "id": "input",  "name": "解析查询参数", "role": "input" },
-        { "id": "page",   "name": "构造分页",     "role": "compute" },
-        { "id": "fetch",  "name": "查询数据库",   "role": "data-read" },
-        { "id": "shape",  "name": "整形为 DTO",   "role": "transform" },
-        { "id": "ok",     "name": "返回列表",     "role": "output" }
+        { "id": "input", "name": "接收搜索词", "role": "input" },
+        { "id": "search", "name": "全文检索", "role": "data-read" },
+        { "id": "rank", "name": "相关度排序", "role": "compute" },
+        { "id": "ok", "name": "返回搜索结果", "role": "output" }
       ],
       "flow": [
-        { "from": "input", "to": "page",  "kind": "next" },
-        { "from": "page",  "to": "fetch", "kind": "next" },
-        { "from": "fetch", "to": "shape", "kind": "loop", "condition": "对每条记录" },
-        { "from": "shape", "to": "ok",    "kind": "next" }
+        { "from": "input", "to": "search", "kind": "next" },
+        { "from": "search", "to": "rank", "kind": "next" },
+        { "from": "rank", "to": "ok", "kind": "next" }
       ],
-      "confidence": 0.7,
-      "provenance": "ai",
-      "updated_at": "2026-05-14T00:00:00.000Z"
+      "confidence": 0.9,
+      "provenance": "user",
+      "updated_at": "2026-05-15T00:00:00.000Z"
+    },
+    {
+      "id": "f-product-detail",
+      "name": "商品详情",
+      "summary": "查看单个商品的完整信息与库存",
+      "epicId": "catalog",
+      "triggers": [{ "kind": "http", "detail": "GET /api/products/:id" }],
+      "tags": ["catalog"],
+      "steps": [
+        { "id": "input", "name": "解析商品 ID", "role": "input" },
+        { "id": "fetch", "name": "查询商品详情", "role": "data-read" },
+        { "id": "stock", "name": "查询实时库存", "role": "data-read" },
+        { "id": "ok", "name": "返回详情", "role": "output" },
+        { "id": "not-found", "name": "返回商品不存在", "role": "error" }
+      ],
+      "flow": [
+        { "from": "input", "to": "fetch", "kind": "next" },
+        { "from": "fetch", "to": "stock", "kind": "conditional", "condition": "商品存在" },
+        { "from": "fetch", "to": "not-found", "kind": "conditional", "condition": "商品不存在" },
+        { "from": "stock", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "user",
+      "updated_at": "2026-05-15T00:00:00.000Z"
+    },
+    {
+      "id": "f-add-to-cart",
+      "name": "加入购物车",
+      "summary": "将商品加入当前用户的购物车",
+      "epicId": "cart",
+      "triggers": [{ "kind": "http", "detail": "POST /api/cart/items" }],
+      "tags": ["cart"],
+      "steps": [
+        { "id": "input", "name": "接收加购请求", "role": "input" },
+        { "id": "auth", "name": "验证登录态", "role": "auth" },
+        { "id": "check-stock", "name": "校验库存", "role": "data-read" },
+        { "id": "upsert", "name": "写入购物车", "role": "data-write" },
+        { "id": "ok", "name": "返回购物车", "role": "output" },
+        { "id": "fail-stock", "name": "返回库存不足", "role": "error" }
+      ],
+      "flow": [
+        { "from": "input", "to": "auth", "kind": "next" },
+        { "from": "auth", "to": "check-stock", "kind": "next" },
+        { "from": "check-stock", "to": "upsert", "kind": "conditional", "condition": "库存充足" },
+        { "from": "check-stock", "to": "fail-stock", "kind": "conditional", "condition": "库存不足" },
+        { "from": "upsert", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "user",
+      "updated_at": "2026-05-15T00:00:00.000Z"
+    },
+    {
+      "id": "f-view-cart",
+      "name": "查看购物车",
+      "summary": "展示当前用户购物车内容与总价",
+      "epicId": "cart",
+      "triggers": [{ "kind": "http", "detail": "GET /api/cart" }],
+      "tags": ["cart"],
+      "steps": [
+        { "id": "input", "name": "验证登录态", "role": "auth" },
+        { "id": "fetch", "name": "查询购物车", "role": "data-read" },
+        { "id": "calc", "name": "计算总价", "role": "compute" },
+        { "id": "ok", "name": "返回购物车详情", "role": "output" }
+      ],
+      "flow": [
+        { "from": "input", "to": "fetch", "kind": "next" },
+        { "from": "fetch", "to": "calc", "kind": "next" },
+        { "from": "calc", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.95,
+      "provenance": "user",
+      "updated_at": "2026-05-15T00:00:00.000Z"
     },
     {
       "id": "f-checkout",
       "name": "下单结算",
-      "summary": "用户提交订单，调用支付，回调成功后扣库存并通知发货",
+      "summary": "提交订单，调用支付，扣库存",
       "epicId": "order",
       "triggers": [{ "kind": "http", "detail": "POST /api/orders/checkout" }],
       "tags": ["order", "payment"],
       "steps": [
-        { "id": "input",   "name": "接收订单",       "role": "input" },
-        { "id": "calc",    "name": "计算总价",       "role": "compute" },
-        { "id": "save",    "name": "落库待支付",     "role": "data-write" },
-        { "id": "pay",     "name": "调用支付网关",   "role": "side-effect" },
-        { "id": "wait",    "name": "等待支付回调",   "role": "other" },
-        { "id": "stock",   "name": "扣减库存",       "role": "data-write" },
-        { "id": "ship",    "name": "发起发货流程",   "role": "side-effect" },
-        { "id": "ok",      "name": "返回订单号",     "role": "output" },
-        { "id": "fail",    "name": "回滚订单",       "role": "error" }
+        { "id": "input", "name": "接收订单", "role": "input" },
+        { "id": "lock-stock", "name": "锁定库存", "role": "data-write" },
+        { "id": "calc", "name": "计算总价", "role": "compute" },
+        { "id": "save", "name": "创建订单记录", "role": "data-write" },
+        { "id": "pay", "name": "调用支付网关", "role": "side-effect" },
+        { "id": "ok", "name": "返回订单号", "role": "output" },
+        { "id": "fail-stock", "name": "库存不足回滚", "role": "error" }
       ],
       "flow": [
-        { "from": "input", "to": "calc",  "kind": "next" },
-        { "from": "calc",  "to": "save",  "kind": "next" },
-        { "from": "save",  "to": "pay",   "kind": "next" },
-        { "from": "pay",   "to": "wait",  "kind": "async" },
-        { "from": "wait",  "to": "stock", "kind": "conditional", "condition": "支付成功" },
-        { "from": "wait",  "to": "fail",  "kind": "conditional", "condition": "支付失败或超时" },
-        { "from": "stock", "to": "ship",  "kind": "async" },
-        { "from": "stock", "to": "ok",    "kind": "next" }
+        { "from": "input", "to": "lock-stock", "kind": "next" },
+        { "from": "lock-stock", "to": "calc", "kind": "conditional", "condition": "锁定成功" },
+        { "from": "lock-stock", "to": "fail-stock", "kind": "conditional", "condition": "库存不足" },
+        { "from": "calc", "to": "save", "kind": "next" },
+        { "from": "save", "to": "pay", "kind": "next" },
+        { "from": "pay", "to": "ok", "kind": "async" }
       ],
-      "confidence": 0.6,
+      "confidence": 0.85,
+      "provenance": "user",
+      "updated_at": "2026-05-15T00:00:00.000Z"
+    },
+    {
+      "id": "f-pay-callback",
+      "name": "支付回调",
+      "summary": "接收支付网关回调，更新订单状态，触发发货",
+      "epicId": "order",
+      "triggers": [{ "kind": "http", "detail": "POST /api/orders/pay-callback" }],
+      "tags": ["order", "payment"],
+      "steps": [
+        { "id": "input", "name": "接收回调", "role": "input" },
+        { "id": "verify", "name": "验证签名", "role": "auth" },
+        { "id": "update", "name": "更新订单状态", "role": "data-write" },
+        { "id": "deduct", "name": "正式扣减库存", "role": "data-write" },
+        { "id": "notify", "name": "通知发货系统", "role": "side-effect" },
+        { "id": "ok", "name": "返回确认", "role": "output" },
+        { "id": "fail-sign", "name": "签名验证失败", "role": "error" }
+      ],
+      "flow": [
+        { "from": "input", "to": "verify", "kind": "next" },
+        { "from": "verify", "to": "update", "kind": "conditional", "condition": "签名有效" },
+        { "from": "verify", "to": "fail-sign", "kind": "conditional", "condition": "签名无效" },
+        { "from": "update", "to": "deduct", "kind": "next" },
+        { "from": "deduct", "to": "notify", "kind": "async" },
+        { "from": "deduct", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.8,
+      "provenance": "user",
+      "updated_at": "2026-05-15T00:00:00.000Z"
+    },
+    {
+      "id": "f-order-list",
+      "name": "我的订单",
+      "summary": "查看当前用户的历史订单列表",
+      "epicId": "order",
+      "triggers": [{ "kind": "http", "detail": "GET /api/orders" }],
+      "tags": ["order"],
+      "steps": [
+        { "id": "input", "name": "验证登录态", "role": "auth" },
+        { "id": "query", "name": "查询订单列表", "role": "data-read" },
+        { "id": "ok", "name": "返回订单列表", "role": "output" }
+      ],
+      "flow": [
+        { "from": "input", "to": "query", "kind": "next" },
+        { "from": "query", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.95,
+      "provenance": "user",
+      "updated_at": "2026-05-15T00:00:00.000Z"
+    },
+    {
+      "id": "f-admin-products",
+      "name": "商品管理",
+      "summary": "后台上架、下架、编辑商品",
+      "epicId": "admin",
+      "triggers": [{ "kind": "ui", "detail": "管理后台 - 商品页" }],
+      "tags": ["admin"],
+      "steps": [
+        { "id": "input", "name": "管理员操作", "role": "input" },
+        { "id": "auth", "name": "校验管理员权限", "role": "auth" },
+        { "id": "crud", "name": "执行增删改", "role": "data-write" },
+        { "id": "invalidate", "name": "清除商品缓存", "role": "side-effect" },
+        { "id": "ok", "name": "返回操作结果", "role": "output" }
+      ],
+      "flow": [
+        { "from": "input", "to": "auth", "kind": "next" },
+        { "from": "auth", "to": "crud", "kind": "next" },
+        { "from": "crud", "to": "invalidate", "kind": "async" },
+        { "from": "crud", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.85,
       "provenance": "ai",
-      "updated_at": "2026-05-14T00:00:00.000Z"
+      "updated_at": "2026-05-15T00:00:00.000Z"
+    },
+    {
+      "id": "f-admin-dashboard",
+      "name": "数据看板",
+      "summary": "展示销售额、订单量、热门商品等统计",
+      "epicId": "admin",
+      "triggers": [{ "kind": "ui", "detail": "管理后台 - 看板页" }],
+      "tags": ["admin", "analytics"],
+      "steps": [
+        { "id": "input", "name": "加载看板页", "role": "input" },
+        { "id": "auth", "name": "校验管理员权限", "role": "auth" },
+        { "id": "agg-sales", "name": "聚合销售数据", "role": "compute" },
+        { "id": "agg-orders", "name": "聚合订单数据", "role": "compute" },
+        { "id": "render", "name": "渲染图表", "role": "output" }
+      ],
+      "flow": [
+        { "from": "input", "to": "auth", "kind": "next" },
+        { "from": "auth", "to": "agg-sales", "kind": "next" },
+        { "from": "auth", "to": "agg-orders", "kind": "next" },
+        { "from": "agg-sales", "to": "render", "kind": "next" },
+        { "from": "agg-orders", "to": "render", "kind": "next" }
+      ],
+      "confidence": 0.7,
+      "provenance": "ai",
+      "updated_at": "2026-05-15T00:00:00.000Z"
     }
   ],
   "cross_feature": [
-    { "from": "f-add-user",   "to": "f-login",    "kind": "triggers", "note": "新用户首次会触发登录流程" },
-    { "from": "f-checkout",   "to": "f-list-users","kind": "depends_on", "note": "依赖用户存在" }
+    { "from": "f-register", "to": "f-login", "kind": "triggers", "note": "注册完成后引导登录" },
+    { "from": "f-login", "to": "f-add-to-cart", "kind": "triggers", "note": "登录后才能加购" },
+    { "from": "f-product-detail", "to": "f-add-to-cart", "kind": "triggers", "note": "详情页点击加购" },
+    { "from": "f-view-cart", "to": "f-checkout", "kind": "triggers", "note": "购物车点击结算" },
+    { "from": "f-checkout", "to": "f-pay-callback", "kind": "publishes", "note": "支付网关异步回调" },
+    { "from": "f-pay-callback", "to": "f-order-list", "kind": "publishes", "note": "支付成功后订单可见" },
+    { "from": "f-admin-products", "to": "f-product-list", "kind": "publishes", "note": "上架后商品列表更新" }
+  ],
+  "epic_flow": [
+    { "from": "auth", "to": "catalog", "kind": "next", "note": "登录后浏览商品" },
+    { "from": "catalog", "to": "cart", "kind": "next", "note": "看中商品加入购物车" },
+    { "from": "cart", "to": "order", "kind": "next", "note": "购物车结算下单" },
+    { "from": "order", "to": "admin", "kind": "next", "note": "订单产生后后台处理" }
   ]
 }

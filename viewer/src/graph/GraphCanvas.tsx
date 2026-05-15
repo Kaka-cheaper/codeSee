@@ -39,6 +39,7 @@ import { StepNodeView, type StepNodeData } from './StepNodeView'
 import { FLOW_META, ROLE_META } from './roleMeta'
 import { DetailsPanel } from './DetailsPanel'
 import { EpicGroupBg, type EpicGroupBgData } from './EpicGroupBg'
+import { useI18n } from '@/lib/i18n'
 import type { LaidOutNode, LayoutGroup } from './layout'
 
 interface Props {
@@ -895,21 +896,22 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
   canUndo: boolean
   canRedo: boolean
 }) {
+  const { t } = useI18n()
   const tipText =
-    saveStatus === 'saved' ? '已保存到 layout.json' :
-    saveStatus === 'downloaded' ? '已下载（请放回 .codesee/）' :
-    saveStatus === 'failed' ? '保存失败' :
+    saveStatus === 'saved' ? t('view.saved') :
+    saveStatus === 'downloaded' ? t('view.downloaded') :
+    saveStatus === 'failed' ? t('view.failed') :
     null
   return (
     <div className="pointer-events-none absolute top-4 left-4 z-10">
       <div className="pointer-events-auto flex items-center gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-1)] px-1.5 py-1 shadow-[0_1px_2px_oklch(0_0_0/0.04)]">
-        <ModeBtn active={mode === 'overview'} onClick={() => onChangeMode('overview')}>概览</ModeBtn>
-        <ModeBtn active={mode === 'features'} onClick={() => onChangeMode('features')}>功能</ModeBtn>
-        <ModeBtn active={mode === 'steps'} onClick={() => mode === 'steps' && onChangeMode('steps')} disabled={mode !== 'steps'} title={mode !== 'steps' ? '请先在功能视图双击一个功能' : undefined}>流程</ModeBtn>
+        <ModeBtn active={mode === 'overview'} onClick={() => onChangeMode('overview')}>{t('view.overview')}</ModeBtn>
+        <ModeBtn active={mode === 'features'} onClick={() => onChangeMode('features')}>{t('view.features')}</ModeBtn>
+        <ModeBtn active={mode === 'steps'} onClick={() => mode === 'steps' && onChangeMode('steps')} disabled={mode !== 'steps'} title={mode !== 'steps' ? t('view.stepsNeedFeature') : undefined}>{t('view.steps')}</ModeBtn>
         <span className="mx-0.5 h-4 w-px bg-[var(--color-border)]" />
         <button
           onClick={onToggleAutoSave}
-          title={autoSave ? '自动保存：开（拖动后自动写入 layout.json）' : '自动保存：关（需手动点 💾）'}
+          title={autoSave ? t('view.autoOnTitle') : t('view.autoOffTitle')}
           className={
             'rounded-md px-1.5 py-1 text-[11px] transition-colors ' +
             (autoSave
@@ -917,11 +919,11 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
               : 'text-[var(--color-fg-subtle)] hover:bg-[var(--color-bg-2)]')
           }
         >
-          自动
+          {t('view.auto')}
         </button>
         <button
           onClick={onSaveLayout}
-          title="保存当前布局到 .codesee/layout.json（首次会请求授权选择 .codesee 目录）"
+          title={t('view.saveTitle')}
           className="relative rounded-md px-2 py-1 text-[11px] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]"
         >
           💾
@@ -929,7 +931,7 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
         <button
           onClick={onUndo}
           disabled={!canUndo}
-          title="撤销 (Ctrl+Z)"
+          title={t('view.undoTitle')}
           className={'rounded-md px-1.5 py-1 text-[11px] transition-colors ' + (canUndo ? 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]' : 'text-[var(--color-fg-subtle)] opacity-40')}
         >
           ←
@@ -937,14 +939,14 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
         <button
           onClick={onRedo}
           disabled={!canRedo}
-          title="重做 (Ctrl+Shift+Z)"
+          title={t('view.redoTitle')}
           className={'rounded-md px-1.5 py-1 text-[11px] transition-colors ' + (canRedo ? 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]' : 'text-[var(--color-fg-subtle)] opacity-40')}
         >
           →
         </button>
         <button
           onClick={onResetLayout}
-          title="重置布局（清除当前视图保存的位置）"
+          title={t('view.resetTitle')}
           className="rounded-md px-2 py-1 text-[11px] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]"
         >
           ↺
@@ -957,7 +959,7 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
       )}
       {mode === 'steps' && focusedFeatureName && (
         <div className="pointer-events-auto mt-2 inline-flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-1)] px-2.5 py-1 text-[11px] text-[var(--color-fg-muted)] shadow-[0_1px_2px_oklch(0_0_0/0.04)]">
-          <span className="text-[var(--color-fg-subtle)]">流程：</span>
+          <span className="text-[var(--color-fg-subtle)]">{t('view.stepsLabel')}</span>
           <span className="font-medium text-[var(--color-fg)]">{focusedFeatureName}</span>
         </div>
       )}
@@ -979,11 +981,12 @@ function ModeBtn({ active, onClick, disabled, children, title }: {
 }
 
 function NewNodeIndicator({ count }: { count: number }) {
+  const { t } = useI18n()
   return (
     <div className="pointer-events-none absolute top-4 left-1/2 z-10 -translate-x-1/2">
       <div className="pointer-events-auto rounded-full border px-3 py-1 text-[11.5px] shadow-[0_1px_2px_oklch(0_0_0/0.04)]"
         style={{ background: 'var(--color-accent-soft)', color: 'var(--color-accent-strong)', borderColor: 'var(--color-accent)' }}>
-        +{count} 个新节点
+        {t('view.newNodes', { count })}
       </div>
     </div>
   )

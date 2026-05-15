@@ -1,5 +1,6 @@
-import { FolderOpen, GitBranch, RotateCcw, Sparkles } from 'lucide-react'
+import { FolderOpen, GitBranch, Globe, RotateCcw, Sparkles } from 'lucide-react'
 import type { FeaturesFile } from '@/fcg/types'
+import { useI18n } from '@/lib/i18n'
 
 interface Props {
   file: FeaturesFile | null
@@ -10,6 +11,8 @@ interface Props {
 }
 
 export function TopBar({ file, status, sourceLabel, onPick, onClear }: Props) {
+  const { t, locale, setLocale } = useI18n()
+
   return (
     <header className="flex h-12 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg-1)] px-5">
       <div className="flex items-center gap-2.5">
@@ -30,7 +33,7 @@ export function TopBar({ file, status, sourceLabel, onPick, onClear }: Props) {
         </span>
         {status === 'missing' && (
           <span className="ml-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-2)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-fg-muted)]">
-            no data
+            {t('topbar.noData')}
           </span>
         )}
         {sourceLabel && (
@@ -66,17 +69,25 @@ export function TopBar({ file, status, sourceLabel, onPick, onClear }: Props) {
           </>
         )}
         <button
+          onClick={() => setLocale(locale === 'zh-CN' ? 'en' : 'zh-CN')}
+          title={t('lang.title')}
+          className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-2)] px-1.5 py-1 text-[10.5px] text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-sunken)] hover:text-[var(--color-fg)]"
+        >
+          <Globe size={11} />
+          {t('lang.switch')}
+        </button>
+        <button
           onClick={onPick}
-          title="打开 features.json"
+          title={t('topbar.openTitle')}
           className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-2)] px-2 py-1 text-[11px] text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-sunken)] hover:text-[var(--color-fg)]"
         >
           <FolderOpen size={12} />
-          打开
+          {t('topbar.open')}
         </button>
         {status === 'ok' && (
           <button
             onClick={onClear}
-            title="清除已加载的文件并回到示例"
+            title={t('topbar.clearTitle')}
             className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-bg-2)] text-[var(--color-fg-subtle)] transition-colors hover:bg-[var(--color-bg-sunken)] hover:text-[var(--color-fg)]"
           >
             <RotateCcw size={12} />

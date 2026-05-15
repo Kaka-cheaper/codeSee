@@ -89,46 +89,49 @@ export function layoutViewSync(
 
 /**
  * 按 Epic.order 排列：同 order 横排，不同 order 纵排。
+ * 兜底：单行超过 MAX_PER_ROW 时自动折行，避免一条横线。
  * 不依赖任何布局算法——100% 确定性，AI 控制顺序。
  */
 function layoutByOrder(nodes: FcgViewNode[]): LaidOutNode[] {
+  const MAX_PER_ROW = 4 // 视觉舒适上限：单行最多 4 个 Epic
+
   // 按 order 分组
-  const rows = new Map<number, FcgViewNode[]>()
+  const orderGroups = new Map<number, FcgViewNode[]>()
   for (const n of nodes) {
     const order = n.kind === 'epic' ? (n.epic.order ?? 99) : 99
-    if (!rows.has(order)) rows.set(order, [])
-    rows.get(order)!.push(n)
+    if (!orderGroups.has(order)) orderGroups.set(order, [])
+    orderGroups.get(order)!.push(n)
   }
 
-  const sortedOrders = [...rows.keys()].sort((a, b) => a - b)
+  const sortedOrders = [...orderGroups.keys()].sort((a, b) => a - b)
   const COL_GAP = 48
   const ROW_GAP = 64
   const result: LaidOutNode[] = []
   let y = 0
 
   for (const order of sortedOrders) {
-    const members = rows.get(order)!
-    // 同 order 横排，居中对齐
-    const totalWidth = members.reduce((sum, n) => {
-      const size = NODE_SIZE[n.kind]
-      return sum + size.width
-    }, 0) + (members.length - 1) * COL_GAP
-    let x = -totalWidth / 2
+    const members = orderGroups.get(order)!
+    // 同 order 但成员太多 → 折成多行
+    for (let i = 0; i < members.length; i += MAX_PER_ROW) {
+      const row = members.slice(i, i + MAX_PER_ROW)
+      const totalWidth = row.reduce((sum, n) => sum + NODE_SIZE[n.kind].width, 0)
+        + (row.length - 1) * COL_GAP
+      let x = -totalWidth / 2
 
-    for (const n of members) {
-      const size = NODE_SIZE[n.kind]
-      result.push({
-        view: n,
-        width: size.width,
-        height: size.height,
-        position: { x, y },
-      })
-      x += size.width + COL_GAP
+      for (const n of row) {
+        const size = NODE_SIZE[n.kind]
+        result.push({
+          view: n,
+          width: size.width,
+          height: size.height,
+          position: { x, y },
+        })
+        x += size.width + COL_GAP
+      }
+
+      const maxHeight = Math.max(...row.map((n) => NODE_SIZE[n.kind].height))
+      y += maxHeight + ROW_GAP
     }
-
-    // 下一行 y 偏移：取本行最大高度 + 间距
-    const maxHeight = Math.max(...members.map((n) => NODE_SIZE[n.kind].height))
-    y += maxHeight + ROW_GAP
   }
 
   return result

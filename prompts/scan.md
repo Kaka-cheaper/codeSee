@@ -102,7 +102,7 @@ flow.kind:     next | async | conditional | loop | error    ⚠ 必填，不能�
 cross.kind:    depends_on | publishes | subscribes | triggers
 epic_flow.kind: next | depends_on | enables
 epic_flow.note: ⚠ 必填，中文语义短句（如"配置完成后运行"），不要写技术词
-epic.order:    数字，从 0 开始，表示用户旅程顺序；同 order 横排
+epic.order:    阶段编号（不是 Epic 序号），同阶段 Epic 共享同一个 order
 provenance:    ai | user
 ```
 

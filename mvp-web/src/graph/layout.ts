@@ -89,6 +89,7 @@ export function layoutViewSync(
 
 /**
  * 按 Epic.order 排列：同 order 横排，不同 order 纵排。
+ * 列对齐：所有行使用相同列宽，相同列号的节点 x 坐标对齐，形成网格感。
  * 兜底：单行超过 MAX_PER_ROW 时自动折行，避免一条横线。
  * 不依赖任何布局算法——100% 确定性，AI 控制顺序。
  */
@@ -106,31 +107,54 @@ function layoutByOrder(nodes: FcgViewNode[]): LaidOutNode[] {
   const sortedOrders = [...orderGroups.keys()].sort((a, b) => a - b)
   const COL_GAP = 48
   const ROW_GAP = 64
+
+  // 列对齐：所有行使用统一列宽（取所有节点最大宽度），统一行高（最大高度）
+  const allWidths = nodes.map((n) => NODE_SIZE[n.kind].width)
+  const allHeights = nodes.map((n) => NODE_SIZE[n.kind].height)
+  const colWidth = Math.max(...allWidths)
+  const rowHeight = Math.max(...allHeights)
+
+  // 单行最大列数（用于居中）
+  let maxCols = 1
+  for (const order of sortedOrders) {
+    const members = orderGroups.get(order)!
+    for (let i = 0; i < members.length; i += MAX_PER_ROW) {
+      const rowLen = Math.min(MAX_PER_ROW, members.length - i)
+      if (rowLen > maxCols) maxCols = rowLen
+    }
+  }
+  const totalWidth = maxCols * colWidth + (maxCols - 1) * COL_GAP
+
   const result: LaidOutNode[] = []
   let y = 0
 
   for (const order of sortedOrders) {
     const members = orderGroups.get(order)!
-    // 同 order 但成员太多 → 折成多行
     for (let i = 0; i < members.length; i += MAX_PER_ROW) {
       const row = members.slice(i, i + MAX_PER_ROW)
-      const totalWidth = row.reduce((sum, n) => sum + NODE_SIZE[n.kind].width, 0)
-        + (row.length - 1) * COL_GAP
-      let x = -totalWidth / 2
+      // 本行节点数 = row.length，居中放置：左边 padding = (总宽 - 本行宽) / 2
+      const rowWidth = row.length * colWidth + (row.length - 1) * COL_GAP
+      const leftPad = (totalWidth - rowWidth) / 2
 
-      for (const n of row) {
+      row.forEach((n, colIdx) => {
         const size = NODE_SIZE[n.kind]
+        // 列对齐：列位的中心 = leftPad + colIdx * (colWidth + COL_GAP) + colWidth/2
+        // 节点左上角 x = 列中心 - 节点宽/2
+        const colCenterX = leftPad + colIdx * (colWidth + COL_GAP) + colWidth / 2 - totalWidth / 2
+        const x = colCenterX - size.width / 2
+        // 节点垂直居中到行中心
+        const rowCenterY = y + rowHeight / 2
+        const ny = rowCenterY - size.height / 2
+
         result.push({
           view: n,
           width: size.width,
           height: size.height,
-          position: { x, y },
+          position: { x, y: ny },
         })
-        x += size.width + COL_GAP
-      }
+      })
 
-      const maxHeight = Math.max(...row.map((n) => NODE_SIZE[n.kind].height))
-      y += maxHeight + ROW_GAP
+      y += rowHeight + ROW_GAP
     }
   }
 

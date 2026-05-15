@@ -43,7 +43,7 @@ const nodeTypes = {
   epicGroup: EpicGroupBg,
 }
 
-const defaultEdgeOptions = { type: 'smoothstep' as const }
+const defaultEdgeOptions = { type: 'step' as const }
 
 function viewKeyOf(state: FcgViewState): string {
   return state.mode === 'steps'

@@ -189,34 +189,41 @@
 
 ## 阶段 3.5：epic_flow（Epic 之间的主线）
 
-在 cross_feature 写完后，站在全局视角分析 Epic 之间的宏观流向。
+在 cross_feature 写完后，站在**用户视角**分析 Epic 之间的旅程主线。
 
 ### 你要回答的问题
 
-- 用户使用这个系统的**主线**是什么？（如：配置 → 运行 → 查看结果）
-- 哪些 Epic 是**前置依赖**？（如：用户管理 → 所有业务 Epic）
-- 哪些 Epic 之间有**先后顺序**？（如：下单 → 支付 → 发货）
+- 用户使用这个系统的**主线**是什么？（如：登录 → 浏览 → 配置 → 运行 → 查看结果）
+- 把每条主线写成 epic_flow 的一条边
 
 ### 写入 `epic_flow` 数组
 
 ```json
 "epic_flow": [
-  { "from": "config", "to": "runtime", "kind": "next", "note": "配置完成后才能运行仿真" },
-  { "from": "runtime", "to": "analysis", "kind": "next", "note": "运行完成后查看分析结果" },
-  { "from": "infra", "to": "runtime", "kind": "enables", "note": "基础设施就绪后运行才可用" }
+  { "from": "ui-shell",       "to": "scenario-gallery", "kind": "next", "note": "进入应用后浏览场景" },
+  { "from": "scenario-gallery","to": "run-lifecycle",   "kind": "next", "note": "选定场景后创建运行" },
+  { "from": "run-lifecycle",  "to": "simulation-control","kind": "next", "note": "创建后开始仿真过程" },
+  { "from": "simulation-control","to": "analysis",      "kind": "next", "note": "仿真结束后查看分析" },
+  { "from": "platform",       "to": "run-lifecycle",    "kind": "depends_on", "note": "基础设施支撑业务运行" }
 ]
 ```
 
-### 三种 kind
+### 三种 kind（优先用 next）
 
-- `next`：A 完成后自然进入 B（用户主流程的顺序）
-- `depends_on`：B 依赖 A 存在才能工作（基础设施依赖）
-- `enables`：A 使 B 成为可能（权限 / 前置条件）
+- `next`：用户旅程的下一步 ★ **应是主体（≥ 60%）**
+  - 例：浏览画廊 → 选场景创建 → 看运行过程 → 查看分析
+  - 问自己："用户做完 A 之后会立刻去做 B 吗？" 是 → next
+- `depends_on`：A 是 B 的运行时前置（B 需要 A 一直存在）
+  - 罕用，**全局只画 1-2 条**代表性的（如基础设施 → 核心业务）
+- `enables`：A 解锁 B 的能力，但 A、B 在用户旅程上不是顺序关系
+  - 例：登录 → 个人设置（登录了"才能"改设置，但用户不一定每次都改）
+  - ⚠ **不要把"先决条件"全写成 enables**——技术依赖用 depends_on，用户顺序用 next
 
 ### 硬约束
 
 - **通常 3-8 条**，不要把所有 Epic 都连起来
 - **只画用户能感知的主线**，不画"所有 Epic 都依赖基础设施"这种全连接
+- **`next` 应占 ≥ 60%**——概览视图就是要看用户主线
 - **`note` 必须是中文语义短句**（如"配置完成后才能运行仿真"），不要写 `triggers` / `depends_on` 这种技术词
 - **`note` 不能省略**——它是画布上显示的边标签，省略了用户看不懂这条线是什么意思
 

@@ -550,6 +550,19 @@ function detectFileLevelSmells(data) {
       )
     }
   }
+
+  /* 6. epic_flow next 比例 */
+  if (isArray(data.epic_flow) && data.epic_flow.length >= 3) {
+    const epicFlow = data.epic_flow
+    const nextCount = epicFlow.filter((ef) => isObject(ef) && ef.kind === 'next').length
+    const ratio = nextCount / epicFlow.length
+    if (ratio < 0.5) {
+      warn(
+        '$.epic_flow',
+        `${nextCount}/${epicFlow.length} (${(ratio * 100).toFixed(0)}%) 是 next，期望 ≥ 60%。多数 epic_flow 应是"用户旅程下一步"（next）；技术依赖才用 depends_on（且少用）；不要把先决条件全写成 enables。`,
+      )
+    }
+  }
 }
 
 /* --------------------------------- main ---------------------------------- */

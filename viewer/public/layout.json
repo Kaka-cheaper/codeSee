@@ -254,7 +254,55 @@
         "x": 4737.719963974943,
         "y": -608.1114448635494
       }
+    },
+    "steps:f-product-detail": {
+      "step:f-product-detail:input": {
+        "x": 16,
+        "y": 25.166666666666664
+      },
+      "step:f-product-detail:fetch": {
+        "x": 276,
+        "y": 25.166666666666664
+      },
+      "step:f-product-detail:stock": {
+        "x": 536,
+        "y": 107
+      },
+      "step:f-product-detail:ok": {
+        "x": 796,
+        "y": 107
+      },
+      "step:f-product-detail:not-found": {
+        "x": 536,
+        "y": 16
+      }
+    },
+    "steps:f-add-to-cart": {
+      "step:f-add-to-cart:input": {
+        "x": 16,
+        "y": 25.166666666666664
+      },
+      "step:f-add-to-cart:auth": {
+        "x": 276,
+        "y": 25.166666666666664
+      },
+      "step:f-add-to-cart:check-stock": {
+        "x": 536,
+        "y": 25.166666666666664
+      },
+      "step:f-add-to-cart:upsert": {
+        "x": 858.1603260869565,
+        "y": 105.34239130434781
+      },
+      "step:f-add-to-cart:ok": {
+        "x": 1145.5108695652175,
+        "y": 105.34239130434784
+      },
+      "step:f-add-to-cart:fail-stock": {
+        "x": 852.3586956521739,
+        "y": 24.288043478260875
+      }
     }
   },
-  "generated_at": "2026-05-15T09:31:33.705Z"
+  "generated_at": "2026-05-15T09:33:35.603Z"
 }

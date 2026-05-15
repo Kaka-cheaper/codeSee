@@ -70,26 +70,6 @@ I built this because when collaborating with AI on code, I needed a way to **see
 | Bug in feature A → trace through B, C, D manually | Bug in feature A → see all downstream on the graph |
 | New team member → 2 days to understand the project | New team member → 10 minutes on the canvas |
 
-### How it looks
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Overview (Epics)                                       │
-│  ┌──────┐    ┌──────────┐    ┌────────┐    ┌────────┐  │
-│  │ Auth │ →  │ Catalog  │ →  │  Cart  │ →  │ Order  │  │
-│  └──────┘    └──────────┘    └────────┘    └────────┘  │
-├─────────────────────────────────────────────────────────┤
-│  Features (inside "Order" epic)                         │
-│  ┌──────────┐  ┌─────────────┐  ┌───────────┐          │
-│  │ Checkout │→ │ Pay Callback │→ │ My Orders │          │
-│  └──────────┘  └─────────────┘  └───────────┘          │
-├─────────────────────────────────────────────────────────┤
-│  Steps (inside "Checkout")                              │
-│  接收订单 → 锁定库存 → 计算总价 → 创建订单 → 调用支付  │
-│                  ↘ 库存不足 → 回滚                      │
-└─────────────────────────────────────────────────────────┘
-```
-
 ---
 
 ## Quick Start

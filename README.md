@@ -134,6 +134,48 @@ Your Project/                      CodeSee Viewer/
 
 ---
 
+## Best Practices
+
+### Two usage scenarios
+
+| Scenario | When | How |
+| -------- | ---- | --- |
+| **A. Greenfield (recommended)** | Starting a new project from scratch with AI | Install CodeSee first, then develop. AI updates `features.json` after each feature it writes. |
+| **B. Brownfield** | Adding CodeSee to an existing project | Run a full scan first, then switch to incremental sync. |
+
+### Why Greenfield is the best practice
+
+When you develop from zero with CodeSee integrated from day one:
+
+- **AI never loses context** — it just wrote the code, so it knows exactly what each step does, which lines to reference, and how features connect
+- **Granularity stays fine** — each sync covers one small feature, not 50 features at once
+- **No hallucination risk** — AI doesn't need to guess what existing code does; it wrote it moments ago
+- **The graph grows with your project** — you can review the canvas at any point and catch design issues early
+- **refs are precise** — file paths and line numbers are accurate because the code was just written
+
+### Greenfield workflow
+
+```
+1. Install CodeSee into your empty project
+2. Tell AI: "Build feature X"
+3. AI writes code → AI updates features.json (trigger 2 in AGENTS.md)
+4. You review the canvas → spot issues → tell AI to fix
+5. Repeat for next feature
+```
+
+The canvas becomes your **living architecture diagram** that's always in sync with reality.
+
+### Brownfield workflow
+
+```
+1. Install CodeSee into your existing project
+2. AI runs scan (trigger 1) → generates full features.json
+3. You review on canvas → lock correct features → tell AI to fix wrong ones
+4. From now on, every code change triggers incremental sync
+```
+
+---
+
 ## Design Principles
 
 1. **Semantic control belongs to AI / features.json** — node order, naming, grouping, relations

@@ -34,7 +34,7 @@
 - ❌ 不修改 `locked: true` 的 feature
 - ❌ 不重命名既有 id（废弃用 tags: ['deprecated']）
 - ❌ 不跳过校验
-- ✓ step.name 必须中文动词短语
+- ✓ step.name 必须用 manifest.lang 指定的语言写动词短语
 - ✓ flow.kind 必填
 - ✓ 写入后跑 `node .codesee/scripts/validate-features.mjs`，退出码 1 必须修
 

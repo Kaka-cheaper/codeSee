@@ -5,7 +5,7 @@
 
 ---
 
-## 步骤
+## 步骤（场景 B）
 
 1. 读 `.codesee/features.json`（注意 `manifest.lang` 确定输出语言）
 2. 读 `git diff HEAD~1`（或 `git status` + `git diff`）
@@ -21,6 +21,27 @@
 - step.name 必须用 manifest.lang 指定的语言写动词短语（见 `_rules.md` MUST #4）
 - flow.kind 必填（MUST #2）
 - 异步 → async；条件 → conditional；错误 → error
+
+## 场景判断
+
+根据当前状态选择策略：
+
+### A. 从0开发（features.json 为空或只有少量 feature）
+
+你刚帮用户写完一个新功能。不需要 diff——你完全知道刚才写了什么。
+
+1. 直接把刚完成的功能作为新 feature 加入
+2. 如果涉及新的业务领域，同时新建 Epic
+3. 如果和已有 feature 有关系，补 cross_feature
+4. 更新 epic_flow（如果 Epic 结构变了）
+
+优势：你刚写完代码，上下文完整，step 粒度和 refs 都能精确到行。
+
+### B. 改动已有项目
+
+走标准 diff 流程（见下方"步骤"）。
+
+## 步骤（场景 B）
 
 ## epic_flow 维护
 

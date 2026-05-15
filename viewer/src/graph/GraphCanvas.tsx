@@ -25,6 +25,7 @@ import {
 } from './fcgView'
 import { layoutViewAsync, mergeWithPrevious } from './layout'
 import { loadPositions, savePositions, clearPositions } from './positionStorage'
+import { useUndoRedo } from './useUndoRedo'
 import {
   isFSASupported,
   loadLayoutFile,
@@ -374,6 +375,71 @@ function GraphInner({ file }: Props) {
     setSelectedId(node.id)
   }, [])
 
+  // Undo/Redo
+  const { record, undo, redo, canUndo, canRedo } = useUndoRedo()
+
+  /** 拖动结束时记录快照 */
+  const recordSnapshot = useCallback(() => {
+    const nodes = reactFlow.getNodes()
+    const snapshot = new Map<string, { x: number; y: number }>()
+    for (const n of nodes) {
+      if (n.type === 'epicGroup') continue
+      snapshot.set(n.id, { x: n.position.x, y: n.position.y })
+    }
+    record(viewKey, snapshot)
+  }, [reactFlow, viewKey, record])
+
+  /** 应用一个快照到画布 */
+  const applySnapshot = useCallback((snapshot: Map<string, { x: number; y: number }>) => {
+    setRfNodes((nds) => {
+      const updated = nds.map((n) => {
+        const pos = snapshot.get(n.id)
+        if (!pos) return n
+        return { ...n, position: pos }
+      })
+      return updateGroupBounds(updated)
+    })
+    // 同步到 positionsRef
+    positionsRef.current.set(viewKey, new Map(snapshot))
+  }, [viewKey])
+
+  const handleUndo = useCallback(() => {
+    const nodes = reactFlow.getNodes()
+    const current = new Map<string, { x: number; y: number }>()
+    for (const n of nodes) {
+      if (n.type === 'epicGroup') continue
+      current.set(n.id, { x: n.position.x, y: n.position.y })
+    }
+    const prev = undo(viewKey, current)
+    if (prev) applySnapshot(prev)
+  }, [reactFlow, viewKey, undo, applySnapshot])
+
+  const handleRedo = useCallback(() => {
+    const nodes = reactFlow.getNodes()
+    const current = new Map<string, { x: number; y: number }>()
+    for (const n of nodes) {
+      if (n.type === 'epicGroup') continue
+      current.set(n.id, { x: n.position.x, y: n.position.y })
+    }
+    const next = redo(viewKey, current)
+    if (next) applySnapshot(next)
+  }, [reactFlow, viewKey, redo, applySnapshot])
+
+  // 键盘快捷键
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey) || e.key === 'y')) {
+        e.preventDefault()
+        handleRedo()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [handleUndo, handleRedo])
+
   const onPaneClick = useCallback(() => {
     setSelectedId(null)
   }, [])
@@ -408,6 +474,7 @@ function GraphInner({ file }: Props) {
         elementsSelectable
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
+        onNodeDragStop={recordSnapshot}
         onPaneClick={onPaneClick}
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="oklch(0.8 0.018 70)" />
@@ -442,6 +509,10 @@ function GraphInner({ file }: Props) {
         onToggleAutoSave={toggleAutoSave}
         onSaveLayout={saveLayout}
         saveStatus={saveStatus}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={canUndo(viewKey)}
+        canRedo={canRedo(viewKey)}
       />
 
       {newNodeIds.size > 0 && state.mode === 'features' && (
@@ -578,7 +649,7 @@ function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
 
 /* --------------------------------------------------------- UI */
 
-function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, autoSave, onToggleAutoSave, onSaveLayout, saveStatus }: {
+function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, autoSave, onToggleAutoSave, onSaveLayout, saveStatus, onUndo, onRedo, canUndo, canRedo }: {
   mode: ViewMode
   focusedFeatureName?: string
   onChangeMode: (m: ViewMode) => void
@@ -587,6 +658,10 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
   onToggleAutoSave: () => void
   onSaveLayout: () => void
   saveStatus: 'idle' | 'saved' | 'downloaded' | 'failed'
+  onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
 }) {
   const tipText =
     saveStatus === 'saved' ? '已保存到 layout.json' :
@@ -618,6 +693,22 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
           className="relative rounded-md px-2 py-1 text-[11px] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]"
         >
           💾
+        </button>
+        <button
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="撤销 (Ctrl+Z)"
+          className={'rounded-md px-1.5 py-1 text-[11px] transition-colors ' + (canUndo ? 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]' : 'text-[var(--color-fg-subtle)] opacity-40')}
+        >
+          ←
+        </button>
+        <button
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="重做 (Ctrl+Shift+Z)"
+          className={'rounded-md px-1.5 py-1 text-[11px] transition-colors ' + (canRedo ? 'text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]' : 'text-[var(--color-fg-subtle)] opacity-40')}
+        >
+          →
         </button>
         <button
           onClick={onResetLayout}

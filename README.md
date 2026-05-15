@@ -1,5 +1,7 @@
 # CodeSee
 
+[English](./README.md) | [中文](./README.zh-CN.md)
+
 **Visualize your project's feature logic as a semantic flow graph.**
 
 Not call graphs. Not import maps. A human-readable story of what your project does.

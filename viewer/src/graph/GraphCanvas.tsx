@@ -716,13 +716,13 @@ function toRfNodes(
   newIds: Set<string>,
   groups: LayoutGroup[] = [],
 ): Node[] {
-  const groupNodes: Node<EpicGroupBgData>[] = groups.map((g) => ({
+  const groupNodes: Node<EpicGroupBgData>[] = groups.map((g, i) => ({
     id: g.id,
     type: 'epicGroup',
     position: g.position,
     draggable: true,
     selectable: false,
-    data: { label: g.label, width: g.width, height: g.height },
+    data: { label: g.label, width: g.width, height: g.height, colorIndex: i },
     style: { zIndex: -1 },
   }))
 

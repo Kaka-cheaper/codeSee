@@ -1,10 +1,29 @@
-# CodeSee
+<div align="center">
 
-[English](./README.md) | [中文](./README.zh-CN.md)
+中文 · [English](./README.md)
+
+# 🔭 CodeSee
 
 **把项目的功能逻辑以语义流程图的形式可视化呈现。**
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Prompts](https://img.shields.io/badge/Prompts-6-blue.svg)](./prompts/)
+[![Viewer](https://img.shields.io/badge/Viewer-React_Flow-purple.svg)](./viewer/)
+[![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/AGENTS.md)
+
+![Cursor](https://img.shields.io/badge/Cursor-Skill-black?logo=cursor)
+![Claude Code](https://img.shields.io/badge/Claude_Code-Skill-orange?logo=anthropic)
+![Kiro](https://img.shields.io/badge/Kiro-Skill-blue)
+![Copilot](https://img.shields.io/badge/Copilot-Skill-purple?logo=github)
+![Codex](https://img.shields.io/badge/Codex-Skill-green?logo=openai)
+
+</div>
+
+---
+
 不是调用图，不是 import 图——是人类可读的"这个项目在做什么"的故事。
+
+做这个项目的原因：和 AI 协作写代码时，AI 五分钟能写几千行，但我需要一种方式**不看代码就能看到功能逻辑**——画布让我一眼看清"刚才发生了什么"，保持对项目的掌控感。
 
 > 类比：如果一个功能是"西红柿炒鸡蛋"，
 > 画布展示的是"备菜 → 打蛋 → 热油 → 下锅 → 调味 → 出锅"，

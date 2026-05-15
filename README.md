@@ -1,10 +1,29 @@
-# CodeSee
+<div align="center">
 
-[English](./README.md) | [中文](./README.zh-CN.md)
+[中文](./README.zh-CN.md) · English
+
+# 🔭 CodeSee
 
 **Visualize your project's feature logic as a semantic flow graph.**
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Prompts](https://img.shields.io/badge/Prompts-6-blue.svg)](./prompts/)
+[![Viewer](https://img.shields.io/badge/Viewer-React_Flow-purple.svg)](./viewer/)
+[![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/AGENTS.md)
+
+![Cursor](https://img.shields.io/badge/Cursor-Skill-black?logo=cursor)
+![Claude Code](https://img.shields.io/badge/Claude_Code-Skill-orange?logo=anthropic)
+![Kiro](https://img.shields.io/badge/Kiro-Skill-blue)
+![Copilot](https://img.shields.io/badge/Copilot-Skill-purple?logo=github)
+![Codex](https://img.shields.io/badge/Codex-Skill-green?logo=openai)
+
+</div>
+
+---
+
 Not call graphs. Not import maps. A human-readable story of what your project does.
+
+I built this because when collaborating with AI on code, I needed a way to **see the feature logic** without reading every line. AI writes thousands of lines in minutes — I needed a canvas that shows me "what happened" at a glance, so I can stay in control.
 
 > Think of it like this: if a feature is "making scrambled eggs with tomatoes",
 > the graph shows "prep → crack eggs → heat oil → stir-fry → season → plate" —

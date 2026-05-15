@@ -24,6 +24,7 @@ import {
   type ViewMode,
 } from './fcgView'
 import { layoutViewAsync, mergeWithPrevious } from './layout'
+import { loadPositions, savePositions, clearPositions } from './positionStorage'
 import { EpicNodeView, type EpicNodeData } from './EpicNodeView'
 import { FeatureNodeView, type FeatureNodeData } from './FeatureNodeView'
 import { StepNodeView, type StepNodeData } from './StepNodeView'
@@ -63,9 +64,37 @@ function GraphInner({ file }: Props) {
   const view = useMemo(() => buildView(file, state), [file, state])
   const viewKey = viewKeyOf(state)
 
+  // 项目标识：用于 localStorage 分桶
+  const repoId = useMemo(
+    () => file.manifest.repo ?? 'default',
+    [file.manifest.repo],
+  )
+
+  // 节点位置缓存（按 viewKey 分桶）：启动时从 localStorage 加载
   const positionsRef = useRef<
     Map<string, Map<string, { x: number; y: number }>>
-  >(new Map())
+  >(loadPositions(repoId))
+
+  // 自动保存开关（持久化到 localStorage）
+  const [autoSave, setAutoSave] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('codesee.autoSave') !== 'false'
+    } catch {
+      return true
+    }
+  })
+  const toggleAutoSave = useCallback(() => {
+    setAutoSave((v) => {
+      const next = !v
+      try { localStorage.setItem('codesee.autoSave', String(next)) } catch { /* noop */ }
+      return next
+    })
+  }, [])
+
+  // 手动保存：把当前 positionsRef 写入 localStorage
+  const saveLayout = useCallback(() => {
+    savePositions(repoId, positionsRef.current)
+  }, [repoId])
   const [newNodeIds, setNewNodeIds] = useState<Set<string>>(new Set())
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
@@ -113,11 +142,15 @@ function GraphInner({ file }: Props) {
             positionMap.set(n.id, { x: n.position.x, y: n.position.y })
           }
         }
+        // 自动保存到 localStorage
+        if (autoSave) {
+          savePositions(repoId, positionsRef.current)
+        }
       }
 
       return finalNodes
     })
-  }, [viewKey])
+  }, [viewKey, autoSave, repoId])
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     setRfEdges((eds) => applyEdgeChanges(changes, eds))
   }, [])
@@ -186,8 +219,9 @@ function GraphInner({ file }: Props) {
 
   const resetLayout = useCallback(() => {
     positionsRef.current.delete(viewKey)
+    clearPositions(repoId, viewKey)
     setLayoutVersion((v) => v + 1)
-  }, [viewKey])
+  }, [viewKey, repoId])
 
   const onNodeDoubleClick: NodeMouseHandler = useCallback(
     (_, node) => {
@@ -267,6 +301,9 @@ function GraphInner({ file }: Props) {
         }
         onChangeMode={goMode}
         onResetLayout={resetLayout}
+        autoSave={autoSave}
+        onToggleAutoSave={toggleAutoSave}
+        onSaveLayout={saveLayout}
       />
 
       {newNodeIds.size > 0 && state.mode === 'features' && (
@@ -403,9 +440,21 @@ function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
 
 /* --------------------------------------------------------- UI */
 
-function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout }: {
-  mode: ViewMode; focusedFeatureName?: string; onChangeMode: (m: ViewMode) => void; onResetLayout: () => void
+function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, autoSave, onToggleAutoSave, onSaveLayout }: {
+  mode: ViewMode
+  focusedFeatureName?: string
+  onChangeMode: (m: ViewMode) => void
+  onResetLayout: () => void
+  autoSave: boolean
+  onToggleAutoSave: () => void
+  onSaveLayout: () => void
 }) {
+  const [savedTip, setSavedTip] = useState(false)
+  const handleSave = () => {
+    onSaveLayout()
+    setSavedTip(true)
+    setTimeout(() => setSavedTip(false), 1500)
+  }
   return (
     <div className="pointer-events-none absolute top-4 left-4 z-10">
       <div className="pointer-events-auto flex items-center gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-1)] px-1.5 py-1 shadow-[0_1px_2px_oklch(0_0_0/0.04)]">
@@ -414,8 +463,32 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout }:
         <ModeBtn active={mode === 'steps'} onClick={() => mode === 'steps' && onChangeMode('steps')} disabled={mode !== 'steps'} title={mode !== 'steps' ? '请先在功能视图双击一个功能' : undefined}>流程</ModeBtn>
         <span className="mx-0.5 h-4 w-px bg-[var(--color-border)]" />
         <button
+          onClick={onToggleAutoSave}
+          title={autoSave ? '自动保存：开（拖动后自动写入浏览器记忆）' : '自动保存：关（需手动点 💾 保存）'}
+          className={
+            'rounded-md px-1.5 py-1 text-[11px] transition-colors ' +
+            (autoSave
+              ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent-strong)]'
+              : 'text-[var(--color-fg-subtle)] hover:bg-[var(--color-bg-2)]')
+          }
+        >
+          自动
+        </button>
+        <button
+          onClick={handleSave}
+          title="手动保存当前布局到浏览器记忆"
+          className="relative rounded-md px-2 py-1 text-[11px] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]"
+        >
+          💾
+          {savedTip && (
+            <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-[var(--color-bg-1)] border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-muted)]">
+              已保存
+            </span>
+          )}
+        </button>
+        <button
           onClick={onResetLayout}
-          title="重置布局"
+          title="重置布局（清除当前视图保存的位置）"
           className="rounded-md px-2 py-1 text-[11px] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]"
         >
           ↺

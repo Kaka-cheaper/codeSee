@@ -146,27 +146,27 @@ function GraphInner({ file }: Props) {
   }, [])
 
   // 手动保存：先存 localStorage（草稿），再尝试写文件
-  // 首次保存时若支持 FSA 但还没授权 → 先弹目录选择器
   const saveLayout = useCallback(async () => {
     savePositions(repoId, positionsRef.current)
 
-    // 首次保存：FSA 支持但还没授权 → 主动弹选择器
     if (isFSASupported()) {
+      // Chromium 系：检查授权 → 没授权弹选择器 → 写文件
       const authorized = await hasAuthorized(repoId)
       if (!authorized) {
         const handle = await pickDirectory(repoId)
         if (!handle) {
-          // 用户取消授权，降级为下载
-          const result = await saveLayoutFile(repoId, serializeLayout())
-          setSaveStatus(result === 'downloaded' ? 'downloaded' : 'failed')
-          setTimeout(() => setSaveStatus('idle'), 2500)
+          // 用户取消了选择器 → 只保存到 localStorage，不下载
+          setSaveStatus('saved')
+          setTimeout(() => setSaveStatus('idle'), 2000)
           return
         }
       }
+      const result = await saveLayoutFile(repoId, serializeLayout())
+      setSaveStatus(result === 'wrote' ? 'saved' : 'failed')
+    } else {
+      // 不支持 FSA（Safari/Firefox）→ 只保存到 localStorage，提示用户
+      setSaveStatus('saved')
     }
-
-    const result = await saveLayoutFile(repoId, serializeLayout())
-    setSaveStatus(result === 'wrote' ? 'saved' : result === 'downloaded' ? 'downloaded' : 'failed')
     setTimeout(() => setSaveStatus('idle'), 2500)
   }, [repoId, serializeLayout])
 

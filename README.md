@@ -2,9 +2,13 @@
 
 [中文](./README.zh-CN.md) · English
 
+<img src="./docs/assets/banner.png" alt="CodeSee Banner" width="100%" />
+
 # 🔭 CodeSee
 
-**Visualize your project's feature logic as a semantic flow graph.**
+**AI writes the code. You see the story.**
+
+The feature-level canvas for AI-collaborative development. AI maintains a semantic flow graph of your project — you stay in control without reading every line.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Prompts](https://img.shields.io/badge/Prompts-6-blue.svg)](./prompts/)
@@ -21,28 +25,11 @@
 
 ---
 
-## Why
-
-When collaborating with AI on code:
-
-- 🤯 **AI writes 5000 lines in 5 minutes** — but you need hours to review them all
-- 🔍 **You need to understand logic, not syntax** — "what does this feature do" matters more than "which function calls which"
-- 🐛 **When something breaks, you trace the full chain** — but the chain might span 20 files you've never read
-- 😤 **You lose the sense of ownership** — the project grows faster than your understanding of it
-
-CodeSee solves this: AI writes the code AND writes the feature map. You see the story, not the syntax.
-
----
-
-Not call graphs. Not import maps. A human-readable story of what your project does.
-
-I built this because when collaborating with AI on code, I needed a way to **see the feature logic** without reading every line. AI writes thousands of lines in minutes — I needed a canvas that shows me "what happened" at a glance, so I can stay in control.
-
 > Think of it like this: if a feature is "making scrambled eggs with tomatoes",
 > the graph shows "prep → crack eggs → heat oil → stir-fry → season → plate" —
 > not "`prepare()` calls `slice()` then `whisk()`".
 
-<!-- TODO: Add screenshot/GIF here -->
+Not call graphs. Not import maps. A human-readable story of what your project does.
 
 <div align="center">
 <img src="./docs/assets/overview.png" alt="Overview View" width="80%" />
@@ -61,14 +48,17 @@ I built this because when collaborating with AI on code, I needed a way to **see
 
 ---
 
-## What You Get
+## Core Capabilities
 
-| Without CodeSee | With CodeSee |
-| --------------- | ------------ |
-| AI writes 20 files → you read 20 files | AI writes 20 files → you glance at the canvas |
-| "What did this feature change?" → grep 30 minutes | "What did this feature change?" → look at the highlighted nodes |
-| Bug in feature A → trace through B, C, D manually | Bug in feature A → see all downstream on the graph |
-| New team member → 2 days to understand the project | New team member → 10 minutes on the canvas |
+| Capability | Description |
+| ---------- | ----------- |
+| **Semantic flow graph** | Three-level drill-down: Epics → Features → Steps. See the "what" and "why", not the "how". |
+| **AI-maintained** | AI writes `features.json` after every code change. No manual diagramming. Works with any AI IDE. |
+| **Interactive canvas** | Drag, zoom, undo/redo, auto-save layout. Warm-ivory theme designed for long review sessions. |
+| **Zero lock-in** | Plain JSON file. Human-readable, git-diffable, lockable. Switch AI providers anytime. |
+| **Incremental sync** | Each code change updates only affected features. The graph grows with your project. |
+| **Validation** | Built-in validator catches schema violations, hallucinated enums, and structural issues before you see them. |
+| **Multi-language** | UI supports Chinese/English toggle. Semantic text language configurable via `manifest.lang`. |
 
 ---
 

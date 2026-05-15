@@ -203,6 +203,7 @@ function GraphInner({ file }: Props) {
       let updated = applyNodeChanges(changes, nds)
 
       // 检测容器拖动：如果 group 节点位置变了，内部节点跟着移动
+      // 同时反向同步到概览缓存（双向映射）
       let userDragging = false
       for (const change of changes) {
         if (change.type !== 'position' || !change.position || !change.dragging) continue
@@ -223,6 +224,20 @@ function GraphInner({ file }: Props) {
           if (nEpicId !== epicId) return n
           return { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
         })
+
+        // 双向同步：容器拖动 → 反向更新概览缓存
+        const overviewMap = positionsRef.current.get('overview')
+        if (overviewMap) {
+          const epicKey = `epic:${epicId}`
+          const oldOverviewPos = overviewMap.get(epicKey)
+          if (oldOverviewPos) {
+            // 容器位置 = 概览位置 × CANVAS_SCALE，所以反向 = delta / CANVAS_SCALE
+            overviewMap.set(epicKey, {
+              x: oldOverviewPos.x + dx / 2.5,
+              y: oldOverviewPos.y + dy / 2.5,
+            })
+          }
+        }
       }
 
       const finalNodes = updateGroupBounds(updated)
@@ -288,13 +303,14 @@ function GraphInner({ file }: Props) {
       if (cancelled) return
 
       // 缓存逻辑：
-      // - 如果用了概览锚点布局（overviewPositions 有值），不用功能视图旧缓存——每次都按最新概览位置重算
-      // - 否则（ELK 兜底），用缓存保持用户拖动的位置
+      // - 概览/流程视图：用自己的缓存保持用户拖动
+      // - 功能视图：始终从概览缓存重算容器位置（概览和功能共享 Epic 位置）
+      const isFeatureView = view.nodes.length > 0 && view.nodes[0].kind === 'feature'
       const prev = positionsRef.current.get(viewKey)
       let finalNodes = layoutResult.nodes
       let newIds = new Set<string>()
       const groups = layoutResult.groups
-      if (prev && prev.size > 0 && !overviewPositions) {
+      if (prev && prev.size > 0 && !isFeatureView) {
         const r = mergeWithPrevious(layoutResult, prev)
         finalNodes = r.merged
         newIds = r.newIds

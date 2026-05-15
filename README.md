@@ -44,6 +44,21 @@ I built this because when collaborating with AI on code, I needed a way to **see
 
 <!-- TODO: Add screenshot/GIF here -->
 
+<div align="center">
+<img src="./docs/assets/overview.png" alt="Overview View" width="80%" />
+<p><em>Overview — Epics arranged by user journey order, connected by semantic flow arrows</em></p>
+</div>
+
+<div align="center">
+<img src="./docs/assets/features.png" alt="Features View" width="80%" />
+<p><em>Features — grouped in Epic containers, drag to rearrange</em></p>
+</div>
+
+<div align="center">
+<img src="./docs/assets/steps.png" alt="Steps View" width="80%" />
+<p><em>Steps — directed flow within a single feature (async, conditional, error branches)</em></p>
+</div>
+
 ---
 
 ## What You Get
@@ -169,6 +184,76 @@ codeSee/
 ├── LICENSE                  MIT
 └── README.md
 ```
+
+---
+
+## FAQ / Troubleshooting
+
+<details>
+<summary><strong>Viewer shows a blank white screen after loading features.json</strong></summary>
+
+The AI likely used enum values outside the schema (e.g. `role: "logic"` instead of `role: "compute"`).
+
+1. Run the validator: `node .codesee/scripts/validate-features.mjs`
+2. Fix the reported errors (usually invalid `step.role`, `flow.kind`, or `trigger.kind`)
+3. Reload the viewer
+
+The viewer has fallback handling for unknown enums, but severely malformed JSON can still cause issues.
+</details>
+
+<details>
+<summary><strong>Browser doesn't show the directory picker when I click 💾</strong></summary>
+
+The File System Access API only works in Chromium-based browsers (Chrome, Edge, Arc). Firefox and Safari don't support it.
+
+- Use Chrome or Edge
+- Make sure you're on `localhost` or HTTPS (FSA is blocked on `file://`)
+- If it still doesn't work, the viewer falls back to localStorage (your layout is still saved, just not to a file)
+</details>
+
+<details>
+<summary><strong>Overview is just a horizontal line</strong></summary>
+
+The AI assigned sequential `order` values (0, 1, 2, ..., N) to every Epic instead of grouping parallel modules under the same order.
+
+Fix in `features.json`: Epics that represent parallel capabilities should share the same `order` value. Only use different orders for sequential stages in the user journey.
+</details>
+
+<details>
+<summary><strong>AI keeps inventing enum values not in the schema</strong></summary>
+
+This is the most common issue. The prompts include strict enum tables, but some models still hallucinate.
+
+- Always run the validator after AI writes/updates `features.json`
+- The validator reports exact JSONPath locations of invalid values
+- Common mappings: `logic` → `compute`, `init`/`cleanup` → `other`, `websocket` → `http`, `internal` → `event`
+</details>
+
+<details>
+<summary><strong>How do I update CodeSee in my project after pulling new changes?</strong></summary>
+
+Re-run the install script with `-Force` (PowerShell) or `--force` (Bash):
+
+```powershell
+.\scripts\install.ps1 D:\path\to\your\project -Force
+```
+
+This refreshes prompts, validator, and the AGENTS.md CodeSee section without touching your `features.json` or `layout.json`.
+</details>
+
+---
+
+## Roadmap
+
+- [ ] **Screenshots & demo GIF** — real project visualization examples
+- [ ] **Canvas editing** — edit feature names, add notes, lock nodes directly on the canvas
+- [ ] **Search & filter** — find features by name, filter by epic/tag/role
+- [ ] **Diff view** — highlight what changed between two versions of `features.json`
+- [ ] **Multi-project dashboard** — switch between projects without re-dragging files
+- [ ] **CI integration** — validate `features.json` in GitHub Actions / GitLab CI
+- [ ] **Export** — PNG / SVG / PDF export of the current view
+- [ ] **Dark theme** — toggle between warm-ivory and dark mode
+- [ ] **Plugin system** — custom node renderers, custom layout algorithms
 
 ---
 

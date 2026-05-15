@@ -44,6 +44,21 @@ CodeSee 解决这个问题：AI 写代码的同时也写功能地图。你看到
 
 <!-- TODO: 加截图/GIF -->
 
+<div align="center">
+<img src="./docs/assets/overview.png" alt="概览视图" width="80%" />
+<p><em>概览视图 — Epic 按用户旅程顺序排列，语义流程箭头连接</em></p>
+</div>
+
+<div align="center">
+<img src="./docs/assets/features.png" alt="功能视图" width="80%" />
+<p><em>功能视图 — Feature 按 Epic 分组在容器内，可拖动调整</em></p>
+</div>
+
+<div align="center">
+<img src="./docs/assets/steps.png" alt="流程视图" width="80%" />
+<p><em>流程视图 — 单个 Feature 内的有向流程（异步、条件、错误分支）</em></p>
+</div>
+
 ---
 
 ## 效果对比
@@ -169,6 +184,76 @@ codeSee/
 ├── LICENSE                  MIT
 └── README.md
 ```
+
+---
+
+## 常见问题
+
+<details>
+<summary><strong>加载 features.json 后画布白屏</strong></summary>
+
+AI 大概率使用了 schema 之外的枚举值（比如 `role: "logic"` 而不是 `role: "compute"`）。
+
+1. 运行校验器：`node .codesee/scripts/validate-features.mjs`
+2. 修复报告的错误（通常是 `step.role`、`flow.kind` 或 `trigger.kind` 不合法）
+3. 重新加载 viewer
+
+viewer 对未知枚举有容错处理，但严重畸形的 JSON 仍可能导致问题。
+</details>
+
+<details>
+<summary><strong>点击 💾 没有弹出目录选择器</strong></summary>
+
+File System Access API 仅在 Chromium 内核浏览器（Chrome、Edge、Arc）中可用，Firefox 和 Safari 不支持。
+
+- 使用 Chrome 或 Edge
+- 确保在 `localhost` 或 HTTPS 下访问（`file://` 协议下 FSA 被禁用）
+- 如果仍不弹出，viewer 会回退到 localStorage（布局仍然保存，只是不写文件）
+</details>
+
+<details>
+<summary><strong>概览视图变成一条横线</strong></summary>
+
+AI 给每个 Epic 分配了递增的 `order`（0, 1, 2, ..., N），而不是把并行模块归到同一个 order。
+
+修复方法：在 `features.json` 中，代表并行能力的 Epic 应该共享相同的 `order` 值。只有用户旅程中有先后顺序的阶段才用不同的 order。
+</details>
+
+<details>
+<summary><strong>AI 总是编造 schema 之外的枚举值</strong></summary>
+
+这是最常见的问题。prompt 里有严格的枚举表，但某些模型仍会幻觉。
+
+- 每次 AI 写完/更新 `features.json` 后必须跑校验器
+- 校验器会报告精确的 JSONPath 位置
+- 常见映射：`logic` → `compute`、`init`/`cleanup` → `other`、`websocket` → `http`、`internal` → `event`
+</details>
+
+<details>
+<summary><strong>如何更新项目中的 CodeSee？</strong></summary>
+
+拉取最新代码后，用 `-Force`（PowerShell）或 `--force`（Bash）重新运行安装脚本：
+
+```powershell
+.\scripts\install.ps1 D:\path\to\your\project -Force
+```
+
+这会刷新 prompts、校验器和 AGENTS.md 的 CodeSee 段落，不会动你的 `features.json` 和 `layout.json`。
+</details>
+
+---
+
+## 路线图
+
+- [ ] **截图 & 演示 GIF** — 真实项目的可视化效果展示
+- [ ] **画布编辑** — 直接在画布上编辑功能名称、添加备注、锁定节点
+- [ ] **搜索与筛选** — 按名称搜索功能，按 epic/tag/role 筛选
+- [ ] **Diff 视图** — 高亮两个版本 `features.json` 之间的变化
+- [ ] **多项目面板** — 不用重新拖文件就能切换项目
+- [ ] **CI 集成** — 在 GitHub Actions / GitLab CI 中校验 `features.json`
+- [ ] **导出** — 当前视图导出为 PNG / SVG / PDF
+- [ ] **暗色主题** — 暖白与暗色模式切换
+- [ ] **插件系统** — 自定义节点渲染器、自定义布局算法
 
 ---
 

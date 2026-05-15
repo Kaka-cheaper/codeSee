@@ -551,15 +551,20 @@ function detectFileLevelSmells(data) {
     }
   }
 
-  /* 6. epic_flow next 比例 */
+  /* 6. epic_flow next 比例（信息提示，不预设阈值） */
   if (isArray(data.epic_flow) && data.epic_flow.length >= 3) {
     const epicFlow = data.epic_flow
-    const nextCount = epicFlow.filter((ef) => isObject(ef) && ef.kind === 'next').length
-    const ratio = nextCount / epicFlow.length
-    if (ratio < 0.5) {
+    const counts = { next: 0, depends_on: 0, enables: 0 }
+    for (const ef of epicFlow) {
+      if (isObject(ef) && ef.kind in counts) counts[ef.kind]++
+    }
+    const total = epicFlow.length
+    const enablesRatio = counts.enables / total
+    // 只在 enables 异常多时提示——常见症状是 AI 把"先决条件"全写成 enables
+    if (enablesRatio > 0.5 && counts.enables >= 3) {
       warn(
         '$.epic_flow',
-        `${nextCount}/${epicFlow.length} (${(ratio * 100).toFixed(0)}%) 是 next，期望 ≥ 60%。多数 epic_flow 应是"用户旅程下一步"（next）；技术依赖才用 depends_on（且少用）；不要把先决条件全写成 enables。`,
+        `epic_flow ${counts.next}/${total} next、${counts.depends_on}/${total} depends_on、${counts.enables}/${total} enables。enables 较多，请确认这些是否其实是"用户旅程下一步"（next）或"运行时依赖"（depends_on）——enables 仅适用于"解锁能力但非用户顺序"的场景。`,
       )
     }
   }

@@ -46,14 +46,34 @@ I built this because when collaborating with AI on code, I needed a way to **see
 
 ---
 
-## Features
+## What You Get
 
-- **AI-powered** — AI reads your code and writes `features.json`; you see the story on a canvas
-- **Three zoom levels** — Epic (business domains) → Feature (user-facing capabilities) → Step (action flow)
-- **Language-agnostic** — Works with any tech stack; the viewer only consumes JSON
-- **Human-in-the-loop** — Drag nodes, lock features, undo/redo; AI won't overwrite your edits
-- **Zero coupling** — `features.json` has no layout data; `layout.json` has no semantics
-- **Incremental sync** — After each code change, AI updates only affected features
+| Without CodeSee | With CodeSee |
+| --------------- | ------------ |
+| AI writes 20 files → you read 20 files | AI writes 20 files → you glance at the canvas |
+| "What did this feature change?" → grep 30 minutes | "What did this feature change?" → look at the highlighted nodes |
+| Bug in feature A → trace through B, C, D manually | Bug in feature A → see all downstream on the graph |
+| New team member → 2 days to understand the project | New team member → 10 minutes on the canvas |
+
+### How it looks
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Overview (Epics)                                       │
+│  ┌──────┐    ┌──────────┐    ┌────────┐    ┌────────┐  │
+│  │ Auth │ →  │ Catalog  │ →  │  Cart  │ →  │ Order  │  │
+│  └──────┘    └──────────┘    └────────┘    └────────┘  │
+├─────────────────────────────────────────────────────────┤
+│  Features (inside "Order" epic)                         │
+│  ┌──────────┐  ┌─────────────┐  ┌───────────┐          │
+│  │ Checkout │→ │ Pay Callback │→ │ My Orders │          │
+│  └──────────┘  └─────────────┘  └───────────┘          │
+├─────────────────────────────────────────────────────────┤
+│  Steps (inside "Checkout")                              │
+│  接收订单 → 锁定库存 → 计算总价 → 创建订单 → 调用支付  │
+│                  ↘ 库存不足 → 回滚                      │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 

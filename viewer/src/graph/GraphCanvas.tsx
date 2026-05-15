@@ -204,7 +204,6 @@ function GraphInner({ file }: Props) {
       let updated = applyNodeChanges(changes, nds)
 
       // 检测容器拖动：如果 group 节点位置变了，内部节点跟着移动
-      // 同时反向同步到概览缓存（双向映射）
       let userDragging = false
       for (const change of changes) {
         if (change.type !== 'position' || !change.position || !change.dragging) continue
@@ -225,20 +224,6 @@ function GraphInner({ file }: Props) {
           if (nEpicId !== epicId) return n
           return { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
         })
-
-        // 双向同步：容器拖动 → 反向更新概览缓存
-        const overviewMap = positionsRef.current.get('overview')
-        if (overviewMap) {
-          const epicKey = `epic:${epicId}`
-          const oldOverviewPos = overviewMap.get(epicKey)
-          if (oldOverviewPos) {
-            // 容器位置 = 概览位置 × CANVAS_SCALE，所以反向 = delta / CANVAS_SCALE
-            overviewMap.set(epicKey, {
-              x: oldOverviewPos.x + dx / 2.5,
-              y: oldOverviewPos.y + dy / 2.5,
-            })
-          }
-        }
       }
 
       const finalNodes = updateGroupBounds(updated)
@@ -256,6 +241,27 @@ function GraphInner({ file }: Props) {
           if (n.type === 'epicGroup') continue
           positionMap.set(n.id, { x: n.position.x, y: n.position.y })
         }
+
+        // 功能视图：计算偏移量 = 当前位置 - 基准位置
+        const isFeatureView = viewKey === 'features'
+        if (isFeatureView) {
+          const basePositions = positionsRef.current.get('features-base')
+          if (basePositions) {
+            let offsets = positionsRef.current.get('features-offset')
+            if (!offsets) {
+              offsets = new Map()
+              positionsRef.current.set('features-offset', offsets)
+            }
+            for (const n of finalNodes) {
+              if (n.type === 'epicGroup') continue
+              const base = basePositions.get(n.id)
+              if (base) {
+                offsets.set(n.id, { x: n.position.x - base.x, y: n.position.y - base.y })
+              }
+            }
+          }
+        }
+
         console.log('[CodeSee Drag] 写入缓存, viewKey:', viewKey, 'size:', positionMap.size)
         // 自动保存：localStorage 立即写（草稿），文件防抖写
         if (autoSave) {
@@ -303,18 +309,36 @@ function GraphInner({ file }: Props) {
       const layoutResult = await layoutViewAsync(view.nodes, view.edges, epicNames, sizeMap, overviewPositions)
       if (cancelled) return
 
-      // 缓存逻辑：
+      // 方案 E：增量偏移模型
       // - 概览/流程视图：用自己的缓存保持用户拖动
-      // - 功能视图：始终从概览缓存重算容器位置（概览和功能共享 Epic 位置）
+      // - 功能视图：基准位置（从概览重算）+ 偏移量 = 最终位置
       const isFeatureView = view.nodes.length > 0 && view.nodes[0].kind === 'feature'
-      const prev = positionsRef.current.get(viewKey)
       let finalNodes = layoutResult.nodes
       let newIds = new Set<string>()
       const groups = layoutResult.groups
-      if (prev && prev.size > 0 && !isFeatureView) {
-        const r = mergeWithPrevious(layoutResult, prev)
-        finalNodes = r.merged
-        newIds = r.newIds
+
+      if (isFeatureView) {
+        // 功能视图：叠加偏移量
+        const offsets = positionsRef.current.get('features-offset')
+        if (offsets && offsets.size > 0) {
+          finalNodes = finalNodes.map((n) => {
+            const offset = offsets.get(n.view.id)
+            if (!offset) return n
+            return { ...n, position: { x: n.position.x + offset.x, y: n.position.y + offset.y } }
+          })
+        }
+        // 存基准位置（用于后续计算偏移量）
+        const basePositions = new Map<string, { x: number; y: number }>()
+        for (const n of layoutResult.nodes) basePositions.set(n.view.id, n.position)
+        positionsRef.current.set('features-base', basePositions)
+      } else {
+        // 概览/流程视图：用缓存保持用户拖动
+        const prev = positionsRef.current.get(viewKey)
+        if (prev && prev.size > 0) {
+          const r = mergeWithPrevious(layoutResult, prev)
+          finalNodes = r.merged
+          newIds = r.newIds
+        }
       }
 
       const next = new Map<string, { x: number; y: number }>()
@@ -340,6 +364,8 @@ function GraphInner({ file }: Props) {
 
   const resetLayout = useCallback(() => {
     positionsRef.current.delete(viewKey)
+    positionsRef.current.delete('features-offset')
+    positionsRef.current.delete('features-base')
     clearPositions(repoId, viewKey)
     setLayoutVersion((v) => v + 1)
   }, [viewKey, repoId])

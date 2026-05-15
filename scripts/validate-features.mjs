@@ -576,16 +576,7 @@ function detectFileLevelSmells(data) {
     }
   }
 
-  /* 7. epic.importance core 太多 */
-  if (isArray(data.epics) && data.epics.length >= 4) {
-    const coreCount = data.epics.filter((e) => isObject(e) && e.importance === 'core').length
-    if (coreCount >= 3 && coreCount / data.epics.length > 0.5) {
-      warn(
-        '$.epics',
-        `${coreCount}/${data.epics.length} 个 Epic 标了 importance=core。core 应仅用于最核心的 1-2 个 Epic，全部标 core 等于没标。`,
-      )
-    }
-  }
+  /* 7. epic.importance 枚举已在 validateEpic 中校验，不再限制 core 数量 */
 }
 
 /* --------------------------------- main ---------------------------------- */

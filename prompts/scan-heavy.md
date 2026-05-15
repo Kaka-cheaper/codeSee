@@ -55,10 +55,10 @@
 - 不确定时宁可让多个 Epic 共享同一阶段，也不要全部错开
 
 **可选：给每个 Epic 标 `importance`** 帮助画布做视觉强调：
-- `core`：项目最核心的 1-2 个 Epic（用户最常用、最关键的功能）
+- `core`：项目核心模块（用户最常用、最关键的功能）
 - `auxiliary`：边角辅助模块（日志、调试、国际化、CLI 工具等）
-- 不写或 `normal` = 普通模块（绝大多数 Epic 应该是这一类）
-- **不要把所有 Epic 都标 core**——那等于没标
+- 不写或 `normal` = 普通模块
+- 根据项目实际情况标注，不限数量
 
 ### 1.3 列 Feature 骨架（只填 id/name/summary/epicId/triggers/tags）
 

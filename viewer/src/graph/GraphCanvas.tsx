@@ -347,10 +347,27 @@ function GraphInner({ file }: Props) {
     (_, node) => {
       const v = view.nodes.find((n) => n.id === node.id)
       if (!v) return
-      if (v.kind === 'epic') setState({ mode: 'features' })
-      else if (v.kind === 'feature') setState({ mode: 'steps', focusedFeatureId: v.feature.id })
+      if (v.kind === 'epic') {
+        setState({ mode: 'features' })
+        // 延迟聚焦到对应容器（等布局完成后）
+        const epicId = v.epic.id
+        setTimeout(() => {
+          const groupNodeId = `group:${epicId}`
+          const nodes = reactFlow.getNodes()
+          const target = nodes.find((n) => n.id === groupNodeId)
+          if (target) {
+            reactFlow.fitView({
+              nodes: [target],
+              padding: 0.5,
+              duration: 400,
+            })
+          }
+        }, 200)
+      } else if (v.kind === 'feature') {
+        setState({ mode: 'steps', focusedFeatureId: v.feature.id })
+      }
     },
-    [view.nodes],
+    [view.nodes, reactFlow],
   )
 
   const onNodeClick: NodeMouseHandler = useCallback((_, node) => {

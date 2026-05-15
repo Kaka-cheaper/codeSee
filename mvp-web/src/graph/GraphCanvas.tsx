@@ -76,7 +76,32 @@ function GraphInner({ file }: Props) {
 
   // React Flow 受控模式：拖动/选中等内部变化必须通过这两个回调同步到 state
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setRfNodes((nds) => applyNodeChanges(changes, nds))
+    setRfNodes((nds) => {
+      let updated = applyNodeChanges(changes, nds)
+
+      // 检测容器拖动：如果 group 节点位置变了，内部节点跟着移动
+      for (const change of changes) {
+        if (change.type !== 'position' || !change.position || !change.dragging) continue
+        const nodeId = change.id
+        if (!nodeId.startsWith('group:')) continue
+        const epicId = nodeId.replace(/^group:/, '')
+        const oldGroup = nds.find((n) => n.id === nodeId)
+        if (!oldGroup) continue
+        const dx = (change.position.x ?? 0) - oldGroup.position.x
+        const dy = (change.position.y ?? 0) - oldGroup.position.y
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue
+
+        updated = updated.map((n) => {
+          if (n.type === 'epicGroup' || n.id === nodeId) return n
+          const data = n.data as { view?: { kind?: string; feature?: { epicId?: string } } } | undefined
+          const nEpicId = data?.view?.kind === 'feature' ? (data.view.feature?.epicId ?? '__none__') : null
+          if (nEpicId !== epicId) return n
+          return { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
+        })
+      }
+
+      return updateGroupBounds(updated)
+    })
   }, [])
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     setRfEdges((eds) => applyEdgeChanges(changes, eds))
@@ -289,6 +314,63 @@ function GraphInner({ file }: Props) {
 
 /* --------------------------------------------------------- helpers */
 
+const GROUP_PADDING = { top: 56, left: 32, bottom: 32, right: 32 }
+
+/**
+ * 根据内部 feature 节点的位置，重新计算每个 epicGroup 容器的 position 和 size。
+ */
+function updateGroupBounds(nodes: Node[]): Node[] {
+  const groups = nodes.filter((n) => n.type === 'epicGroup')
+  if (groups.length === 0) return nodes
+
+  const epicIdToGroupId = new Map<string, string>()
+  for (const g of groups) {
+    epicIdToGroupId.set(g.id.replace(/^group:/, ''), g.id)
+  }
+
+  const bounds = new Map<string, { minX: number; minY: number; maxX: number; maxY: number }>()
+  for (const n of nodes) {
+    if (n.type === 'epicGroup') continue
+    const data = n.data as { view?: { kind?: string; feature?: { epicId?: string } } } | undefined
+    const epicId = data?.view?.kind === 'feature' ? (data.view.feature?.epicId ?? '__none__') : null
+    if (!epicId) continue
+    const groupId = epicIdToGroupId.get(epicId)
+    if (!groupId) continue
+
+    const w = n.measured?.width ?? n.width ?? 280
+    const h = n.measured?.height ?? n.height ?? 160
+    const x = n.position.x
+    const y = n.position.y
+
+    const prev = bounds.get(groupId)
+    if (!prev) {
+      bounds.set(groupId, { minX: x, minY: y, maxX: x + w, maxY: y + h })
+    } else {
+      prev.minX = Math.min(prev.minX, x)
+      prev.minY = Math.min(prev.minY, y)
+      prev.maxX = Math.max(prev.maxX, x + w)
+      prev.maxY = Math.max(prev.maxY, y + h)
+    }
+  }
+
+  return nodes.map((n) => {
+    if (n.type !== 'epicGroup') return n
+    const b = bounds.get(n.id)
+    if (!b) return n
+    const newPos = { x: b.minX - GROUP_PADDING.left, y: b.minY - GROUP_PADDING.top }
+    const newWidth = (b.maxX - b.minX) + GROUP_PADDING.left + GROUP_PADDING.right
+    const newHeight = (b.maxY - b.minY) + GROUP_PADDING.top + GROUP_PADDING.bottom
+    const oldData = n.data as EpicGroupBgData
+    if (
+      Math.abs(n.position.x - newPos.x) < 1 &&
+      Math.abs(n.position.y - newPos.y) < 1 &&
+      Math.abs(oldData.width - newWidth) < 1 &&
+      Math.abs(oldData.height - newHeight) < 1
+    ) return n
+    return { ...n, position: newPos, data: { ...oldData, width: newWidth, height: newHeight } }
+  })
+}
+
 function toRfNodes(
   laid: LaidOutNode[],
   newIds: Set<string>,
@@ -298,7 +380,7 @@ function toRfNodes(
     id: g.id,
     type: 'epicGroup',
     position: g.position,
-    draggable: false,
+    draggable: true,
     selectable: false,
     data: { label: g.label, width: g.width, height: g.height },
     style: { zIndex: -1 },

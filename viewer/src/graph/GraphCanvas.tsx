@@ -83,19 +83,31 @@ function GraphInner({ file }: Props) {
     Map<string, Map<string, { x: number; y: number }>>
   >(loadPositions(repoId))
 
-  // 启动时尝试从 .codesee/layout.json 加载（覆盖 localStorage 草稿）
+  // 启动时尝试加载布局：先从 FSA（用户授权的目录），再从 /layout.json（内置示例）
   useEffect(() => {
     let cancelled = false
-    loadLayoutFile(repoId).then((layout) => {
+    async function loadLayout() {
+      // 1. 尝试 FSA
+      let layout = await loadLayoutFile(repoId)
+      // 2. 兜底：fetch /layout.json（内置示例用）
+      if (!layout) {
+        try {
+          const res = await fetch('/layout.json', { cache: 'no-cache' })
+          if (res.ok) {
+            const data = await res.json()
+            if (data?.version === '0' && data?.views) layout = data
+          }
+        } catch { /* noop */ }
+      }
       if (cancelled || !layout) return
       const restored = new Map<string, Map<string, { x: number; y: number }>>()
       for (const [viewKey, positions] of Object.entries(layout.views)) {
-        restored.set(viewKey, new Map(Object.entries(positions)))
+        restored.set(viewKey, new Map(Object.entries(positions as Record<string, { x: number; y: number }>)))
       }
       positionsRef.current = restored
-      // 触发当前视图重布局
       setLayoutVersion((v) => v + 1)
-    })
+    }
+    loadLayout()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repoId])

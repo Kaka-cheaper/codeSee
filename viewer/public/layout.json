@@ -1,0 +1,13 @@
+{
+  "version": "0",
+  "views": {
+    "overview": {
+      "epic:auth": { "x": 0, "y": 0 },
+      "epic:catalog": { "x": -160, "y": 170 },
+      "epic:cart": { "x": 160, "y": 170 },
+      "epic:order": { "x": 0, "y": 340 },
+      "epic:admin": { "x": 0, "y": 510 }
+    }
+  },
+  "generated_at": "2026-05-15T00:00:00.000Z"
+}

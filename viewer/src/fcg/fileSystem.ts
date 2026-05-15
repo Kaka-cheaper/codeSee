@@ -128,7 +128,7 @@ export async function forgetDirectory(repoId: string): Promise<void> {
 export async function saveLayoutFile(
   repoId: string,
   layout: LayoutFile,
-): Promise<'wrote' | 'downloaded' | 'aborted'> {
+): Promise<'wrote' | 'downloaded' | 'no-handle'> {
   const text = JSON.stringify(layout, null, 2)
 
   if (isFSASupported()) {
@@ -137,7 +137,7 @@ export async function saveLayoutFile(
       const ok = await ensurePermission(handle)
       if (!ok) {
         await clearStoredHandle(repoId)
-        return downloadAsFile(text)
+        return 'no-handle'
       }
       try {
         const fileHandle = await handle.getFileHandle('layout.json', { create: true })
@@ -146,9 +146,10 @@ export async function saveLayoutFile(
         await writable.close()
         return 'wrote'
       } catch {
-        return downloadAsFile(text)
+        return 'no-handle'
       }
     }
+    return 'no-handle'
   }
   return downloadAsFile(text)
 }

@@ -30,7 +30,6 @@ import {
   loadLayoutFile,
   pickDirectory,
   saveLayoutFile,
-  hasAuthorized,
   type LayoutFile,
 } from '@/fcg/fileSystem'
 import { EpicNodeView, type EpicNodeData } from './EpicNodeView'
@@ -145,27 +144,32 @@ function GraphInner({ file }: Props) {
     }
   }, [])
 
-  // 手动保存：先存 localStorage（草稿），再尝试写文件
+  // 手动保存
+  // 关键：showDirectoryPicker 必须在用户手势的同步调用栈内触发
+  // 所以不能在 await 之后调用它——必须作为 click 的第一个 async 操作
   const saveLayout = useCallback(async () => {
     savePositions(repoId, positionsRef.current)
 
-    if (isFSASupported()) {
-      // Chromium 系：检查授权 → 没授权弹选择器 → 写文件
-      const authorized = await hasAuthorized(repoId)
-      if (!authorized) {
-        const handle = await pickDirectory(repoId)
-        if (!handle) {
-          // 用户取消了选择器 → 只保存到 localStorage，不下载
-          setSaveStatus('saved')
-          setTimeout(() => setSaveStatus('idle'), 2000)
-          return
-        }
-      }
-      const result = await saveLayoutFile(repoId, serializeLayout())
-      setSaveStatus(result === 'wrote' ? 'saved' : 'failed')
-    } else {
-      // 不支持 FSA（Safari/Firefox）→ 只保存到 localStorage，提示用户
+    if (!isFSASupported()) {
+      // 不支持 FSA → 只存 localStorage
       setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+      return
+    }
+
+    // 直接尝试写文件（saveLayoutFile 内部会用 stored handle）
+    const result = await saveLayoutFile(repoId, serializeLayout())
+    if (result === 'wrote') {
+      setSaveStatus('saved')
+    } else {
+      // 没有 stored handle → 弹目录选择器
+      const handle = await pickDirectory(repoId)
+      if (handle) {
+        const retry = await saveLayoutFile(repoId, serializeLayout())
+        setSaveStatus(retry === 'wrote' ? 'saved' : 'failed')
+      } else {
+        setSaveStatus('saved') // 取消了，只存 localStorage
+      }
     }
     setTimeout(() => setSaveStatus('idle'), 2500)
   }, [repoId, serializeLayout])
@@ -176,11 +180,9 @@ function GraphInner({ file }: Props) {
   const scheduleAutoSaveFile = useCallback(() => {
     if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current)
     autoSaveTimerRef.current = window.setTimeout(async () => {
-      // 只在 FSA 已授权时才写文件，否则只靠 localStorage
       if (!isFSASupported()) return
-      const authorized = await hasAuthorized(repoId)
-      if (!authorized) return
-      saveLayoutFile(repoId, serializeLayout()).catch(() => { /* noop */ })
+      // 直接尝试写——如果没 handle 会返回 'no-handle'，静默忽略
+      await saveLayoutFile(repoId, serializeLayout()).catch(() => { /* noop */ })
     }, 800)
   }, [repoId, serializeLayout])
   const [newNodeIds, setNewNodeIds] = useState<Set<string>>(new Set())

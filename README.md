@@ -21,6 +21,19 @@
 
 ---
 
+## Why
+
+When collaborating with AI on code:
+
+- 🤯 **AI writes 5000 lines in 5 minutes** — but you need hours to review them all
+- 🔍 **You need to understand logic, not syntax** — "what does this feature do" matters more than "which function calls which"
+- 🐛 **When something breaks, you trace the full chain** — but the chain might span 20 files you've never read
+- 😤 **You lose the sense of ownership** — the project grows faster than your understanding of it
+
+CodeSee solves this: AI writes the code AND writes the feature map. You see the story, not the syntax.
+
+---
+
 Not call graphs. Not import maps. A human-readable story of what your project does.
 
 I built this because when collaborating with AI on code, I needed a way to **see the feature logic** without reading every line. AI writes thousands of lines in minutes — I needed a canvas that shows me "what happened" at a glance, so I can stay in control.

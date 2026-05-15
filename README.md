@@ -148,7 +148,12 @@ codeSee/
 ├── scripts/
 │   ├── install.{ps1,sh}         一键安装到目标项目
 │   └── validate-features.mjs    features.json 校验器源（被 install 拷到 .codesee/scripts/）
-├── docs/review-checklist.md     人工评审 features.json 的清单
-├── problem.md                   开发历史归档
+├── docs/
+│   ├── principles.md            三条核心设计原则
+│   ├── review-checklist.md      人工评审 features.json 的清单
+│   ├── problem.md               开发历史归档
+│   └── requirements.md          初始需求分析
+├── LICENSE
+├── .editorconfig
 └── README.md
 ```

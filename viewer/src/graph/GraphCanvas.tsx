@@ -40,6 +40,7 @@ import { FLOW_META, ROLE_META } from './roleMeta'
 import { DetailsPanel } from './DetailsPanel'
 import { EpicGroupBg, type EpicGroupBgData } from './EpicGroupBg'
 import { useI18n } from '@/lib/i18n'
+import { Save } from 'lucide-react'
 import type { LaidOutNode, LayoutGroup } from './layout'
 
 interface Props {
@@ -925,9 +926,9 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
         <button
           onClick={onSaveLayout}
           title={t('view.saveTitle')}
-          className="relative rounded-md px-2 py-1 text-[11px] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]"
+          className="relative rounded-md px-1.5 py-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-2)]"
         >
-          💾
+          <Save size={13} strokeWidth={2} />
         </button>
         <button
           onClick={onUndo}

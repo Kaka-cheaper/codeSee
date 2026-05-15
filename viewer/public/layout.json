@@ -2,12 +2,77 @@
   "version": "0",
   "views": {
     "overview": {
-      "epic:auth": { "x": 0, "y": 0 },
-      "epic:catalog": { "x": -160, "y": 170 },
-      "epic:cart": { "x": 160, "y": 170 },
-      "epic:order": { "x": 0, "y": 340 },
-      "epic:admin": { "x": 0, "y": 510 }
+      "epic:auth": {
+        "x": -544.0012767838759,
+        "y": 161.54734048139963
+      },
+      "epic:catalog": {
+        "x": -160,
+        "y": 170
+      },
+      "epic:cart": {
+        "x": 160,
+        "y": 170
+      },
+      "epic:order": {
+        "x": 506.4321278347132,
+        "y": 168.6846807918181
+      },
+      "epic:admin": {
+        "x": 909.4486036431445,
+        "y": 156.5763748328759
+      }
+    },
+    "features": {
+      "feature:f-register": {
+        "x": -360,
+        "y": -96
+      },
+      "feature:f-login": {
+        "x": 0,
+        "y": -96
+      },
+      "feature:f-product-list": {
+        "x": -1091,
+        "y": 329
+      },
+      "feature:f-product-search": {
+        "x": -731,
+        "y": 329
+      },
+      "feature:f-product-detail": {
+        "x": -371,
+        "y": 329
+      },
+      "feature:f-add-to-cart": {
+        "x": 191,
+        "y": 329
+      },
+      "feature:f-view-cart": {
+        "x": 551,
+        "y": 329
+      },
+      "feature:f-checkout": {
+        "x": -540,
+        "y": 754
+      },
+      "feature:f-pay-callback": {
+        "x": -180,
+        "y": 754
+      },
+      "feature:f-order-list": {
+        "x": 180,
+        "y": 754
+      },
+      "feature:f-admin-products": {
+        "x": -360,
+        "y": 1179
+      },
+      "feature:f-admin-dashboard": {
+        "x": 0,
+        "y": 1179
+      }
     }
   },
-  "generated_at": "2026-05-15T00:00:00.000Z"
+  "generated_at": "2026-05-15T08:01:55.354Z"
 }

@@ -64,7 +64,7 @@ export function GraphCanvas({ file }: Props) {
 }
 
 function GraphInner({ file }: Props) {
-  const [state, setState] = useState<FcgViewState>({ mode: 'features' })
+  const [state, setState] = useState<FcgViewState>({ mode: 'overview' })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const reactFlow = useReactFlow()
 

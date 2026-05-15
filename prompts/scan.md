@@ -103,6 +103,7 @@ cross.kind:    depends_on | publishes | subscribes | triggers
 epic_flow.kind: next | depends_on | enables
 epic_flow.note: ⚠ 必填，中文语义短句（如"配置完成后运行"），不要写技术词
 epic.order:    阶段编号（不是 Epic 序号），同阶段 Epic 共享同一个 order
+epic.importance: core | normal | auxiliary  可选，仅 1-2 个 Epic 标 core
 provenance:    ai | user
 ```
 

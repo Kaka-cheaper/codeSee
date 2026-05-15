@@ -90,11 +90,11 @@ export function layoutViewSync(
 /**
  * 按 Epic.order 排列：同 order 横排，不同 order 纵排。
  * 列对齐：所有行使用相同列宽，相同列号的节点 x 坐标对齐，形成网格感。
+ * importance 增强：core 节点排在行中央、auxiliary 排在行两端。
  * 兜底：单行超过 MAX_PER_ROW 时自动折行，避免一条横线。
- * 不依赖任何布局算法——100% 确定性，AI 控制顺序。
  */
 function layoutByOrder(nodes: FcgViewNode[]): LaidOutNode[] {
-  const MAX_PER_ROW = 4 // 视觉舒适上限：单行最多 4 个 Epic
+  const MAX_PER_ROW = 4
 
   // 按 order 分组
   const orderGroups = new Map<number, FcgViewNode[]>()
@@ -104,17 +104,27 @@ function layoutByOrder(nodes: FcgViewNode[]): LaidOutNode[] {
     orderGroups.get(order)!.push(n)
   }
 
+  // 每组内按 importance 排序：core 居中、auxiliary 两端
+  for (const [, members] of orderGroups) {
+    members.sort((a, b) => {
+      const ia = importanceWeight(a)
+      const ib = importanceWeight(b)
+      return ia - ib // auxiliary(-1) 在前, normal(0) 中间, core(1) 在后
+    })
+    // 交错排列让 core 居中：auxiliary 放两端，core 放中间
+    const sorted = interleaveForCenter(members)
+    members.splice(0, members.length, ...sorted)
+  }
+
   const sortedOrders = [...orderGroups.keys()].sort((a, b) => a - b)
   const COL_GAP = 48
   const ROW_GAP = 64
 
-  // 列对齐：所有行使用统一列宽（取所有节点最大宽度），统一行高（最大高度）
   const allWidths = nodes.map((n) => NODE_SIZE[n.kind].width)
   const allHeights = nodes.map((n) => NODE_SIZE[n.kind].height)
   const colWidth = Math.max(...allWidths)
   const rowHeight = Math.max(...allHeights)
 
-  // 单行最大列数（用于居中）
   let maxCols = 1
   for (const order of sortedOrders) {
     const members = orderGroups.get(order)!
@@ -132,17 +142,13 @@ function layoutByOrder(nodes: FcgViewNode[]): LaidOutNode[] {
     const members = orderGroups.get(order)!
     for (let i = 0; i < members.length; i += MAX_PER_ROW) {
       const row = members.slice(i, i + MAX_PER_ROW)
-      // 本行节点数 = row.length，居中放置：左边 padding = (总宽 - 本行宽) / 2
       const rowWidth = row.length * colWidth + (row.length - 1) * COL_GAP
       const leftPad = (totalWidth - rowWidth) / 2
 
       row.forEach((n, colIdx) => {
         const size = NODE_SIZE[n.kind]
-        // 列对齐：列位的中心 = leftPad + colIdx * (colWidth + COL_GAP) + colWidth/2
-        // 节点左上角 x = 列中心 - 节点宽/2
         const colCenterX = leftPad + colIdx * (colWidth + COL_GAP) + colWidth / 2 - totalWidth / 2
         const x = colCenterX - size.width / 2
-        // 节点垂直居中到行中心
         const rowCenterY = y + rowHeight / 2
         const ny = rowCenterY - size.height / 2
 
@@ -159,6 +165,44 @@ function layoutByOrder(nodes: FcgViewNode[]): LaidOutNode[] {
   }
 
   return result
+}
+
+/** importance 权重：用于排序 */
+function importanceWeight(n: FcgViewNode): number {
+  if (n.kind !== 'epic') return 0
+  switch (n.epic.importance) {
+    case 'core': return 1
+    case 'auxiliary': return -1
+    default: return 0
+  }
+}
+
+/** 交错排列让高权重节点居中：[-1, 0, 0, 1] → [0, 1, 0, -1] 这种效果 */
+function interleaveForCenter(arr: FcgViewNode[]): FcgViewNode[] {
+  if (arr.length <= 2) return arr
+  const sorted = [...arr].sort((a, b) => importanceWeight(b) - importanceWeight(a))
+  const result: FcgViewNode[] = new Array(sorted.length)
+  let left = 0
+  let right = sorted.length - 1
+  for (let i = 0; i < sorted.length; i++) {
+    if (i % 2 === 0) {
+      // 高权重放中间（从中心向外交替）
+      const mid = Math.floor(sorted.length / 2) + (i % 2 === 0 ? Math.floor(i / 2) : -Math.ceil(i / 2))
+      result[mid >= 0 && mid < sorted.length ? mid : left++] = sorted[i]
+    } else {
+      result[right--] = sorted[i]
+    }
+  }
+  // 简化：直接用"core 放中间，auxiliary 放两端"的策略
+  const core = arr.filter((n) => importanceWeight(n) === 1)
+  const normal = arr.filter((n) => importanceWeight(n) === 0)
+  const aux = arr.filter((n) => importanceWeight(n) === -1)
+  // 排列：aux前半 + normal前半 + core + normal后半 + aux后半
+  const auxHalf1 = aux.slice(0, Math.ceil(aux.length / 2))
+  const auxHalf2 = aux.slice(Math.ceil(aux.length / 2))
+  const normalHalf1 = normal.slice(0, Math.ceil(normal.length / 2))
+  const normalHalf2 = normal.slice(Math.ceil(normal.length / 2))
+  return [...auxHalf1, ...normalHalf1, ...core, ...normalHalf2, ...auxHalf2]
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

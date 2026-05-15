@@ -11,6 +11,7 @@ export type EpicNodeData = {
 
 function EpicNodeViewImpl({ data, selected }: NodeProps) {
   const { view, isNew } = data as unknown as EpicNodeData
+  const importance = view.epic.importance ?? 'normal'
   return (
     <div
       className={cn(
@@ -20,6 +21,8 @@ function EpicNodeViewImpl({ data, selected }: NodeProps) {
         'hover:shadow-[0_2px_8px_oklch(0_0_0/0.06)]',
         selected ? 'border-[var(--color-accent)]' : 'border-[var(--color-border)]',
         isNew && 'is-new-node',
+        importance === 'core' && !selected && 'border-[var(--color-accent)]/50 shadow-[0_0_0_1px_var(--color-accent-soft)]',
+        importance === 'auxiliary' && 'opacity-70',
       )}
     >
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !border-[var(--color-border-strong)] !bg-[var(--color-bg-1)]" />

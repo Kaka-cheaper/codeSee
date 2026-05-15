@@ -185,6 +185,13 @@ function validateEpic(e, i, epicIds) {
     if (!isArray(e.tags)) err(`${p}.tags`, '必须是字符串数组')
     else e.tags.forEach((t, ti) => { if (!isString(t)) err(`${p}.tags[${ti}]`, '必须是字符串') })
   }
+  if (e.order !== undefined && !isNumber(e.order)) err(`${p}.order`, '必须是数字')
+  if (e.importance !== undefined) {
+    const IMPORTANCES = ['core', 'normal', 'auxiliary']
+    if (!IMPORTANCES.includes(e.importance)) {
+      err(`${p}.importance`, `必须是 ${IMPORTANCES.join('/')}`)
+    }
+  }
 }
 
 function validateFeature(f, i, featureIds, epicIds) {
@@ -565,6 +572,17 @@ function detectFileLevelSmells(data) {
       warn(
         '$.epic_flow',
         `epic_flow ${counts.next}/${total} next、${counts.depends_on}/${total} depends_on、${counts.enables}/${total} enables。enables 较多，请确认这些是否其实是"用户旅程下一步"（next）或"运行时依赖"（depends_on）——enables 仅适用于"解锁能力但非用户顺序"的场景。`,
+      )
+    }
+  }
+
+  /* 7. epic.importance core 太多 */
+  if (isArray(data.epics) && data.epics.length >= 4) {
+    const coreCount = data.epics.filter((e) => isObject(e) && e.importance === 'core').length
+    if (coreCount >= 3 && coreCount / data.epics.length > 0.5) {
+      warn(
+        '$.epics',
+        `${coreCount}/${data.epics.length} 个 Epic 标了 importance=core。core 应仅用于最核心的 1-2 个 Epic，全部标 core 等于没标。`,
       )
     }
   }

@@ -560,3 +560,53 @@
 修改的代码文件：
    - 新增：`docs/principles.md`
    - 改动：`README.md`、`problem.md`
+
+---
+
+问题26：基于 Polisim 真实数据，概览视图很多边、很乱、箭头标签太细且不语义化、看不清主线。
+解决方案：
+1. 给出 4 个方案 (A/B/C/D)，用户选 D（A+B+C 组合）：概览改回 ELK layered DOWN + 只画 epic_flow 边 + 标签用 epic_flow.note + 重置布局按钮。
+2. 改 fcgView.buildOverviewView：去掉 cross_feature 上卷，只用 epic_flow；label 取 epic_flow.note 语义短句。
+3. 改 layout：概览从 elkRectPacking 改回 elkLayered DOWN。
+4. GraphCanvas 加 ↺ 重置布局按钮 + layoutVersion state，重置时 +1 触发 useEffect 重算。
+5. 修复 ELK 合并逻辑反了的 bug——`layoutVersion === 0` 这个条件本意是反的，导致重置后再也不用缓存。改为简单"缓存有就用"，重置由 resetLayout 清缓存。
+6. prompt 配套：scan-heavy 新增"阶段 3.5：epic_flow"完整章节；scan-light 已有段落补 note 必填硬约束；sync.md 新增"epic_flow 维护"段落；scan.md 入口枚举速查加 `epic_flow.note: 必填，中文语义短句`；validator 加 epic_flow 校验。
+
+问题27：ELK layered 只按"边的方向"分层不理解"业务逻辑顺序"，10 个 Epic 间只有 3-5 条边导致大部分堆同层看不出主线。
+解决方案：
+1. 给 4 个方案，用户选 C：让 AI 显式写 epic.order 字段，前端按 order 排——最简单、最可控、不依赖布局算法、AI 控制顺序。
+2. schema 加 `Epic.order?: number`：从 0 开始，同 order 横排不同 order 纵排。
+3. layout 新增 layoutByOrder：按 order 分组，确定性 100% 不依赖任何算法。
+4. prompt 配套：scan-light 步骤 2 / scan-heavy 阶段 1.2 加 order 编号规则；scan.md 入口加枚举速查；scan-light schema 块 Epic 类型加 `order?: number`。
+
+问题28：用户从一系列实践中提炼出原则——"针对这个项目的真实需求和目前架构，真正重要的就是 features.json，一切能通过 features.json 修改的东西都不应该改前端"。
+解决方案：
+1. 确认方向正确，但补充精确化：避免把前端沦为"渲染 JSON 的傻瓜"。前端仍承担三类职责：UI 通用能力、视觉系统、布局算法实现（顺序由 JSON 决定）。
+2. 提炼为三条核心原则：原则 1 语义控制权归 AI / features.json；原则 2 视觉与交互能力归前端；原则 3 不确定就让 AI 显式写出来。
+3. 新增 `docs/principles.md`：完整三原则 + 职责边界四象限 + 反例对照 + 自检清单 + 历史教训反向验证。
+4. README 新增"职责边界（硬约束）"小节，链接到 principles.md。
+
+问题29：概览布局成了一条横线，AI 把 10 个 Epic 全编成 0,1,2,...,9。
+解决方案：
+1. 用户警觉到"prompt 强制 4-6 阶段是否和具体项目耦合"——确认这是误解：prompt 约束的是写作范式不是项目内容，但 4 这个数字属于前端布局假设漏出去了。
+2. 调整方案 E：prompt 教抽象规则（同阶段共享 order，不强制具体数字），前端兜底（单行超 4 列自动折行）。
+3. prompt 改：order 是阶段编号不是序号，同阶段 Epic 共享同一 order，不要 0,1,2,...,N-1 全递增；阶段从用户视角划分（启动准备 → 配置 → 执行 → 监控/分析 → 工具/辅助）；不确定时宁可共享同一阶段。
+4. 前端 layoutByOrder 加 MAX_PER_ROW=4 自动折行兜底。
+5. 用户拖动节点后切视图又切回来位置丢失——根因是 onNodesChange 改了 React state 但没同步到 positionsRef；进一步发现 React Flow dimensions/select 等内部 change 在节点位置还是 (0,0) 时也会触发，把 (0,0) 写入缓存导致下次切回来全部堆叠。修复：仅在 `change.dragging === true`（用户真实拖动）时写缓存。
+6. 用户进一步反馈"功能视图还是乱"+"epic_flow 主线感弱"——分析 prompt 对 epic_flow 三种 kind 的解释让 AI 倾向技术依赖思维（5 enables、3 next）。
+7. prompt 改：next 是用户旅程下一步（优先用），enables 极少用（不要把先决条件全写成 enables），depends_on 适合基础设施依赖；validator 加 next 比例校验。
+8. 用户挑战"60% 是不是硬规定"——确认这是过度约束（违反原则 1 语义控制权归 AI），改为软引导："优先考虑 next"+ validator 仅在 enables 异常多（>50%）时给信息提示，不预设阈值。
+9. 边样式从 smoothstep 改为 step（直角折线，电路图/流程图风格）+ 概览节点列对齐网格（统一列宽，相同列号节点 x 坐标对齐）。
+
+问题30：用户建议加保存当前布局按钮（手动 + 自动），因为算法永远算不出"用户视角最舒服的位置"。
+解决方案：
+1. 第一版：localStorage 持久化（按 manifest.repo 分桶）+ 自动保存 toggle + 💾 按钮 + ↺ 重置（清 localStorage）。
+2. 用户反问"💾 不应该是保存到 features 吗，布局应该单独维护一个文件吗，应该有历史/撤销/恢复吗"——确认这些都是合理需求，给方案：localStorage 仅作草稿，正式布局存独立文件 layout.json 与 features.json 解耦；Undo/Redo 优先（拖错了 Ctrl+Z），多版本快照下次再做。
+3. 浏览器没法直接写本地文件，给三个方案：File System Access API、本地小服务、下载文件。用户先选小服务"根本解决方案"，但发现小服务架构过重（需要并行启动两个进程、用户输入项目路径），改选 File System Access API + 下载兜底。
+4. 实施：新增 `mvp-web/src/fcg/fileSystem.ts` 封装 FSA + IndexedDB 持久化目录句柄 + 下载兜底；启动时尝试从 .codesee/layout.json 读；首次按 💾 检测未授权时主动弹目录选择器；自动保存 800ms 防抖。
+5. UI：视图切换器加 [自动] toggle + [💾 保存] + [↺ 重置]；保存后底部短暂提示"已保存到 layout.json"或"已下载（请放回 .codesee/）"。
+6. 项目隔离：FSA 句柄按 manifest.repo 存到 IndexedDB，不同项目互不干扰。
+应当达成的效果：用户拖动节点后位置永久保留（localStorage 即时 + 800ms 防抖写文件）；切视图来回不丢；点 ↺ 才回到算法初始位置；layout.json 跟项目走可入 git 团队共享，与 features.json 解耦不被 AI 覆盖。
+修改的代码文件：
+   - 新增：`mvp-web/src/fcg/fileSystem.ts`、`mvp-web/src/graph/positionStorage.ts`
+   - 改动：`mvp-web/src/graph/{GraphCanvas,layout,fcgView}.ts(x)`、`mvp-web/src/fcg/types.ts`（Epic 加 order）、`prompts/{scan,scan-light,scan-heavy,sync}.md`、`scripts/validate-features.mjs`、`docs/principles.md` 新增、`README.md` 加职责边界

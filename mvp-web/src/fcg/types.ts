@@ -107,6 +107,8 @@ export interface Epic {
   tags?: string[]
   /** 用户旅程顺序：0 = 最先，数字越大越靠后；同 order 的横排 */
   order?: number
+  /** 视觉重要度：core=核心居中突出 / auxiliary=辅助边角弱化 / normal=默认 */
+  importance?: 'core' | 'normal' | 'auxiliary'
 }
 
 export interface CrossFeatureLink {

@@ -4,7 +4,7 @@
 
 <img src="./docs/assets/banner.png" alt="CodeSee Banner" width="100%" />
 
-# 🔭 CodeSee
+# CodeSee
 
 **AI writes the code. You see the story.**
 

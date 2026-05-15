@@ -4,7 +4,7 @@
 
 <img src="./docs/assets/banner.png" alt="CodeSee Banner" width="100%" />
 
-# 🔭 CodeSee
+# CodeSee
 
 **AI 写代码，你看故事。**
 

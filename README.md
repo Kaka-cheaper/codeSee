@@ -36,6 +36,9 @@ Not call graphs. Not import maps. A human-readable story of what your project do
 <p><em>Overview — Epics arranged by user journey order, connected by semantic flow arrows</em></p>
 </div>
 
+<details>
+<summary><strong>▶ More views (Features / Steps)</strong></summary>
+
 <div align="center">
 <img src="./docs/assets/features.png" alt="Features View" width="80%" />
 <p><em>Features — grouped in Epic containers, drag to rearrange</em></p>
@@ -45,6 +48,8 @@ Not call graphs. Not import maps. A human-readable story of what your project do
 <img src="./docs/assets/steps.png" alt="Steps View" width="80%" />
 <p><em>Steps — directed flow within a single feature (async, conditional, error branches)</em></p>
 </div>
+
+</details>
 
 ---
 

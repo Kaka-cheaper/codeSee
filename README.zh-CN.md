@@ -36,6 +36,9 @@
 <p><em>概览视图 — Epic 按用户旅程顺序排列，语义流程箭头连接</em></p>
 </div>
 
+<details>
+<summary><strong>▶ 更多视图（功能 / 流程）</strong></summary>
+
 <div align="center">
 <img src="./docs/assets/features.png" alt="功能视图" width="80%" />
 <p><em>功能视图 — Feature 按 Epic 分组在容器内，可拖动调整</em></p>
@@ -45,6 +48,8 @@
 <img src="./docs/assets/steps.png" alt="流程视图" width="80%" />
 <p><em>流程视图 — 单个 Feature 内的有向流程（异步、条件、错误分支）</em></p>
 </div>
+
+</details>
 
 ---
 

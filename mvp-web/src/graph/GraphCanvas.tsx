@@ -78,8 +78,10 @@ function GraphInner({ file }: Props) {
       let updated = applyNodeChanges(changes, nds)
 
       // 检测容器拖动：如果 group 节点位置变了，内部节点跟着移动
+      let userDragging = false
       for (const change of changes) {
         if (change.type !== 'position' || !change.position || !change.dragging) continue
+        userDragging = true
         const nodeId = change.id
         if (!nodeId.startsWith('group:')) continue
         const epicId = nodeId.replace(/^group:/, '')
@@ -100,12 +102,16 @@ function GraphInner({ file }: Props) {
 
       const finalNodes = updateGroupBounds(updated)
 
-      // 同步用户拖动的位置到 positionsRef，下次切视图回来能恢复
-      const positionMap = positionsRef.current.get(viewKey)
-      if (positionMap) {
-        for (const n of finalNodes) {
-          if (n.type === 'epicGroup') continue
-          positionMap.set(n.id, { x: n.position.x, y: n.position.y })
+      // 只在用户拖动产生的 position change 时同步缓存
+      // 不能对所有 change 类型都同步——React Flow 内部的 dimensions/select 等 change
+      // 在节点位置还是初始 (0,0) 时也会触发，会把 (0,0) 写入缓存污染数据
+      if (userDragging) {
+        const positionMap = positionsRef.current.get(viewKey)
+        if (positionMap) {
+          for (const n of finalNodes) {
+            if (n.type === 'epicGroup') continue
+            positionMap.set(n.id, { x: n.position.x, y: n.position.y })
+          }
         }
       }
 

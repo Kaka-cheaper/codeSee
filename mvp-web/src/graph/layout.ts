@@ -425,22 +425,21 @@ export function mergeWithPrevious(
 
 /* --------------------------------------------------------- 概览锚点布局（方案 C） */
 
-const CELL_W = 300
-const CELL_H = 200
-const MAX_COLS = 3
-const CONTAINER_PAD = 80
-const CONTAINER_GAP = 120
-const CANVAS_SCALE = 4
+const CONTAINER_PAD = 60
+const CONTAINER_GAP = 80
+const CANVAS_SCALE = 2.5
+const INTRA_GAP_X = 40
+const INTRA_GAP_Y = 32
 
 /**
- * 功能视图布局：用概览视图的 Epic 坐标作为锚点，容器内按网格排列，全局矩形排斥防重叠。
+ * 功能视图布局：用概览视图的 Epic 坐标作为锚点，容器内按网格排列（用真实尺寸），全局矩形排斥防重叠。
  */
 function layoutFeaturesFromOverview(
   nodes: FcgViewNode[],
   _edges: FcgViewEdge[],
   overviewPositions: Map<string, { x: number; y: number }>,
   epicNames?: Map<string, string>,
-  _measuredSizes?: Map<string, { width: number; height: number }>,
+  measuredSizes?: Map<string, { width: number; height: number }>,
 ): LayoutResult {
   // 1. 按 epicId 分组
   const groups = new Map<string, FcgViewNode[]>()
@@ -450,7 +449,7 @@ function layoutFeaturesFromOverview(
     groups.get(epicId)!.push(n)
   }
 
-  // 2. 计算每个容器的锚点（概览坐标 × 放大系数）和尺寸
+  // 2. 计算每个容器的锚点和尺寸
   interface ContainerInfo {
     epicId: string
     anchorX: number
@@ -458,6 +457,9 @@ function layoutFeaturesFromOverview(
     width: number
     height: number
     members: FcgViewNode[]
+    cellW: number
+    cellH: number
+    cols: number
   }
   const containers: ContainerInfo[] = []
   for (const [epicId, members] of groups) {
@@ -465,15 +467,29 @@ function layoutFeaturesFromOverview(
     const pos = overviewPositions.get(overviewKey)
     const anchorX = pos ? pos.x * CANVAS_SCALE : 0
     const anchorY = pos ? pos.y * CANVAS_SCALE : 0
-    const cols = Math.min(MAX_COLS, members.length)
+
+    // 用真实测量尺寸算 cell 大小（取该组内最大宽高 + gap）
+    let maxW = NODE_SIZE.feature.width
+    let maxH = NODE_SIZE.feature.height
+    for (const m of members) {
+      const s = measuredSizes?.get(m.id)
+      if (s) {
+        maxW = Math.max(maxW, s.width)
+        maxH = Math.max(maxH, s.height)
+      }
+    }
+    const cellW = maxW + INTRA_GAP_X
+    const cellH = maxH + INTRA_GAP_Y
+
+    const cols = Math.min(3, members.length)
     const rows = Math.ceil(members.length / cols)
-    const width = cols * CELL_W + CONTAINER_PAD * 2
-    const height = rows * CELL_H + CONTAINER_PAD * 2
-    containers.push({ epicId, anchorX, anchorY, width, height, members })
+    const width = cols * cellW + CONTAINER_PAD * 2
+    const height = rows * cellH + CONTAINER_PAD * 2
+    containers.push({ epicId, anchorX, anchorY, width, height, members, cellW, cellH, cols })
   }
 
   // 3. 矩形排斥：保证容器不重叠
-  for (let iter = 0; iter < 10; iter++) {
+  for (let iter = 0; iter < 20; iter++) {
     let moved = false
     for (let i = 0; i < containers.length; i++) {
       for (let j = i + 1; j < containers.length; j++) {
@@ -482,14 +498,13 @@ function layoutFeaturesFromOverview(
         const overlapX = (a.width / 2 + b.width / 2 + CONTAINER_GAP) - Math.abs(a.anchorX - b.anchorX)
         const overlapY = (a.height / 2 + b.height / 2 + CONTAINER_GAP) - Math.abs(a.anchorY - b.anchorY)
         if (overlapX > 0 && overlapY > 0) {
-          // 推开：沿重叠较小的轴推
           if (overlapX < overlapY) {
             const push = overlapX / 2 + 1
-            if (a.anchorX < b.anchorX) { a.anchorX -= push; b.anchorX += push }
+            if (a.anchorX <= b.anchorX) { a.anchorX -= push; b.anchorX += push }
             else { a.anchorX += push; b.anchorX -= push }
           } else {
             const push = overlapY / 2 + 1
-            if (a.anchorY < b.anchorY) { a.anchorY -= push; b.anchorY += push }
+            if (a.anchorY <= b.anchorY) { a.anchorY -= push; b.anchorY += push }
             else { a.anchorY += push; b.anchorY -= push }
           }
           moved = true
@@ -499,26 +514,25 @@ function layoutFeaturesFromOverview(
     if (!moved) break
   }
 
-  // 4. 容器内按网格排列 Feature
+  // 4. 容器内按网格排列 Feature（用真实 cell 尺寸，保证不重叠）
   const result: LaidOutNode[] = []
   const layoutGroups: LayoutGroup[] = []
 
   for (const c of containers) {
-    const cols = Math.min(MAX_COLS, c.members.length)
     const startX = c.anchorX - c.width / 2 + CONTAINER_PAD
     const startY = c.anchorY - c.height / 2 + CONTAINER_PAD
 
     c.members.forEach((n, idx) => {
-      const col = idx % cols
-      const row = Math.floor(idx / cols)
-      const size = NODE_SIZE[n.kind]
+      const col = idx % c.cols
+      const row = Math.floor(idx / c.cols)
+      const size = measuredSizes?.get(n.id) ?? NODE_SIZE[n.kind]
       result.push({
         view: n,
         width: size.width,
         height: size.height,
         position: {
-          x: startX + col * CELL_W + (CELL_W - size.width) / 2,
-          y: startY + row * CELL_H + (CELL_H - size.height) / 2,
+          x: startX + col * c.cellW,
+          y: startY + row * c.cellH,
         },
       })
     })

@@ -276,7 +276,8 @@ This refreshes prompts, validator, and the AGENTS.md CodeSee section without tou
 
 ## Roadmap
 
-- [ ] **Screenshots & demo GIF** — real project visualization examples
+- [ ] **Prompt refinement (community-driven)** — real-world usage produces the best constraints; contributions welcome for edge cases, anti-patterns, and domain-specific rules
+- [ ] **Semantic-aware layout** — layout should respect feature logic, not just node positions; exploring AI-driven layout via `layout.json` (already decoupled from data)
 - [ ] **Canvas editing** — edit feature names, add notes, lock nodes directly on the canvas
 - [ ] **Search & filter** — find features by name, filter by epic/tag/role
 - [ ] **Diff view** — highlight what changed between two versions of `features.json`

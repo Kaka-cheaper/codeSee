@@ -171,13 +171,17 @@ function GraphInner({ file }: Props) {
   }, [repoId, serializeLayout])
 
   // 文件自动保存防抖（拖动时 onTick 高频，但落盘只需偶尔一次）
+  // ⚠ 自动保存永远不触发下载或弹窗——只在已授权时静默写文件
   const autoSaveTimerRef = useRef<number | null>(null)
   const scheduleAutoSaveFile = useCallback(() => {
-    if (!isFSASupported()) return // 不支持 FSA 的浏览器不自动写文件（避免反复弹下载）
     if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current)
-    autoSaveTimerRef.current = window.setTimeout(() => {
+    autoSaveTimerRef.current = window.setTimeout(async () => {
+      // 只在 FSA 已授权时才写文件，否则只靠 localStorage
+      if (!isFSASupported()) return
+      const authorized = await hasAuthorized(repoId)
+      if (!authorized) return
       saveLayoutFile(repoId, serializeLayout()).catch(() => { /* noop */ })
-    }, 800) // 拖动停止 800ms 后落盘
+    }, 800)
   }, [repoId, serializeLayout])
   const [newNodeIds, setNewNodeIds] = useState<Set<string>>(new Set())
   const [rfNodes, setRfNodes] = useState<Node[]>([])

@@ -6,9 +6,13 @@ import {
   MarkerType,
   MiniMap,
   ReactFlow,
+  applyNodeChanges,
+  applyEdgeChanges,
   useReactFlow,
   type Edge,
+  type EdgeChange,
   type Node,
+  type NodeChange,
   type NodeMouseHandler,
   type OnNodeDrag,
 } from '@xyflow/react'
@@ -69,6 +73,14 @@ function GraphInner({ file }: Props) {
   const [rfNodes, setRfNodes] = useState<Node[]>([])
   const [rfEdges, setRfEdges] = useState<Edge[]>([])
   const measuredSizesRef = useRef<Map<string, { width: number; height: number }>>(new Map())
+
+  // React Flow 受控模式：拖动/选中等内部变化必须通过这两个回调同步到 state
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setRfNodes((nds) => applyNodeChanges(changes, nds))
+  }, [])
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setRfEdges((eds) => applyEdgeChanges(changes, eds))
+  }, [])
 
   /* ==================== ELK 布局（功能/流程视图） ==================== */
   useEffect(() => {
@@ -219,6 +231,8 @@ function GraphInner({ file }: Props) {
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         fitView

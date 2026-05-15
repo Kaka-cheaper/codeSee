@@ -205,16 +205,25 @@ function GraphInner({ file }: Props) {
 
       // 检测容器拖动：如果 group 节点位置变了，内部节点跟着移动
       let userDragging = false
+      let groupDragging = false
+      let draggedGroupEpicId: string | null = null
+      let groupDx = 0
+      let groupDy = 0
+
       for (const change of changes) {
         if (change.type !== 'position' || !change.position || !change.dragging) continue
         userDragging = true
         const nodeId = change.id
         if (!nodeId.startsWith('group:')) continue
+        groupDragging = true
         const epicId = nodeId.replace(/^group:/, '')
+        draggedGroupEpicId = epicId
         const oldGroup = nds.find((n) => n.id === nodeId)
         if (!oldGroup) continue
         const dx = (change.position.x ?? 0) - oldGroup.position.x
         const dy = (change.position.y ?? 0) - oldGroup.position.y
+        groupDx = dx
+        groupDy = dy
         if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue
 
         updated = updated.map((n) => {
@@ -229,8 +238,6 @@ function GraphInner({ file }: Props) {
       const finalNodes = updateGroupBounds(updated)
 
       // 只在用户拖动产生的 position change 时同步缓存
-      // 不能对所有 change 类型都同步——React Flow 内部的 dimensions/select 等 change
-      // 在节点位置还是初始 (0,0) 时也会触发，会把 (0,0) 写入缓存污染数据
       if (userDragging) {
         let positionMap = positionsRef.current.get(viewKey)
         if (!positionMap) {
@@ -242,27 +249,48 @@ function GraphInner({ file }: Props) {
           positionMap.set(n.id, { x: n.position.x, y: n.position.y })
         }
 
-        // 功能视图：计算偏移量 = 当前位置 - 基准位置
+        // 功能视图：区分容器拖动 vs 节点独立拖动
         const isFeatureView = viewKey === 'features'
         if (isFeatureView) {
           const basePositions = positionsRef.current.get('features-base')
           if (basePositions) {
-            let offsets = positionsRef.current.get('features-offset')
-            if (!offsets) {
-              offsets = new Map()
-              positionsRef.current.set('features-offset', offsets)
-            }
-            for (const n of finalNodes) {
-              if (n.type === 'epicGroup') continue
-              const base = basePositions.get(n.id)
-              if (base) {
-                offsets.set(n.id, { x: n.position.x - base.x, y: n.position.y - base.y })
+            if (groupDragging && draggedGroupEpicId) {
+              // 容器拖动：只更新容器级偏移量，不更新节点独立偏移量
+              let groupOffsets = positionsRef.current.get('features-group-offset')
+              if (!groupOffsets) {
+                groupOffsets = new Map()
+                positionsRef.current.set('features-group-offset', groupOffsets)
+              }
+              const prevOffset = groupOffsets.get(draggedGroupEpicId) ?? { x: 0, y: 0 }
+              groupOffsets.set(draggedGroupEpicId, {
+                x: prevOffset.x + groupDx,
+                y: prevOffset.y + groupDy,
+              })
+            } else {
+              // 节点独立拖动：更新节点级偏移量（减去容器偏移后的净偏移）
+              let offsets = positionsRef.current.get('features-offset')
+              if (!offsets) {
+                offsets = new Map()
+                positionsRef.current.set('features-offset', offsets)
+              }
+              const groupOffsets = positionsRef.current.get('features-group-offset')
+              for (const n of finalNodes) {
+                if (n.type === 'epicGroup') continue
+                const base = basePositions.get(n.id)
+                if (!base) continue
+                // 节点偏移 = 当前位置 - 基准位置 - 容器偏移
+                const data = n.data as { view?: { kind?: string; feature?: { epicId?: string } } } | undefined
+                const nEpicId = data?.view?.kind === 'feature' ? (data.view.feature?.epicId ?? '__none__') : null
+                const gOffset: { x: number; y: number } = (nEpicId ? groupOffsets?.get(nEpicId) : undefined) ?? { x: 0, y: 0 }
+                offsets.set(n.id, {
+                  x: n.position.x - base.x - gOffset.x,
+                  y: n.position.y - base.y - gOffset.y,
+                })
               }
             }
           }
         }
 
-        console.log('[CodeSee Drag] 写入缓存, viewKey:', viewKey, 'size:', positionMap.size)
         // 自动保存：localStorage 立即写（草稿），文件防抖写
         if (autoSave) {
           savePositions(repoId, positionsRef.current)
@@ -318,7 +346,17 @@ function GraphInner({ file }: Props) {
       const groups = layoutResult.groups
 
       if (isFeatureView) {
-        // 功能视图：叠加偏移量
+        // 功能视图：先叠加容器级偏移量，再叠加节点级偏移量
+        const groupOffsets = positionsRef.current.get('features-group-offset')
+        if (groupOffsets && groupOffsets.size > 0) {
+          finalNodes = finalNodes.map((n) => {
+            if (n.view.kind !== 'feature') return n
+            const epicId = n.view.feature.epicId ?? '__none__'
+            const gOffset = groupOffsets.get(epicId)
+            if (!gOffset) return n
+            return { ...n, position: { x: n.position.x + gOffset.x, y: n.position.y + gOffset.y } }
+          })
+        }
         const offsets = positionsRef.current.get('features-offset')
         if (offsets && offsets.size > 0) {
           finalNodes = finalNodes.map((n) => {
@@ -330,15 +368,17 @@ function GraphInner({ file }: Props) {
 
         // 偏移量叠加后，对容器做碰撞检测（防止偏移导致容器重叠）
         if (groups.length > 1) {
+          // 先根据当前节点位置计算容器的实际包围盒（偏移后的）
+          const preCollisionGroups = recalcGroupBounds(finalNodes, groups)
           const updatedGroups = resolveContainerCollisions(finalNodes, groups)
           // 如果容器被推开了，内部节点也要跟着动
           for (let gi = 0; gi < groups.length; gi++) {
-            const oldG = groups[gi]
-            const newG = updatedGroups[gi]
-            const dx = newG.position.x - oldG.position.x
-            const dy = newG.position.y - oldG.position.y
+            const beforeG = preCollisionGroups[gi]
+            const afterG = updatedGroups[gi]
+            const dx = afterG.position.x - beforeG.position.x
+            const dy = afterG.position.y - beforeG.position.y
             if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue
-            const epicId = oldG.id.replace(/^group:/, '')
+            const epicId = afterG.id.replace(/^group:/, '')
             finalNodes = finalNodes.map((n) => {
               if (n.view.kind !== 'feature') return n
               if ((n.view.feature.epicId ?? '__none__') !== epicId) return n
@@ -390,6 +430,7 @@ function GraphInner({ file }: Props) {
     positionsRef.current.delete(viewKey)
     positionsRef.current.delete('features-offset')
     positionsRef.current.delete('features-base')
+    positionsRef.current.delete('features-group-offset')
     clearPositions(repoId, viewKey)
     setLayoutVersion((v) => v + 1)
   }, [viewKey, repoId])
@@ -630,6 +671,37 @@ function updateGroupBounds(nodes: Node[]): Node[] {
       Math.abs(oldData.height - newHeight) < 1
     ) return n
     return { ...n, position: newPos, data: { ...oldData, width: newWidth, height: newHeight } }
+  })
+}
+
+/**
+ * 根据当前节点位置重新计算容器包围盒（不做排斥，仅计算）。
+ * 用于碰撞检测前获取"排斥前"的容器位置，以便正确计算推开 delta。
+ */
+function recalcGroupBounds(
+  nodes: LaidOutNode[],
+  groups: LayoutGroup[],
+): LayoutGroup[] {
+  const PAD = 60
+  return groups.map((g) => {
+    const epicId = g.id.replace(/^group:/, '')
+    const members = nodes.filter(
+      (n) => n.view.kind === 'feature' && (n.view.feature.epicId ?? '__none__') === epicId,
+    )
+    if (members.length === 0) return { ...g }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const m of members) {
+      minX = Math.min(minX, m.position.x)
+      minY = Math.min(minY, m.position.y)
+      maxX = Math.max(maxX, m.position.x + m.width)
+      maxY = Math.max(maxY, m.position.y + m.height)
+    }
+    return {
+      ...g,
+      position: { x: minX - PAD, y: minY - PAD },
+      width: (maxX - minX) + PAD * 2,
+      height: (maxY - minY) + PAD * 2,
+    }
   })
 }
 

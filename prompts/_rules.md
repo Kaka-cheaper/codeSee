@@ -10,8 +10,8 @@
 
 1. **枚举值不可编造**。只用 `_schema.md` 里列出的值。不确定时用兜底值（role=other, trigger=unknown, flow=next）。
 2. **flow.kind 必填**。不能省略或留 undefined。
-3. **epic_flow.note 必填**。中文语义短句，不写技术词。
-4. **step.name 必须中文动词短语**。禁止：英文标识符、函数调用形式、事件名照搬、"调用 X" 后跟英文。
+3. **epic_flow.note 必填**。用 manifest.lang 指定的语言写语义短句，不写技术词。
+4. **step.name 必须是用户指定语言的动词短语**（语言由 manifest.lang 决定，默认中文）。禁止：英文标识符、函数调用形式、事件名照搬、"调用 X" 后跟代码标识符。
 5. **不修改 locked: true 的 feature**。
 6. **不重命名既有 id**。废弃用 tags: ['deprecated']。
 7. **写入后跑 validate-features.mjs**。退出码 1 必须修复。

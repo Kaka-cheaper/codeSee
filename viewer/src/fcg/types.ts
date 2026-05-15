@@ -132,6 +132,8 @@ export interface FcgManifest {
   commit?: string
   generated_at: string
   generator?: string  // 'ai@gpt-4o' / 'user'
+  /** 语义文本的输出语言：'zh-CN' | 'en' | 'ja' 等，默认 'zh-CN' */
+  lang?: string
 }
 
 export interface FeaturesFile {

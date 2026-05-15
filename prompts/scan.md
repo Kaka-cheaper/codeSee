@@ -16,6 +16,29 @@
 用 IDE 自带的代码探索能力（@Codebase / @workspace / Agent 等）。
 我不告诉你怎么探索，只告诉你**要找什么、产出什么**。
 
+## 第零步：确认输出语言
+
+在开始扫描前，**询问用户**希望用什么语言撰写语义内容（step.name、epic_flow.note、summary、note 等所有面向人类阅读的文本）。
+
+常见选择：
+- `zh-CN`（中文，默认）
+- `en`（English）
+- `ja`（日本語）
+- 其他
+
+如果用户未指定，默认使用**中文（zh-CN）**。
+
+确认后，在 `features.json` 的 `manifest` 中写入：
+
+```json
+"manifest": {
+  "lang": "zh-CN",
+  ...
+}
+```
+
+后续所有语义文本（step.name、epic.name、feature.name、summary、note、epic_flow.note、cross_feature.note、condition）都使用该语言。
+
 ## 第一步：规模自检
 
 读 README、package.json/pyproject.toml、顶层目录，判断：

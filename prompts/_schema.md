@@ -7,7 +7,7 @@
 ```ts
 type FeaturesFile = {
   version: '0'
-  manifest: { repo?: string; commit?: string; generated_at: string; generator?: string }
+  manifest: { repo?: string; commit?: string; generated_at: string; generator?: string; lang?: string }
   epics: Epic[]
   features: Feature[]
   cross_feature?: CrossFeatureLink[]
@@ -15,12 +15,15 @@ type FeaturesFile = {
 }
 ```
 
+> `manifest.lang`：语义文本的输出语言（如 `"zh-CN"`、`"en"`、`"ja"`）。默认 `"zh-CN"`。
+> 所有面向人类阅读的字段（name、summary、note、condition、epic_flow.note）都使用该语言。
+
 ## Epic
 
 ```ts
 type Epic = {
   id: string              // slug: 'user', 'order', 'infra'
-  name: string            // 中文名
+  name: string            // manifest.lang 语言
   summary?: string
   tags?: string[]
   order?: number          // 阶段编号（同阶段共享）
@@ -33,8 +36,8 @@ type Epic = {
 ```ts
 type Feature = {
   id: string              // 'f-xxx' 前缀
-  name: string            // 中文，2-10 字
-  summary?: string        // ≤30 字
+  name: string            // manifest.lang 语言，2-10 字/词
+  summary?: string        // ≤30 字/词
   epicId?: string
   triggers?: Trigger[]
   steps: Step[]
@@ -57,7 +60,7 @@ type Trigger = {
 
 type Step = {
   id: string
-  name: string            // 中文动词短语，2-8 字
+  name: string            // manifest.lang 语言的动词短语，2-8 字/词
   role: 'input' | 'validation' | 'auth' | 'data-read' | 'data-write'
       | 'compute' | 'transform' | 'side-effect' | 'output' | 'error' | 'other'
   note?: string
@@ -80,7 +83,7 @@ type CrossFeatureLink = {
 type EpicFlow = {
   from: string; to: string
   kind: 'next' | 'depends_on' | 'enables'
-  note: string            // MUST 填，中文语义短句
+  note: string            // MUST 填，manifest.lang 语言的语义短句
 }
 ```
 
@@ -114,7 +117,7 @@ provenance:     ai | user
 ```json
 {
   "version": "0",
-  "manifest": { "repo": "example", "generated_at": "2026-05-15T00:00:00Z", "generator": "ai@claude" },
+  "manifest": { "repo": "example", "generated_at": "2026-05-15T00:00:00Z", "generator": "ai@claude", "lang": "zh-CN" },
   "epics": [
     { "id": "auth", "name": "用户认证", "order": 0, "importance": "normal" },
     { "id": "order", "name": "订单", "order": 1, "importance": "core" }

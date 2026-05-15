@@ -1,7 +1,5 @@
 <div align="center">
 
-[中文](./README.zh-CN.md) · English
-
 <img src="./docs/assets/banner.png" alt="CodeSee Banner" width="100%" />
 
 # CodeSee
@@ -15,6 +13,7 @@ The feature-level canvas for AI-collaborative development. AI maintains a semant
 [![Viewer](https://img.shields.io/badge/Viewer-React_Flow-purple.svg)](./viewer/)
 [![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/AGENTS.md)
 [![Demo](https://img.shields.io/badge/Live_Demo-▶-brightgreen.svg)](https://user.github.io/codeSee/)
+[![中文](https://img.shields.io/badge/Lang-中文-red.svg)](./README.zh-CN.md)
 
 ![Cursor](https://img.shields.io/badge/Cursor-Skill-black?logo=cursor)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-Skill-orange?logo=anthropic)

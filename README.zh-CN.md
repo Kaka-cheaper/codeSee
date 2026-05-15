@@ -1,7 +1,5 @@
 <div align="center">
 
-中文 · [English](./README.md)
-
 <img src="./docs/assets/banner.png" alt="CodeSee Banner" width="100%" />
 
 # CodeSee
@@ -15,6 +13,7 @@
 [![Viewer](https://img.shields.io/badge/Viewer-React_Flow-purple.svg)](./viewer/)
 [![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/AGENTS.md)
 [![Demo](https://img.shields.io/badge/在线演示-▶-brightgreen.svg)](https://user.github.io/codeSee/)
+[![English](https://img.shields.io/badge/Lang-English-red.svg)](./README.md)
 
 ![Cursor](https://img.shields.io/badge/Cursor-Skill-black?logo=cursor)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-Skill-orange?logo=anthropic)

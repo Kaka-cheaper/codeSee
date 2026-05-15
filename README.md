@@ -14,6 +14,7 @@ The feature-level canvas for AI-collaborative development. AI maintains a semant
 [![Prompts](https://img.shields.io/badge/Prompts-6-blue.svg)](./prompts/)
 [![Viewer](https://img.shields.io/badge/Viewer-React_Flow-purple.svg)](./viewer/)
 [![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/AGENTS.md)
+[![Demo](https://img.shields.io/badge/Live_Demo-▶-brightgreen.svg)](https://user.github.io/codeSee/)
 
 ![Cursor](https://img.shields.io/badge/Cursor-Skill-black?logo=cursor)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-Skill-orange?logo=anthropic)
@@ -288,6 +289,10 @@ This refreshes prompts, validator, and the AGENTS.md CodeSee section without tou
 ---
 
 ## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, code style, and PR process.
+
+Quick start:
 
 1. Fork & clone
 2. `cd viewer && npm install && npm run dev`

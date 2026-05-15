@@ -1,0 +1,187 @@
+{
+  "version": "0",
+  "manifest": {
+    "repo": "demo/blog-system",
+    "generated_at": "2026-05-15T10:00:00Z",
+    "generator": "ai@claude",
+    "lang": "en"
+  },
+  "epics": [
+    { "id": "auth", "name": "Authentication", "order": 0, "importance": "normal" },
+    { "id": "content", "name": "Content Management", "order": 1, "importance": "core" },
+    { "id": "social", "name": "Social Interaction", "order": 2, "importance": "normal" },
+    { "id": "admin", "name": "Administration", "order": 2, "importance": "auxiliary" }
+  ],
+  "features": [
+    {
+      "id": "f-register",
+      "name": "User Registration",
+      "summary": "New user signs up with email and password",
+      "epicId": "auth",
+      "triggers": [{ "kind": "http", "detail": "POST /api/auth/register" }],
+      "steps": [
+        { "id": "input", "name": "Receive registration data", "role": "input" },
+        { "id": "validate", "name": "Validate email format and password strength", "role": "validation" },
+        { "id": "check-dup", "name": "Check for duplicate email", "role": "data-read" },
+        { "id": "hash", "name": "Hash password", "role": "compute" },
+        { "id": "save", "name": "Create user record", "role": "data-write" },
+        { "id": "email", "name": "Send verification email", "role": "side-effect" },
+        { "id": "ok", "name": "Return success with token", "role": "output" },
+        { "id": "dup-err", "name": "Return duplicate email error", "role": "error" }
+      ],
+      "flow": [
+        { "from": "input", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "check-dup", "kind": "next" },
+        { "from": "check-dup", "to": "hash", "kind": "conditional", "condition": "email not taken" },
+        { "from": "check-dup", "to": "dup-err", "kind": "conditional", "condition": "email exists" },
+        { "from": "hash", "to": "save", "kind": "next" },
+        { "from": "save", "to": "email", "kind": "async" },
+        { "from": "save", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.95,
+      "provenance": "ai",
+      "updated_at": "2026-05-15T10:00:00Z"
+    },
+    {
+      "id": "f-login",
+      "name": "User Login",
+      "summary": "Authenticate with email/password, receive JWT",
+      "epicId": "auth",
+      "triggers": [{ "kind": "http", "detail": "POST /api/auth/login" }],
+      "steps": [
+        { "id": "input", "name": "Receive credentials", "role": "input" },
+        { "id": "find", "name": "Look up user by email", "role": "data-read" },
+        { "id": "verify", "name": "Compare password hash", "role": "auth" },
+        { "id": "token", "name": "Issue JWT token", "role": "compute" },
+        { "id": "ok", "name": "Return token", "role": "output" },
+        { "id": "fail", "name": "Return auth failure", "role": "error" }
+      ],
+      "flow": [
+        { "from": "input", "to": "find", "kind": "next" },
+        { "from": "find", "to": "verify", "kind": "next" },
+        { "from": "verify", "to": "token", "kind": "conditional", "condition": "password matches" },
+        { "from": "verify", "to": "fail", "kind": "conditional", "condition": "password wrong" },
+        { "from": "token", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.95,
+      "provenance": "ai",
+      "updated_at": "2026-05-15T10:00:00Z"
+    },
+    {
+      "id": "f-create-post",
+      "name": "Create Post",
+      "summary": "Author writes and publishes a blog post",
+      "epicId": "content",
+      "triggers": [{ "kind": "http", "detail": "POST /api/posts" }],
+      "steps": [
+        { "id": "input", "name": "Receive post content", "role": "input" },
+        { "id": "auth", "name": "Verify author identity", "role": "auth" },
+        { "id": "validate", "name": "Validate title and body", "role": "validation" },
+        { "id": "slug", "name": "Generate URL slug", "role": "compute" },
+        { "id": "save", "name": "Persist post to database", "role": "data-write" },
+        { "id": "index", "name": "Update search index", "role": "side-effect" },
+        { "id": "notify", "name": "Notify subscribers", "role": "side-effect" },
+        { "id": "ok", "name": "Return created post", "role": "output" }
+      ],
+      "flow": [
+        { "from": "input", "to": "auth", "kind": "next" },
+        { "from": "auth", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "slug", "kind": "next" },
+        { "from": "slug", "to": "save", "kind": "next" },
+        { "from": "save", "to": "index", "kind": "async" },
+        { "from": "save", "to": "notify", "kind": "async" },
+        { "from": "save", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-15T10:00:00Z"
+    },
+    {
+      "id": "f-read-post",
+      "name": "Read Post",
+      "summary": "Visitor views a published blog post",
+      "epicId": "content",
+      "triggers": [{ "kind": "http", "detail": "GET /api/posts/:slug" }],
+      "steps": [
+        { "id": "input", "name": "Receive slug parameter", "role": "input" },
+        { "id": "fetch", "name": "Query post by slug", "role": "data-read" },
+        { "id": "render", "name": "Render markdown to HTML", "role": "transform" },
+        { "id": "views", "name": "Increment view counter", "role": "data-write" },
+        { "id": "ok", "name": "Return rendered post", "role": "output" },
+        { "id": "not-found", "name": "Return 404", "role": "error" }
+      ],
+      "flow": [
+        { "from": "input", "to": "fetch", "kind": "next" },
+        { "from": "fetch", "to": "render", "kind": "conditional", "condition": "post exists" },
+        { "from": "fetch", "to": "not-found", "kind": "conditional", "condition": "post not found" },
+        { "from": "render", "to": "views", "kind": "async" },
+        { "from": "render", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-15T10:00:00Z"
+    },
+    {
+      "id": "f-comment",
+      "name": "Post Comment",
+      "summary": "Reader leaves a comment on a post",
+      "epicId": "social",
+      "triggers": [{ "kind": "http", "detail": "POST /api/posts/:id/comments" }],
+      "steps": [
+        { "id": "input", "name": "Receive comment text", "role": "input" },
+        { "id": "auth", "name": "Verify commenter identity", "role": "auth" },
+        { "id": "spam", "name": "Run spam detection", "role": "compute" },
+        { "id": "save", "name": "Store comment", "role": "data-write" },
+        { "id": "notify", "name": "Notify post author", "role": "side-effect" },
+        { "id": "ok", "name": "Return comment", "role": "output" },
+        { "id": "spam-err", "name": "Reject as spam", "role": "error" }
+      ],
+      "flow": [
+        { "from": "input", "to": "auth", "kind": "next" },
+        { "from": "auth", "to": "spam", "kind": "next" },
+        { "from": "spam", "to": "save", "kind": "conditional", "condition": "not spam" },
+        { "from": "spam", "to": "spam-err", "kind": "conditional", "condition": "detected as spam" },
+        { "from": "save", "to": "notify", "kind": "async" },
+        { "from": "save", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-15T10:00:00Z"
+    },
+    {
+      "id": "f-moderate",
+      "name": "Moderate Content",
+      "summary": "Admin reviews and approves/rejects flagged content",
+      "epicId": "admin",
+      "triggers": [{ "kind": "http", "detail": "PUT /api/admin/moderation/:id" }],
+      "steps": [
+        { "id": "input", "name": "Receive moderation decision", "role": "input" },
+        { "id": "auth", "name": "Verify admin role", "role": "auth" },
+        { "id": "update", "name": "Update content status", "role": "data-write" },
+        { "id": "notify", "name": "Notify content author", "role": "side-effect" },
+        { "id": "ok", "name": "Return updated status", "role": "output" }
+      ],
+      "flow": [
+        { "from": "input", "to": "auth", "kind": "next" },
+        { "from": "auth", "to": "update", "kind": "next" },
+        { "from": "update", "to": "notify", "kind": "async" },
+        { "from": "update", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.8,
+      "provenance": "ai",
+      "updated_at": "2026-05-15T10:00:00Z"
+    }
+  ],
+  "cross_feature": [
+    { "from": "f-login", "to": "f-create-post", "kind": "triggers", "note": "Must login before posting" },
+    { "from": "f-login", "to": "f-comment", "kind": "triggers", "note": "Must login before commenting" },
+    { "from": "f-create-post", "to": "f-read-post", "kind": "triggers", "note": "Created posts become readable" },
+    { "from": "f-comment", "to": "f-moderate", "kind": "publishes", "note": "Flagged comments enter moderation queue" },
+    { "from": "f-register", "to": "f-login", "kind": "triggers", "note": "After registration, user can login" }
+  ],
+  "epic_flow": [
+    { "from": "auth", "to": "content", "kind": "next", "note": "Authenticated users create and read content" },
+    { "from": "content", "to": "social", "kind": "next", "note": "Published posts enable social interaction" },
+    { "from": "social", "to": "admin", "kind": "enables", "note": "Flagged content requires admin moderation" }
+  ]
+}

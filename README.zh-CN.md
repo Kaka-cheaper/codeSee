@@ -14,6 +14,7 @@
 [![Prompts](https://img.shields.io/badge/Prompts-6-blue.svg)](./prompts/)
 [![Viewer](https://img.shields.io/badge/Viewer-React_Flow-purple.svg)](./viewer/)
 [![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/AGENTS.md)
+[![Demo](https://img.shields.io/badge/在线演示-▶-brightgreen.svg)](https://user.github.io/codeSee/)
 
 ![Cursor](https://img.shields.io/badge/Cursor-Skill-black?logo=cursor)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-Skill-orange?logo=anthropic)
@@ -288,6 +289,10 @@ AI 给每个 Epic 分配了递增的 `order`（0, 1, 2, ..., N），而不是把
 ---
 
 ## 贡献
+
+详见 [CONTRIBUTING.md](./CONTRIBUTING.md)（开发环境、代码规范、PR 流程）。
+
+快速开始：
 
 1. Fork & clone
 2. `cd viewer && npm install && npm run dev`

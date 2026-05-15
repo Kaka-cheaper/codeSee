@@ -287,6 +287,13 @@ This refreshes prompts, validator, and the AGENTS.md CodeSee section without tou
 
 ---
 
+## Community
+
+- 💬 [LinuxDo](https://linux.do/) — Discussion & feedback
+- 🐛 [GitHub Issues](https://github.com/Kaka-cheaper/codeSee/issues) — Bug reports & feature requests
+
+---
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, code style, and PR process.

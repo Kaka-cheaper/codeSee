@@ -287,6 +287,13 @@ AI 给每个 Epic 分配了递增的 `order`（0, 1, 2, ..., N），而不是把
 
 ---
 
+## 社区
+
+- 💬 [LinuxDo](https://linux.do/) — 讨论与反馈
+- 🐛 [GitHub Issues](https://github.com/Kaka-cheaper/codeSee/issues) — Bug 报告与功能请求
+
+---
+
 ## 贡献
 
 详见 [CONTRIBUTING.md](./CONTRIBUTING.md)（开发环境、代码规范、PR 流程）。

@@ -47,6 +47,12 @@
 - 路由前缀（`/api/v1/users/*` → user epic）
 - 团队习惯（如果项目自己叫"用户中心 / 订单中心"，照搬）
 
+**给每个 Epic 一个 `order` 数字**（从 0 开始），表示用户使用系统的顺序：
+- 0 = 最先接触的（基础设施 / 登录 / 启动）
+- 1, 2, 3... = 按用户旅程递增
+- 同 order = 并行的模块（如"实时推送"和"仿真运行"都是 order=2）
+- 画布会按 order 从上到下排列，同 order 横排
+
 ### 1.3 列 Feature 骨架（只填 id/name/summary/epicId/triggers/tags）
 
 **不要填 steps / flow**。重型项目里这一步通常列出 **20-200 个 feature**。

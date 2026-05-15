@@ -105,6 +105,8 @@ export interface Epic {
   name: string
   summary?: string
   tags?: string[]
+  /** 用户旅程顺序：0 = 最先，数字越大越靠后；同 order 的横排 */
+  order?: number
 }
 
 export interface CrossFeatureLink {

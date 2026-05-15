@@ -19,6 +19,13 @@
    - 3-6 个最合适；不要为了凑数硬拆
    - Epic 是用户语言里的"模块"：用户 / 订单 / 内容 / 运维 / 集成 / 看板
    - 实在归不进任何 Epic 的，留空 `epicId` 或归到 'misc'
+   - **给每个 Epic 一个 `order` 数字**（从 0 开始），表示用户使用系统的顺序：
+     - 0 = 最先接触的（如基础设施 / 登录）
+     - 1 = 第二步（如配置 / 创建）
+     - 2 = 第三步（如运行 / 执行）
+     - 同 order = 并行的（如"实时推送"和"仿真运行"都是 order=2）
+     - 最大 = 最后接触的（如分析 / 导出 / 国际化）
+   - 画布会按 order 从上到下排列 Epic，同 order 横排
 
 3. **抽 Feature（用户可感知的能力）**：
    - 一个 HTTP 端点 ≈ 一个 feature，CRUD 各拆开
@@ -113,7 +120,7 @@ type FeaturesFile = {
   cross_feature?: CrossFeatureLink[]
 }
 
-type Epic = { id: string; name: string; summary?: string; tags?: string[] }
+type Epic = { id: string; name: string; summary?: string; tags?: string[]; order?: number }
 
 type Feature = {
   id: string                          // 'f-xxx'

@@ -55,7 +55,7 @@ export async function layoutViewAsync(
     return { nodes: await elkLayered(nodes, edges, 'RIGHT', measuredSizes), groups: [] }
   }
   if (firstKind === 'epic') {
-    return { nodes: await elkLayered(nodes, edges, 'DOWN', measuredSizes), groups: [] }
+    return { nodes: layoutByOrder(nodes), groups: [] }
   }
   // feature 视图：按 epicId 分组做 compound layout
   return elkGroupedFeatures(nodes, edges, epicNames, measuredSizes)
@@ -86,6 +86,53 @@ export function layoutViewSync(
 }
 
 /* --------------------------------------------------------- ELK 实现 */
+
+/**
+ * 按 Epic.order 排列：同 order 横排，不同 order 纵排。
+ * 不依赖任何布局算法——100% 确定性，AI 控制顺序。
+ */
+function layoutByOrder(nodes: FcgViewNode[]): LaidOutNode[] {
+  // 按 order 分组
+  const rows = new Map<number, FcgViewNode[]>()
+  for (const n of nodes) {
+    const order = n.kind === 'epic' ? (n.epic.order ?? 99) : 99
+    if (!rows.has(order)) rows.set(order, [])
+    rows.get(order)!.push(n)
+  }
+
+  const sortedOrders = [...rows.keys()].sort((a, b) => a - b)
+  const COL_GAP = 48
+  const ROW_GAP = 64
+  const result: LaidOutNode[] = []
+  let y = 0
+
+  for (const order of sortedOrders) {
+    const members = rows.get(order)!
+    // 同 order 横排，居中对齐
+    const totalWidth = members.reduce((sum, n) => {
+      const size = NODE_SIZE[n.kind]
+      return sum + size.width
+    }, 0) + (members.length - 1) * COL_GAP
+    let x = -totalWidth / 2
+
+    for (const n of members) {
+      const size = NODE_SIZE[n.kind]
+      result.push({
+        view: n,
+        width: size.width,
+        height: size.height,
+        position: { x, y },
+      })
+      x += size.width + COL_GAP
+    }
+
+    // 下一行 y 偏移：取本行最大高度 + 间距
+    const maxHeight = Math.max(...members.map((n) => NODE_SIZE[n.kind].height))
+    y += maxHeight + ROW_GAP
+  }
+
+  return result
+}
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function elkRectPacking(nodes: FcgViewNode[], measuredSizes?: Map<string, { width: number; height: number }>): Promise<LaidOutNode[]> {

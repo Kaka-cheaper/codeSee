@@ -98,17 +98,22 @@ export async function hasAuthorized(repoId: string): Promise<boolean> {
 
 /** 让用户选择 .codesee 目录并记住（first-time 授权） */
 export async function pickDirectory(repoId: string): Promise<FileSystemDirectoryHandle | null> {
+  console.log('[CodeSee FSA] pickDirectory called, repoId:', repoId, 'isFSASupported:', isFSASupported())
   if (!isFSASupported()) return null
   try {
+    // id 不允许 / 等特殊字符，替换为 -
+    const safeId = `codesee-${repoId.replace(/[^a-zA-Z0-9_-]/g, '-')}`
     // @ts-expect-error showDirectoryPicker
     const handle: FileSystemDirectoryHandle = await window.showDirectoryPicker({
-      id: `codesee-${repoId}`,
+      id: safeId,
       mode: 'readwrite',
       startIn: 'documents',
     })
+    console.log('[CodeSee FSA] 用户选择了目录:', handle.name)
     await setStoredHandle(repoId, handle)
     return handle
-  } catch {
+  } catch (err) {
+    console.log('[CodeSee FSA] pickDirectory 失败或取消:', err)
     return null
   }
 }
@@ -130,11 +135,14 @@ export async function saveLayoutFile(
   layout: LayoutFile,
 ): Promise<'wrote' | 'downloaded' | 'no-handle'> {
   const text = JSON.stringify(layout, null, 2)
+  console.log('[CodeSee FSA] saveLayoutFile called, repoId:', repoId, 'isFSASupported:', isFSASupported())
 
   if (isFSASupported()) {
     const handle = await getStoredHandle(repoId)
+    console.log('[CodeSee FSA] getStoredHandle result:', handle)
     if (handle) {
       const ok = await ensurePermission(handle)
+      console.log('[CodeSee FSA] ensurePermission result:', ok)
       if (!ok) {
         await clearStoredHandle(repoId)
         return 'no-handle'
@@ -144,13 +152,17 @@ export async function saveLayoutFile(
         const writable = await fileHandle.createWritable()
         await writable.write(text)
         await writable.close()
+        console.log('[CodeSee FSA] 写入成功')
         return 'wrote'
-      } catch {
+      } catch (err) {
+        console.error('[CodeSee FSA] 写入失败:', err)
         return 'no-handle'
       }
     }
+    console.log('[CodeSee FSA] 没有 stored handle，返回 no-handle')
     return 'no-handle'
   }
+  console.log('[CodeSee FSA] 不支持 FSA，下载文件')
   return downloadAsFile(text)
 }
 

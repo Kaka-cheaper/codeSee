@@ -148,24 +148,30 @@ function GraphInner({ file }: Props) {
   // 关键：showDirectoryPicker 必须在用户手势的同步调用栈内触发
   // 所以不能在 await 之后调用它——必须作为 click 的第一个 async 操作
   const saveLayout = useCallback(async () => {
+    console.log('[CodeSee Save] 开始保存, repoId:', repoId)
     savePositions(repoId, positionsRef.current)
 
     if (!isFSASupported()) {
-      // 不支持 FSA → 只存 localStorage
+      console.log('[CodeSee Save] FSA 不支持，只存 localStorage')
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
       return
     }
 
+    console.log('[CodeSee Save] FSA 支持，尝试 saveLayoutFile...')
     // 直接尝试写文件（saveLayoutFile 内部会用 stored handle）
     const result = await saveLayoutFile(repoId, serializeLayout())
+    console.log('[CodeSee Save] saveLayoutFile 结果:', result)
     if (result === 'wrote') {
       setSaveStatus('saved')
     } else {
+      console.log('[CodeSee Save] 没有 handle，弹 pickDirectory...')
       // 没有 stored handle → 弹目录选择器
       const handle = await pickDirectory(repoId)
+      console.log('[CodeSee Save] pickDirectory 结果:', handle)
       if (handle) {
         const retry = await saveLayoutFile(repoId, serializeLayout())
+        console.log('[CodeSee Save] 重试 saveLayoutFile 结果:', retry)
         setSaveStatus(retry === 'wrote' ? 'saved' : 'failed')
       } else {
         setSaveStatus('saved') // 取消了，只存 localStorage

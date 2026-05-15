@@ -41,8 +41,8 @@ export function DetailsPanel({ view, file, onClose }: Props) {
 }
 
 function PanelHeader({ view, onClose }: { view: FcgViewNode; onClose: () => void }) {
-  let label = ''
-  let title = ''
+  let label: string
+  let title: string
   let badge: React.ReactNode = null
 
   if (view.kind === 'epic') {

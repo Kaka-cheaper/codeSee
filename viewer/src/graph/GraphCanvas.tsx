@@ -89,6 +89,12 @@ function GraphInner({ file }: Props) {
   const overviewVersionRef = useRef(0)
   const lastOverviewVersionForFeaturesRef = useRef(-1)
 
+  const [newNodeIds, setNewNodeIds] = useState<Set<string>>(new Set())
+  const [rfNodes, setRfNodes] = useState<Node[]>([])
+  const [rfEdges, setRfEdges] = useState<Edge[]>([])
+  const measuredSizesRef = useRef<Map<string, { width: number; height: number }>>(new Map())
+  const [layoutVersion, setLayoutVersion] = useState(0) // 用于重置布局
+
   // 启动时尝试加载布局：先从 FSA（用户授权的目录），再从 /layout.json（内置示例）
   useEffect(() => {
     let cancelled = false
@@ -107,15 +113,14 @@ function GraphInner({ file }: Props) {
       }
       if (cancelled || !layout) return
       const restored = new Map<string, Map<string, { x: number; y: number }>>()
-      for (const [viewKey, positions] of Object.entries(layout.views)) {
-        restored.set(viewKey, new Map(Object.entries(positions as Record<string, { x: number; y: number }>)))
+      for (const [vk, positions] of Object.entries(layout.views)) {
+        restored.set(vk, new Map(Object.entries(positions as Record<string, { x: number; y: number }>)))
       }
       positionsRef.current = restored
       setLayoutVersion((v) => v + 1)
     }
     loadLayout()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repoId])
 
   // 自动保存开关（持久化到 localStorage）
@@ -198,11 +203,6 @@ function GraphInner({ file }: Props) {
       await saveLayoutFile(repoId, serializeLayout()).catch(() => { /* noop */ })
     }, 800)
   }, [repoId, serializeLayout])
-  const [newNodeIds, setNewNodeIds] = useState<Set<string>>(new Set())
-  const [rfNodes, setRfNodes] = useState<Node[]>([])
-  const [rfEdges, setRfEdges] = useState<Edge[]>([])
-  const measuredSizesRef = useRef<Map<string, { width: number; height: number }>>(new Map())
-  const [layoutVersion, setLayoutVersion] = useState(0) // 用于重置布局
 
   // React Flow 受控模式：拖动/选中等内部变化必须通过这两个回调同步到 state
   const onNodesChange = useCallback((changes: NodeChange[]) => {
@@ -466,7 +466,7 @@ function GraphInner({ file }: Props) {
     lastOverviewVersionForFeaturesRef.current = -1
     clearPositions(repoId, viewKey)
     setLayoutVersion((v) => v + 1)
-  }, [viewKey, repoId])
+  }, [viewKey, repoId, setLayoutVersion])
 
   const onNodeDoubleClick: NodeMouseHandler = useCallback(
     (_, node) => {

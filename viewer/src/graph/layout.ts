@@ -209,7 +209,6 @@ function interleaveForCenter(arr: FcgViewNode[]): FcgViewNode[] {
   return [...auxHalf1, ...normalHalf1, ...core, ...normalHalf2, ...auxHalf2]
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function elkRectPacking(nodes: FcgViewNode[], measuredSizes?: Map<string, { width: number; height: number }>): Promise<LaidOutNode[]> {
   const graph: ElkNode = {
     id: 'root',

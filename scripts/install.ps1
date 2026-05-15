@@ -119,4 +119,4 @@ Write-Host '  1. Open the target project in your AI IDE; ask it to read AGENTS.m
 Write-Host '  2. Let the AI run the scan (first time) or sync (after each change).'
 Write-Host '  3. In the CodeSee viewer, drop or open .codesee/features.json to render.'
 Write-Host ''
-Write-Host "Viewer:  cd `"$Self/mvp-web`"; npm run dev" -ForegroundColor DarkGray
+Write-Host "Viewer:  cd `"$Self/viewer`"; npm run dev" -ForegroundColor DarkGray

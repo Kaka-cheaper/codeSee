@@ -99,5 +99,5 @@ Next steps:
   2. Let the AI run the scan (first time) or sync (after each change).
   3. In the CodeSee viewer, drop or open .codesee/features.json to render.
 
-Viewer:  cd "$SELF_DIR/mvp-web" && npm run dev
+Viewer:  cd "$SELF_DIR/viewer" && npm run dev
 EOF

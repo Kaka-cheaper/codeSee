@@ -101,6 +101,7 @@ step.role:     input | validation | auth | data-read | data-write
 flow.kind:     next | async | conditional | loop | error    ⚠ 必填，不能省略
 cross.kind:    depends_on | publishes | subscribes | triggers
 epic_flow.kind: next | depends_on | enables
+epic_flow.note: ⚠ 必填，中文语义短句（如"配置完成后运行"），不要写技术词
 provenance:    ai | user
 ```
 

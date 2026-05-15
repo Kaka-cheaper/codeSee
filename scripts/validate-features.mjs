@@ -144,6 +144,31 @@ function validate(data) {
     }
   }
 
+  // epic_flow
+  if (data.epic_flow !== undefined) {
+    if (!isArray(data.epic_flow)) {
+      err('$.epic_flow', '必须是数组（如果提供）')
+    } else {
+      const EPIC_FLOW_KINDS = ['next', 'depends_on', 'enables']
+      data.epic_flow.forEach((ef, i) => {
+        const p = `$.epic_flow[${i}]`
+        if (!isObject(ef)) { err(p, '必须是对象'); return }
+        if (!isString(ef.from) || !epicIds.has(ef.from)) {
+          err(`${p}.from`, `指向不存在的 epic: ${JSON.stringify(ef.from)}`)
+        }
+        if (!isString(ef.to) || !epicIds.has(ef.to)) {
+          err(`${p}.to`, `指向不存在的 epic: ${JSON.stringify(ef.to)}`)
+        }
+        if (!EPIC_FLOW_KINDS.includes(ef.kind)) {
+          err(`${p}.kind`, `必须是 ${EPIC_FLOW_KINDS.join('/')}`)
+        }
+        if (!isString(ef.note) || !ef.note) {
+          err(`${p}.note`, 'note 必填，且必须是中文语义短句（如"配置完成后运行"）')
+        }
+      })
+    }
+  }
+
   // 全局智能检查
   detectFileLevelSmells(data)
 }

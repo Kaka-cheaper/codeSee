@@ -29,16 +29,29 @@
 
 ### 场景 C：从规划阶段进入实现
 
-如果 features.json 中存在 `tags: ['planned']` 的 feature，且你刚实现了其中之一：
+**触发条件（必须同时满足）**：
 
-1. 找到对应的 planned feature
-2. 移除 `tags` 中的 `'planned'`（保留其他 tags）
-3. 补上真实的 refs（指向你刚写的代码）
-4. 把 confidence 从 0.3 升到合理值（0.9+ 如果是简单 CRUD）
-5. 把粗粒度的 step 细化（3-6 → 5-10）
-6. 补上 error 分支（规划阶段允许略过的）
+1. features.json 中存在 `tags: ['planned']` 的 feature
+2. 该 planned feature 的 refs 中**至少有一个文件**，是**本次任务你实际修改过的**（在 `git status` / `git diff` 输出中，或在你本轮对话中明确写过/编辑过的）
 
-未实现的 planned feature 保持原状，画布上一眼能区分"已实现 vs 规划中"。
+**关键约束**：
+
+- ❌ 不要因为 refs 里的文件"恰好存在于仓库中"就升级——别的 agent 可能正在实现它
+- ❌ 不要批量升级所有 planned feature——只动你**这次**确实实现了的
+- ✓ 判断标准是"我本次任务动过这个文件吗"，不是"这个文件存在吗"
+- ✓ 不确定时保持 planned 状态，让用户/原 owner 自己升级
+
+**升级动作**（只对满足条件的 feature）：
+
+1. 移除 `tags` 中的 `'planned'`（保留其他 tags）
+2. 补上真实的 refs（指向你刚写的代码）
+3. 把 confidence 从 0.3 升到合理值（0.9+ 如果是简单 CRUD）
+4. 把粗粒度的 step 细化（3-6 → 5-10）
+5. 补上 error 分支（规划阶段允许略过的）
+
+未实现 / 不属于本次任务的 planned feature 保持原状，画布上一眼能区分"已实现 vs 规划中 vs 别人正在做"。
+
+**Multi-agent 协作场景**：如果你是其中一个 agent，只动你 owner 的 feature。即使你看到某个 planned 的 refs 文件已经存在，也不要假定它"已实现"——可能是别的 agent 创建的脚手架，业务逻辑还没填。除非你能从代码内容确认实现完整 + 你本次也动了它，否则不升级。
 
 ## Checkpoint 协议（重要）
 
@@ -92,6 +105,7 @@
 ## 通用约束
 
 - **只动受影响的 feature**，其他一字不改
+- **只动本次任务实际修改的代码对应的 feature**——别因为 refs 文件存在就假定它属于你
 - **不改 locked: true 的 feature**（提醒用户复核）
 - **不重命名既有 id**（废弃用 `tags: ['deprecated']`）
 - 新增 feature 标 `provenance: 'ai'`

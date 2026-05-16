@@ -285,7 +285,7 @@ This refreshes prompts, validator, and the AGENTS.md CodeSee section without tou
 
 - [ ] **Trellis integration** — consume `.trellis/spec/` and `.trellis/tasks/` as the source for `features.json` (forward projection from PRD instead of reverse engineering from code); aim to become Trellis's visualization sidecar
 - [ ] **Spec-driven scan** — generalize the Trellis approach: prefer reading project specs/PRDs/workflow docs over scanning source code, when available
-- [ ] **Real-time observation mode** — local watcher + auto-refresh canvas when `features.json` changes; mount alongside the CLI/IDE so users see the graph update live as the AI works
+- [ ] **Real-time canvas refresh** — local watcher detects `features.json` changes and auto-refreshes the web canvas (no manual reload), so users see the graph update live as the AI works
 
 ### Canvas & UX
 

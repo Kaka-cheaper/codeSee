@@ -285,7 +285,7 @@ AI 给每个 Epic 分配了递增的 `order`（0, 1, 2, ..., N），而不是把
 
 - [ ] **Trellis 集成** — 直接消费 `.trellis/spec/` 和 `.trellis/tasks/` 作为 features.json 的数据源（从 PRD 正向投影 vs 从代码反向工程）；目标是成为 Trellis 的可视化 sidecar
 - [ ] **Spec 驱动扫描** — 推广 Trellis 思路：项目有规范/PRD/工作流文档时，优先读文档而非源码
-- [ ] **实时观察模式** — 本地 watcher 监听 `features.json` 变化自动刷新画布；挂载在 CLI/IDE 旁边，AI 工作时实时看到画布更新
+- [ ] **画布实时刷新** — 本地 watcher 监听 `features.json` 变化，web 画布自动刷新（无需手动重新加载），AI 工作时实时看到画布更新
 
 ### 画布与体验
 

@@ -70,6 +70,7 @@ CodeSee solves this: AI writes the code AND writes the feature map. You see the 
 | **Semantic flow graph** | Three-level drill-down: Epics → Features → Steps. See the "what" and "why", not the "how". |
 | **AI-maintained** | AI writes `features.json` after every code change. No manual diagramming. Works with any AI IDE. |
 | **Interactive canvas** | Drag, zoom, undo/redo, auto-save layout. Warm-ivory theme designed for long review sessions. |
+| **Live reload** | Toggle the Live button — viewer polls `features.json` every 3s and auto-refreshes the canvas with smooth fade-in for new nodes. Watch the graph grow as AI works. |
 | **Zero lock-in** | Plain JSON file. Human-readable, git-diffable, lockable. Switch AI providers anytime. |
 | **Incremental sync** | Each code change updates only affected features. The graph grows with your project. |
 | **Validation** | Built-in validator catches schema violations, hallucinated enums, and structural issues before you see them. |
@@ -328,7 +329,7 @@ The install script writes both — your AI IDE will pick whichever it understand
 
 - [x] **SDD framework integration** — auto-detect `.specify/` (Spec Kit), `.trellis/` (Trellis), `.bmad-core/` (BMAD), `.agents/skills/` and consume spec/PRD docs as the source for `features.json` (forward projection from spec instead of reverse engineering from code)
 - [x] **SKILL.md standard entry** — cross-platform skill following [agentskills.io](https://agentskills.io/), works on Claude Code / Cursor / Codex / Gemini CLI / Copilot / 20+ platforms
-- [ ] **Real-time canvas refresh** — local watcher detects `features.json` changes and auto-refreshes the web canvas (no manual reload), so users see the graph update live as the AI works
+- [x] **Real-time canvas refresh** — local watcher detects `features.json` changes and auto-refreshes the web canvas (no manual reload), so users see the graph update live as the AI works
 
 ### Canvas & UX
 

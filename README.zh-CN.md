@@ -70,6 +70,7 @@ CodeSee 解决这个问题：AI 写代码的同时也写功能地图。你看到
 | **语义流程图** | 三层下钻：Epic → Feature → Step。看到的是"做什么"和"为什么"，不是"怎么实现"。 |
 | **AI 自动维护** | 每次代码改动后 AI 更新 `features.json`。无需手动画图。兼容任何 AI IDE。 |
 | **交互式画布** | 拖动、缩放、撤销/重做、自动保存布局。暖白主题，适合长时间审查。 |
+| **实时刷新** | 打开 Live 开关 — viewer 每 3 秒轮询 `features.json`，自动刷新画布并对新节点做淡入动画。看着图随 AI 工作生长。 |
 | **零锁定** | 纯 JSON 文件。人类可读、可 git diff、可锁定。随时切换 AI 供应商。 |
 | **增量同步** | 每次改动只更新受影响的 feature。图随项目生长。 |
 | **内置校验** | 校验器自动捕获 schema 违规、幻觉枚举值、结构问题。 |
@@ -328,7 +329,7 @@ install 脚本会同时写入两个文件——你的 AI IDE 会读它能理解�
 
 - [x] **SDD 框架集成** — 自动检测 `.specify/`（Spec Kit）、`.trellis/`（Trellis）、`.bmad-core/`（BMAD）、`.agents/skills/`，直接消费 spec/PRD 文档作为 `features.json` 数据源（从 spec 正向投影 vs 从代码反向工程）
 - [x] **SKILL.md 标准入口** — 遵循 [agentskills.io](https://agentskills.io/) 跨平台标准，覆盖 Claude Code / Cursor / Codex / Gemini CLI / Copilot 等 20+ 平台
-- [ ] **画布实时刷新** — 本地 watcher 监听 `features.json` 变化，web 画布自动刷新（无需手动重新加载），AI 工作时实时看到画布更新
+- [x] **画布实时刷新** — 本地 watcher 监听 `features.json` 变化，web 画布自动刷新（无需手动重新加载），AI 工作时实时看到画布更新
 
 ### 画布与体验
 

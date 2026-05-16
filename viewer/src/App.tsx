@@ -73,36 +73,51 @@ export default function App() {
   }
 
   // 全局拖拽 — 用 window 级别监听，避免 ReactFlow 等子组件拦截
+  // 关键：dragenter/dragover/dragleave/drop 必须无条件 preventDefault，
+  // 否则浏览器会把文件当成 URL 在新标签页打开
   const dragCounterRef = useRef(0)
 
   useEffect(() => {
+    const isFileDrag = (e: DragEvent): boolean => {
+      const types = e.dataTransfer?.types
+      if (!types) return false
+      // types 可能是 DOMStringList 或 array
+      for (let i = 0; i < types.length; i++) {
+        if (types[i] === 'Files') return true
+      }
+      return false
+    }
+
     const onWindowDragEnter = (e: DragEvent) => {
-      if (!e.dataTransfer?.types?.includes('Files')) return
       e.preventDefault()
-      dragCounterRef.current += 1
-      setDragOver(true)
+      if (isFileDrag(e)) {
+        dragCounterRef.current += 1
+        setDragOver(true)
+      }
     }
     const onWindowDragOver = (e: DragEvent) => {
-      if (!e.dataTransfer?.types?.includes('Files')) return
+      // 必须无条件 preventDefault，否则浏览器会接管 drop
       e.preventDefault()
-      e.dataTransfer.dropEffect = 'copy'
+      if (e.dataTransfer && isFileDrag(e)) {
+        e.dataTransfer.dropEffect = 'copy'
+      }
     }
     const onWindowDragLeave = (e: DragEvent) => {
-      if (!e.dataTransfer?.types?.includes('Files')) return
       e.preventDefault()
-      dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
-      if (dragCounterRef.current === 0) setDragOver(false)
+      if (isFileDrag(e)) {
+        dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
+        if (dragCounterRef.current === 0) setDragOver(false)
+      }
     }
     const onWindowDrop = (e: DragEvent) => {
-      if (!e.dataTransfer?.types?.includes('Files')) return
       e.preventDefault()
       dragCounterRef.current = 0
       setDragOver(false)
-      const f = e.dataTransfer.files?.[0]
+      const f = e.dataTransfer?.files?.[0]
       if (f) {
         handleFile(f)
       } else {
-        console.warn('[CodeSee] drop fired but no file', e.dataTransfer.types)
+        console.warn('[CodeSee] drop fired but no file', e.dataTransfer?.types)
       }
     }
 

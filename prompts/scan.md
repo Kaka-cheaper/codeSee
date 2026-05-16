@@ -52,8 +52,18 @@
 
 任意 2 项命中重型 → 走 heavy。
 
+**特殊情况：纯文档/规划项目**
+
+如果项目几乎没有代码（只有 README、设计文档、需求文档，或仅有脚手架），走 **planning 模式**而不是 light/heavy。
+
+判断条件（满足任一即视为规划项目）：
+- 没有源码文件，或源码文件 < 5 个且都是配置/入口
+- 业务逻辑代码为空，只有文档说明要做什么
+- 用户明确说"这个项目还没开始写"
+
 ## 第二步：执行
 
+- **规划项目** → 读并执行 `.codesee/prompts/scan-planning.md`
 - **轻型** → 读并执行 `.codesee/prompts/scan-light.md`
 - **重型** → 读并执行 `.codesee/prompts/scan-heavy.md`
 

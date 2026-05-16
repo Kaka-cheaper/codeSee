@@ -82,7 +82,7 @@ if (Test-Path $agentsDst) {
 # 2. .codesee/prompts/*
 $dstPrompts = Join-Path $TargetDir '.codesee/prompts'
 New-Item -ItemType Directory -Force -Path $dstPrompts | Out-Null
-foreach ($name in @('scan.md','scan-light.md','scan-heavy.md','sync.md','_schema.md','_rules.md')) {
+foreach ($name in @('scan.md','scan-light.md','scan-heavy.md','scan-planning.md','sync.md','_schema.md','_rules.md')) {
   $src = Join-Path $Prompts $name
   $dst = Join-Path $dstPrompts $name
   Copy-Item -Force $src $dst

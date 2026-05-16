@@ -7,7 +7,7 @@
 
 **触发 1：首次扫描**
 若 `.codesee/features.json` 不存在或缺少 `version` 字段：
-→ 执行 `.codesee/prompts/scan.md`
+→ 执行 `.codesee/prompts/scan.md`（会自动判断走 light / heavy / planning 哪一档）
 
 **触发 2：每轮代码改动后**
 完成改动后，在回复用户前主动：
@@ -17,6 +17,12 @@
 
 **触发 3：用户显式要求**
 "刷新功能图""更新 codesee""扫一下" → 按上述策略执行。
+
+### 项目阶段
+
+- **规划阶段**（只有文档）→ 走 planning 模式，产出 `tags: ['planned']` 的功能图
+- **实现阶段**（有代码）→ 走 light/heavy 模式，产出正式功能图
+- **混合阶段**（部分实现）→ sync 自动把 `planned` 升级为 `implemented`
 
 ### 核心约束
 

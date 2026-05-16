@@ -68,7 +68,7 @@ fi
 
 # 2. .codesee/prompts/*
 mkdir -p "$TARGET/.codesee/prompts"
-for name in scan.md scan-light.md scan-heavy.md scan-planning.md sync.md _schema.md _rules.md; do
+for name in scan.md scan-light.md scan-heavy.md scan-planning.md scan-sdd.md sync.md _schema.md _rules.md; do
   cp -f "$PROMPTS/$name" "$TARGET/.codesee/prompts/$name"
   echo "  - wrote .codesee/prompts/$name"
 done
@@ -77,6 +77,35 @@ done
 mkdir -p "$TARGET/.codesee/scripts"
 cp -f "$SELF_DIR/scripts/validate-features.mjs" "$TARGET/.codesee/scripts/validate-features.mjs"
 echo "  - wrote .codesee/scripts/validate-features.mjs"
+
+# 3b. SDD framework detection
+sdd_detected=()
+for probe in '.specify:spec-kit (GitHub)' \
+             '.trellis:Trellis (Mindfold)' \
+             '.bmad-core:BMAD-METHOD' \
+             'bmad:BMAD-METHOD' \
+             '.agents/skills:Agent Skills (agentskills.io)' \
+             '.agent-os:Agent OS (Builder Methods)'; do
+  path="${probe%%:*}"
+  name="${probe#*:}"
+  if [[ -d "$TARGET/$path" ]]; then
+    sdd_detected+=("$name")
+  fi
+done
+
+# 3c. Install SKILL.md (cross-platform skill entry)
+skill_src="$TEMPLATES/SKILL.md"
+if [[ -f "$skill_src" ]]; then
+  skill_dir="$TARGET/.agents/skills/codesee"
+  skill_dst="$skill_dir/SKILL.md"
+  if [[ -f "$skill_dst" && "$FORCE" != "--force" ]]; then
+    echo "  - .agents/skills/codesee/SKILL.md already present, skipped (use --force to refresh)"
+  else
+    mkdir -p "$skill_dir"
+    cp -f "$skill_src" "$skill_dst"
+    echo "  - wrote .agents/skills/codesee/SKILL.md (cross-platform skill entry)"
+  fi
+fi
 
 # 4. .codesee/.gitignore
 gitignore="$TARGET/.codesee/.gitignore"
@@ -93,6 +122,15 @@ fi
 cat <<EOF
 
 Done.
+EOF
+
+if [[ ${#sdd_detected[@]} -gt 0 ]]; then
+  echo ''
+  echo "SDD frameworks detected: $(IFS=', '; echo "${sdd_detected[*]}")"
+  echo '  AI will use SDD mode (consume spec/PRD docs, no source code) for higher accuracy.'
+fi
+
+cat <<EOF
 
 Next steps:
   1. Open the target project in your AI IDE; ask it to read AGENTS.md.

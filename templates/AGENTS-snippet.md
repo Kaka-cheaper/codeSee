@@ -20,6 +20,7 @@
 
 ### 项目阶段
 
+- **SDD 项目**（有 `.specify/`、`.trellis/`、`.bmad-core/` 等 spec-driven 目录）→ 走 sdd 模式，从 spec/PRD 正向投影
 - **规划阶段**（只有文档）→ 走 planning 模式，产出 `tags: ['planned']` 的功能图
 - **实现阶段**（有代码）→ 走 light/heavy 模式，产出正式功能图
 - **混合阶段**（部分实现）→ sync 自动把 `planned` 升级为 `implemented`

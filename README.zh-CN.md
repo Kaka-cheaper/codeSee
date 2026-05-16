@@ -22,6 +22,11 @@
 ![Copilot](https://img.shields.io/badge/Copilot-Skill-purple?logo=github)
 ![Codex](https://img.shields.io/badge/Codex-Skill-green?logo=openai)
 
+![Spec Kit](https://img.shields.io/badge/Spec_Kit-兼容-blue)
+![Trellis](https://img.shields.io/badge/Trellis-兼容-orange)
+![BMAD](https://img.shields.io/badge/BMAD-兼容-purple)
+![SKILL.md](https://img.shields.io/badge/SKILL.md-标准-green)
+
 </div>
 
 ---
@@ -283,8 +288,8 @@ AI 给每个 Epic 分配了递增的 `order`（0, 1, 2, ..., N），而不是把
 
 ### 生态与集成
 
-- [ ] **Trellis 集成** — 直接消费 `.trellis/spec/` 和 `.trellis/tasks/` 作为 features.json 的数据源（从 PRD 正向投影 vs 从代码反向工程）；目标是成为 Trellis 的可视化 sidecar
-- [ ] **Spec 驱动扫描** — 推广 Trellis 思路：项目有规范/PRD/工作流文档时，优先读文档而非源码
+- [x] **SDD 框架集成** — 自动检测 `.specify/`（Spec Kit）、`.trellis/`（Trellis）、`.bmad-core/`（BMAD）、`.agents/skills/`，直接消费 spec/PRD 文档作为 `features.json` 数据源（从 spec 正向投影 vs 从代码反向工程）
+- [x] **SKILL.md 标准入口** — 遵循 [agentskills.io](https://agentskills.io/) 跨平台标准，覆盖 Claude Code / Cursor / Codex / Gemini CLI / Copilot 等 20+ 平台
 - [ ] **画布实时刷新** — 本地 watcher 监听 `features.json` 变化，web 画布自动刷新（无需手动重新加载），AI 工作时实时看到画布更新
 
 ### 画布与体验

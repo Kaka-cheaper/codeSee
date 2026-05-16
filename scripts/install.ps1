@@ -82,7 +82,7 @@ if (Test-Path $agentsDst) {
 # 2. .codesee/prompts/*
 $dstPrompts = Join-Path $TargetDir '.codesee/prompts'
 New-Item -ItemType Directory -Force -Path $dstPrompts | Out-Null
-foreach ($name in @('scan.md','scan-light.md','scan-heavy.md','scan-planning.md','sync.md','_schema.md','_rules.md')) {
+foreach ($name in @('scan.md','scan-light.md','scan-heavy.md','scan-planning.md','scan-sdd.md','sync.md','_schema.md','_rules.md')) {
   $src = Join-Path $Prompts $name
   $dst = Join-Path $dstPrompts $name
   Copy-Item -Force $src $dst
@@ -96,6 +96,35 @@ $validatorSrc = Join-Path $Self 'scripts/validate-features.mjs'
 $validatorDst = Join-Path $dstScripts 'validate-features.mjs'
 Copy-Item -Force $validatorSrc $validatorDst
 Write-Host "  - wrote .codesee/scripts/validate-features.mjs"
+
+# 3b. SDD framework detection
+$sddDetected = @()
+foreach ($probe in @(
+    @{ Path = '.specify';        Name = 'spec-kit (GitHub)' },
+    @{ Path = '.trellis';        Name = 'Trellis (Mindfold)' },
+    @{ Path = '.bmad-core';      Name = 'BMAD-METHOD' },
+    @{ Path = 'bmad';            Name = 'BMAD-METHOD' },
+    @{ Path = '.agents/skills';  Name = 'Agent Skills (agentskills.io)' },
+    @{ Path = '.agent-os';       Name = 'Agent OS (Builder Methods)' }
+)) {
+  if (Test-Path (Join-Path $TargetDir $probe.Path)) {
+    $sddDetected += $probe.Name
+  }
+}
+
+# 3c. Install SKILL.md if Agent Skills standard is in use, or alongside AGENTS.md as compatible entry
+$skillSrc = Join-Path $Templates 'SKILL.md'
+if (Test-Path $skillSrc) {
+  $skillDir = Join-Path $TargetDir '.agents/skills/codesee'
+  $skillDst = Join-Path $skillDir 'SKILL.md'
+  if (-not (Test-Path $skillDst) -or $Force) {
+    New-Item -ItemType Directory -Force -Path $skillDir | Out-Null
+    Copy-Item -Force $skillSrc $skillDst
+    Write-Host "  - wrote .agents/skills/codesee/SKILL.md (cross-platform skill entry)"
+  } else {
+    Write-Host "  - .agents/skills/codesee/SKILL.md already present, skipped (use -Force to refresh)" -ForegroundColor Yellow
+  }
+}
 
 # 4. .codesee/.gitignore
 $gitignore = Join-Path $TargetDir '.codesee/.gitignore'
@@ -113,6 +142,11 @@ if (-not (Test-Path $gitignore)) {
 
 Write-Host ''
 Write-Host 'Done.' -ForegroundColor Green
+if ($sddDetected.Count -gt 0) {
+  Write-Host ''
+  Write-Host ("SDD frameworks detected: " + ($sddDetected -join ', ')) -ForegroundColor Cyan
+  Write-Host '  AI will use SDD mode (consume spec/PRD docs, no source code) for higher accuracy.' -ForegroundColor Cyan
+}
 Write-Host ''
 Write-Host 'Next steps:' -ForegroundColor Cyan
 Write-Host '  1. Open the target project in your AI IDE; ask it to read AGENTS.md.'

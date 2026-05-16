@@ -22,6 +22,11 @@ The feature-level canvas for AI-collaborative development. AI maintains a semant
 ![Copilot](https://img.shields.io/badge/Copilot-Skill-purple?logo=github)
 ![Codex](https://img.shields.io/badge/Codex-Skill-green?logo=openai)
 
+![Spec Kit](https://img.shields.io/badge/Spec_Kit-Compatible-blue)
+![Trellis](https://img.shields.io/badge/Trellis-Compatible-orange)
+![BMAD](https://img.shields.io/badge/BMAD-Compatible-purple)
+![SKILL.md](https://img.shields.io/badge/SKILL.md-Standard-green)
+
 </div>
 
 ---
@@ -283,8 +288,8 @@ This refreshes prompts, validator, and the AGENTS.md CodeSee section without tou
 
 ### Ecosystem & integrations
 
-- [ ] **Trellis integration** — consume `.trellis/spec/` and `.trellis/tasks/` as the source for `features.json` (forward projection from PRD instead of reverse engineering from code); aim to become Trellis's visualization sidecar
-- [ ] **Spec-driven scan** — generalize the Trellis approach: prefer reading project specs/PRDs/workflow docs over scanning source code, when available
+- [x] **SDD framework integration** — auto-detect `.specify/` (Spec Kit), `.trellis/` (Trellis), `.bmad-core/` (BMAD), `.agents/skills/` and consume spec/PRD docs as the source for `features.json` (forward projection from spec instead of reverse engineering from code)
+- [x] **SKILL.md standard entry** — cross-platform skill following [agentskills.io](https://agentskills.io/), works on Claude Code / Cursor / Codex / Gemini CLI / Copilot / 20+ platforms
 - [ ] **Real-time canvas refresh** — local watcher detects `features.json` changes and auto-refreshes the web canvas (no manual reload), so users see the graph update live as the AI works
 
 ### Canvas & UX

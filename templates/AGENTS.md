@@ -30,8 +30,9 @@
 
 ### 项目阶段
 
-CodeSee 同时支持三种阶段：
+CodeSee 同时支持四种阶段：
 
+- **SDD 项目**（有 `.specify/` / `.trellis/` / `.bmad-core/` / `.agents/skills/` 等）→ scan.md 路由到 `scan-sdd.md`，**直接消费 spec/PRD 文档**，不读源码（最准确、最省 token）
 - **规划阶段**（只有文档，没代码）→ scan.md 会路由到 `scan-planning.md`，产出"规划版" features.json，所有 feature 标 `tags: ['planned']`
 - **实现阶段**（有代码）→ scan.md 路由到 light/heavy，产出正式 features.json
 - **混合阶段**（部分实现）→ sync.md 自动把 `planned` 的 feature 升级为 `implemented`

@@ -39,6 +39,28 @@
 
 后续所有语义文本（step.name、epic.name、feature.name、summary、note、epic_flow.note、cross_feature.note、condition）都使用该语言。
 
+## 第一步前的检测：SDD 框架识别
+
+在做规模自检之前，先检测项目是否使用 **Spec-Driven Development 框架**。如果是，**优先走 SDD 模式**——直接消费 spec/PRD 文档，不读源码，准确率更高。
+
+检测目标项目根目录：
+
+| 目录                     | 框架                          |
+| ------------------------ | ----------------------------- |
+| `.specify/`              | GitHub Spec Kit (18.6k★)     |
+| `.trellis/`              | Mindfold Trellis (8k★)        |
+| `.bmad-core/` 或 `bmad/` | BMAD-METHOD (14.9k★)         |
+| `.agents/skills/`        | SKILL.md 标准（agentskills.io）|
+| `.agent-os/`             | Builder Methods Agent OS      |
+| `docs/specs/` + PRD      | 通用 SDD 约定                 |
+
+**命中任意一个 → 走 SDD 模式**：
+→ 读并执行 `.codesee/prompts/scan-sdd.md`
+
+**没命中 → 继续往下走规模自检**。
+
+告诉用户你检测到的 SDD 框架，再开始。
+
 ## 第一步：规模自检
 
 读 README、package.json/pyproject.toml、顶层目录，判断：
@@ -63,6 +85,7 @@
 
 ## 第二步：执行
 
+- **SDD 项目**（已在上面识别） → `.codesee/prompts/scan-sdd.md`
 - **规划项目** → 读并执行 `.codesee/prompts/scan-planning.md`
 - **轻型** → 读并执行 `.codesee/prompts/scan-light.md`
 - **重型** → 读并执行 `.codesee/prompts/scan-heavy.md`

@@ -412,13 +412,97 @@ export function mergeWithPrevious(
   previous: Map<string, { x: number; y: number }>,
 ): { merged: LaidOutNode[]; newIds: Set<string>; groups: LayoutGroup[] } {
   const newIds = new Set<string>()
-  const merged = result.nodes.map((n) => {
+  let merged = result.nodes.map((n) => {
     const prev = previous.get(n.view.id)
     if (prev) return { ...n, position: prev }
     newIds.add(n.view.id)
     return n
   })
+  // 新节点 vs 旧节点的碰撞检测：避免实时刷新时新节点撞在旧节点上
+  if (newIds.size > 0) {
+    merged = resolveNewNodeCollisions(merged, newIds)
+  }
   return { merged, newIds, groups: result.groups }
+}
+
+/**
+ * 节点级碰撞检测：新节点如果与旧节点（或已放置的新节点）重叠，向下/右推开。
+ * 仅推动新节点，旧节点位置保持不变（保留用户拖动）。
+ *
+ * 算法：对每个新节点，按 8 方向（下/右/下右/右下/下左/左下/上右/右上）依次尝试，
+ * 找到第一个不与任何已放置节点重叠的位置。
+ */
+function resolveNewNodeCollisions(
+  nodes: LaidOutNode[],
+  newIds: Set<string>,
+): LaidOutNode[] {
+  const NODE_GAP = 24
+
+  const overlap = (
+    a: { x: number; y: number; w: number; h: number },
+    b: { x: number; y: number; w: number; h: number },
+  ): boolean => {
+    return (
+      a.x < b.x + b.w + NODE_GAP &&
+      a.x + a.w + NODE_GAP > b.x &&
+      a.y < b.y + b.h + NODE_GAP &&
+      a.y + a.h + NODE_GAP > b.y
+    )
+  }
+
+  // 已放置的"占位矩形"列表（旧节点 + 已处理过的新节点）
+  const placed: { id: string; x: number; y: number; w: number; h: number }[] = []
+  for (const n of nodes) {
+    if (newIds.has(n.view.id)) continue
+    placed.push({ id: n.view.id, x: n.position.x, y: n.position.y, w: n.width, h: n.height })
+  }
+
+  return nodes.map((n) => {
+    if (!newIds.has(n.view.id)) return n
+    const rect = { x: n.position.x, y: n.position.y, w: n.width, h: n.height }
+
+    // 检测是否撞到任何已放置节点
+    const hasCollision = placed.some((p) => overlap(rect, p))
+    if (!hasCollision) {
+      placed.push({ id: n.view.id, ...rect })
+      return n
+    }
+
+    // 螺旋搜索：以原位置为中心，按递增半径找空位
+    const STEP = 40
+    const MAX_RADIUS = 12 // 最多搜索 12 圈
+    let found = false
+    for (let r = 1; r <= MAX_RADIUS && !found; r++) {
+      // 8 方向：右、下、左、上、右下、左下、右上、左上
+      const candidates = [
+        { dx: r, dy: 0 },
+        { dx: 0, dy: r },
+        { dx: -r, dy: 0 },
+        { dx: 0, dy: -r },
+        { dx: r, dy: r },
+        { dx: -r, dy: r },
+        { dx: r, dy: -r },
+        { dx: -r, dy: -r },
+      ]
+      for (const { dx, dy } of candidates) {
+        const candidate = {
+          x: rect.x + dx * STEP,
+          y: rect.y + dy * STEP,
+          w: rect.w,
+          h: rect.h,
+        }
+        if (!placed.some((p) => overlap(candidate, p))) {
+          rect.x = candidate.x
+          rect.y = candidate.y
+          found = true
+          break
+        }
+      }
+    }
+
+    placed.push({ id: n.view.id, ...rect })
+    return { ...n, position: { x: rect.x, y: rect.y } }
+  })
 }
 
 

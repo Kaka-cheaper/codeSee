@@ -24,6 +24,10 @@
 - **实现阶段**（有代码）→ 走 light/heavy 模式，产出正式功能图
 - **混合阶段**（部分实现）→ sync 自动把 `planned` 升级为 `implemented`
 
+### Checkpoint 协议
+
+大任务（涉及 5+ 文件）必须拆 checkpoint，每完成一个逻辑闭环立即 sync，不要等全部写完才一次性更新。全部完成后做最终整体核查（覆盖度、关系、epic_flow、refs、校验器）。详见 `.codesee/prompts/sync.md`。
+
 ### 核心约束
 
 - ❌ 不修改 `.codesee/prompts/` 与 `.codesee/scripts/` 下的文件

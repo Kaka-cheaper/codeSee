@@ -36,6 +36,16 @@ CodeSee 同时支持三种阶段：
 - **实现阶段**（有代码）→ scan.md 路由到 light/heavy，产出正式 features.json
 - **混合阶段**（部分实现）→ sync.md 自动把 `planned` 的 feature 升级为 `implemented`
 
+### Checkpoint 协议（重要）
+
+大任务（涉及 5+ 文件）必须拆成 checkpoint，**每完成一个逻辑闭环立即 sync**，不要等全部写完才一次性更新。
+
+- 逻辑闭环 = 用户能感知的、可独立验证的小功能（如"添加购物车 API + 表 + 按钮"）
+- 流程：实现闭环 1 → sync → 实现闭环 2 → sync → ... → 最终整体核查
+- 全部完成后必须做最终核查（覆盖度 / 关系 / epic_flow / refs 准确性 / 跑校验器）
+
+详见 `.codesee/prompts/sync.md` 的 "Checkpoint 协议" 章节。
+
 ### 核心约束
 
 - ❌ 不修改 `.codesee/prompts/` 与 `.codesee/scripts/` 下的文件

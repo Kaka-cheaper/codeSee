@@ -336,7 +336,7 @@ The install script writes both — your AI IDE will pick whichever it understand
 - [ ] **Canvas editing** — edit feature names, add notes, lock nodes directly on the canvas
 - [ ] **Search & filter** — find features by name, filter by epic/tag/role
 - [ ] **Diff view** — highlight what changed between two versions of `features.json`
-- [ ] **Multi-project dashboard** — switch between projects without re-dragging files
+- [x] **Multi-project dashboard** — top-bar dropdown to switch between projects (FSA folders / uploaded files / bundled examples), no re-dragging
 - [ ] **Export** — PNG / SVG / PDF export of the current view
 - [ ] **Dark theme** — toggle between warm-ivory and dark mode
 

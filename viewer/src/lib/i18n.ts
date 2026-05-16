@@ -48,6 +48,13 @@ const dict = {
     'live.onTitle': '实时刷新：开（每 3 秒检查一次 features.json 变化）',
     'live.offTitle': '实时刷新：关',
     'live.updated': '已更新',
+
+    // Projects
+    'projects.yours': '你的项目',
+    'projects.bundled': '内置示例',
+    'projects.add': '添加项目（选目录或文件）',
+    'projects.remove': '从列表中移除',
+    'projects.confirmRemove': '确认从项目列表移除「{name}」吗？目录授权和缓存都会被清除。',
   },
   en: {
     // TopBar
@@ -94,6 +101,13 @@ const dict = {
     'live.onTitle': 'Live reload: ON (poll features.json every 3s)',
     'live.offTitle': 'Live reload: OFF',
     'live.updated': 'Updated',
+
+    // Projects
+    'projects.yours': 'Your projects',
+    'projects.bundled': 'Examples',
+    'projects.add': 'Add project (folder or file)',
+    'projects.remove': 'Remove from list',
+    'projects.confirmRemove': 'Remove "{name}" from project list? Directory access and cache will be cleared.',
   },
 } as const
 

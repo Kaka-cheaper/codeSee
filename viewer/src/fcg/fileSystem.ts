@@ -1,19 +1,26 @@
 /**
- * 文件系统访问层（统一 directory handle 架构）：
+ * 文件系统访问层 + 多项目元数据管理
  *
- * 设计原则：
- * - 用户只需要授权一次目录（包含 features.json）
- * - features.json 和 layout.json 在同一目录共存
- * - 后续保存 / 自动保存 / 实时刷新全部复用同一个 directory handle
- * - 永不重复弹 picker（除非用户主动取消授权）
+ * 设计：
+ * - 'directories' store：FSA directory handle（key = repoId）
+ * - 'uploads' store：上传/拖入文件的 features.json 快照（key = repoId）
+ * - 'projects' store：项目元数据（key = repoId）
+ *
+ * 三种项目类型：
+ *   - fsa：FSA 目录，可读写 layout.json，可实时刷新
+ *   - upload：单文件，画布只读（不知目录），不能写 layout.json，不能实时刷新
+ *   - bundled：内置示例（codesee 自身、电商示例），写死在前端
  *
  * 兼容性：
- * - 现代浏览器（Chromium 系）：File System Access API → 直接读写
- * - 不支持（Safari / Firefox）：降级为 input 上传 / 下载 layout.json
+ * - Chromium 系：File System Access API
+ * - Safari / Firefox：upload 模式仍可用（IndexedDB 存内容）；FSA 模式不可用
  */
 
 const HANDLE_DB = 'codesee-fs-handles'
 const HANDLE_STORE = 'directories'
+const UPLOAD_STORE = 'uploads'
+const PROJECTS_STORE = 'projects'
+const DB_VERSION = 3
 
 export type LayoutFile = {
   version: '0'
@@ -21,32 +28,52 @@ export type LayoutFile = {
   generated_at: string
 }
 
-/* ------------------------- IndexedDB（持久化目录句柄） ------------------------- */
+export type ProjectKind = 'fsa' | 'upload' | 'bundled'
+
+export interface ProjectEntry {
+  repoId: string
+  kind: ProjectKind
+  displayName: string
+  /** 仅展示用，二级标签：目录名 / 文件名 / "内置示例" */
+  sourceLabel: string
+  /** ms timestamp */
+  lastOpenedAt: number
+  addedAt: number
+  featuresCount?: number
+  epicsCount?: number
+  /** bundled 项目的 fetch URL */
+  bundledUrl?: string
+}
+
+/* ------------------------- IndexedDB ------------------------- */
 
 function openHandleDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    // version 2：兼容老版本可能存在的 feature-files store
-    const req = indexedDB.open(HANDLE_DB, 2)
+    const req = indexedDB.open(HANDLE_DB, DB_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
       if (!db.objectStoreNames.contains(HANDLE_STORE)) {
         db.createObjectStore(HANDLE_STORE)
       }
-      // 旧版的 feature-files store 不再使用，但保留不删（避免迁移失败）
+      if (!db.objectStoreNames.contains(UPLOAD_STORE)) {
+        db.createObjectStore(UPLOAD_STORE)
+      }
+      if (!db.objectStoreNames.contains(PROJECTS_STORE)) {
+        db.createObjectStore(PROJECTS_STORE)
+      }
     }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
   })
 }
 
-export async function getStoredHandle(repoId: string): Promise<FileSystemDirectoryHandle | null> {
-  if (!('showDirectoryPicker' in window)) return null
+async function dbGet<T>(store: string, key: string): Promise<T | null> {
   try {
     const db = await openHandleDB()
-    return await new Promise<FileSystemDirectoryHandle | null>((resolve) => {
-      const tx = db.transaction(HANDLE_STORE, 'readonly')
-      const req = tx.objectStore(HANDLE_STORE).get(repoId)
-      req.onsuccess = () => resolve(req.result ?? null)
+    return await new Promise<T | null>((resolve) => {
+      const tx = db.transaction(store, 'readonly')
+      const req = tx.objectStore(store).get(key)
+      req.onsuccess = () => resolve((req.result as T) ?? null)
       req.onerror = () => resolve(null)
     })
   } catch {
@@ -54,39 +81,61 @@ export async function getStoredHandle(repoId: string): Promise<FileSystemDirecto
   }
 }
 
-async function setStoredHandle(repoId: string, handle: FileSystemDirectoryHandle): Promise<void> {
+async function dbPut<T>(store: string, key: string, value: T): Promise<void> {
   try {
     const db = await openHandleDB()
     await new Promise<void>((resolve) => {
-      const tx = db.transaction(HANDLE_STORE, 'readwrite')
-      tx.objectStore(HANDLE_STORE).put(handle, repoId)
+      const tx = db.transaction(store, 'readwrite')
+      tx.objectStore(store).put(value, key)
       tx.oncomplete = () => resolve()
       tx.onerror = () => resolve()
     })
+  } catch { /* noop */ }
+}
+
+async function dbDelete(store: string, key: string): Promise<void> {
+  try {
+    const db = await openHandleDB()
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(store, 'readwrite')
+      tx.objectStore(store).delete(key)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => resolve()
+    })
+  } catch { /* noop */ }
+}
+
+async function dbGetAll<T>(store: string): Promise<T[]> {
+  try {
+    const db = await openHandleDB()
+    return await new Promise<T[]>((resolve) => {
+      const tx = db.transaction(store, 'readonly')
+      const req = tx.objectStore(store).getAll()
+      req.onsuccess = () => resolve((req.result as T[]) ?? [])
+      req.onerror = () => resolve([])
+    })
   } catch {
-    /* noop */
+    return []
   }
+}
+
+/* ------------------------- Directory Handle (FSA) ------------------------- */
+
+export async function getStoredHandle(repoId: string): Promise<FileSystemDirectoryHandle | null> {
+  if (!('showDirectoryPicker' in window)) return null
+  return dbGet<FileSystemDirectoryHandle>(HANDLE_STORE, repoId)
+}
+
+async function setStoredHandle(repoId: string, handle: FileSystemDirectoryHandle): Promise<void> {
+  await dbPut(HANDLE_STORE, repoId, handle)
 }
 
 async function clearStoredHandle(repoId: string): Promise<void> {
-  try {
-    const db = await openHandleDB()
-    await new Promise<void>((resolve) => {
-      const tx = db.transaction(HANDLE_STORE, 'readwrite')
-      tx.objectStore(HANDLE_STORE).delete(repoId)
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => resolve()
-    })
-  } catch {
-    /* noop */
-  }
+  await dbDelete(HANDLE_STORE, repoId)
 }
 
-/* ------------------------- 权限验证 ------------------------- */
+/* ------------------------- 权限 ------------------------- */
 
-/**
- * 在用户手势内调用，可能弹出权限请求（注意：不会弹 picker，只弹小权限框）。
- */
 export async function ensurePermission(handle: FileSystemDirectoryHandle): Promise<boolean> {
   const opts = { mode: 'readwrite' as const }
   try {
@@ -101,10 +150,6 @@ export async function ensurePermission(handle: FileSystemDirectoryHandle): Promi
   }
 }
 
-/**
- * 仅查询权限，不请求。可以在自动加载/页面初始化时安全调用。
- * 浏览器要求 requestPermission 必须在用户手势内调用，否则报 SecurityError。
- */
 export async function checkPermission(handle: FileSystemDirectoryHandle): Promise<boolean> {
   const opts = { mode: 'readwrite' as const }
   try {
@@ -122,22 +167,16 @@ export function isFSASupported(): boolean {
   return typeof window !== 'undefined' && 'showDirectoryPicker' in window
 }
 
-/** 检查这个 repoId 是否已授权过保存目录 */
 export async function hasAuthorized(repoId: string): Promise<boolean> {
   if (!isFSASupported()) return false
   const handle = await getStoredHandle(repoId)
   return handle !== null
 }
 
-/**
- * 让用户选择包含 features.json 的目录，并记住（first-time 授权）。
- * 必须在用户手势的同步调用栈内调用。
- */
+/** 让用户选择包含 features.json 的目录。必须在用户手势同步调用栈内调用。 */
 export async function pickDirectory(repoId: string): Promise<FileSystemDirectoryHandle | null> {
-  console.log('[CodeSee FSA] pickDirectory called, repoId:', repoId, 'isFSASupported:', isFSASupported())
   if (!isFSASupported()) return null
   try {
-    // id 不允许 / 等特殊字符，替换为 -
     const safeId = `codesee-${repoId.replace(/[^a-zA-Z0-9_-]/g, '-')}`
     // @ts-expect-error showDirectoryPicker
     const handle: FileSystemDirectoryHandle = await window.showDirectoryPicker({
@@ -145,18 +184,28 @@ export async function pickDirectory(repoId: string): Promise<FileSystemDirectory
       mode: 'readwrite',
       startIn: 'documents',
     })
-    console.log('[CodeSee FSA] 用户选择了目录:', handle.name)
     await setStoredHandle(repoId, handle)
     return handle
-  } catch (err) {
-    console.log('[CodeSee FSA] pickDirectory 失败或取消:', err)
+  } catch {
     return null
   }
 }
 
-/** 取消授权 */
+/** 取消授权（保留 project 元数据；如果要彻底删项目用 removeProject） */
 export async function forgetDirectory(repoId: string): Promise<void> {
   await clearStoredHandle(repoId)
+}
+
+/**
+ * 把一个临时 repoId 的 handle 搬到正式 repoId。
+ * 用于 picker 弹完后才知道目录的真名。
+ */
+export async function promoteHandle(fromRepoId: string, toRepoId: string): Promise<void> {
+  if (fromRepoId === toRepoId) return
+  const handle = await dbGet<FileSystemDirectoryHandle>(HANDLE_STORE, fromRepoId)
+  if (!handle) return
+  await dbPut(HANDLE_STORE, toRepoId, handle)
+  await dbDelete(HANDLE_STORE, fromRepoId)
 }
 
 /* ------------------------- features.json 读取 ------------------------- */
@@ -168,46 +217,29 @@ export type FeaturesReadResult = {
 }
 
 /**
- * 在目录中查找 features.json。
- * 优先级：
- *   1. 根目录 features.json
- *   2. .codesee/features.json
- *
- * 不会请求权限（调用前应已 ensurePermission）。
+ * 在目录中查找 features.json：根目录 → .codesee/features.json
  */
 export async function loadFeaturesFromDirectory(
   dirHandle: FileSystemDirectoryHandle,
 ): Promise<FeaturesReadResult | null> {
-  // 1. 根目录
   try {
     const fh = await dirHandle.getFileHandle('features.json')
     const file = await fh.getFile()
-    return {
-      raw: await file.text(),
-      lastModified: file.lastModified,
-      fileName: 'features.json',
-    }
-  } catch { /* 不在根目录 */ }
+    return { raw: await file.text(), lastModified: file.lastModified, fileName: 'features.json' }
+  } catch { /* noop */ }
 
-  // 2. .codesee/features.json
   try {
     const sub = await dirHandle.getDirectoryHandle('.codesee')
     const fh = await sub.getFileHandle('features.json')
     const file = await fh.getFile()
-    return {
-      raw: await file.text(),
-      lastModified: file.lastModified,
-      fileName: '.codesee/features.json',
-    }
-  } catch { /* 不在 .codesee/ 下 */ }
+    return { raw: await file.text(), lastModified: file.lastModified, fileName: '.codesee/features.json' }
+  } catch { /* noop */ }
 
   return null
 }
 
 /**
- * 一站式：弹 picker → 授权 → 在目录里查找 features.json。
- * 如果用户选的目录里没有 features.json，返回 { handle, features: null }
- * 让调用方决定怎么提示。
+ * 一站式：弹 picker → 授权 → 读 features.json。
  */
 export async function pickDirectoryAndLoadFeatures(
   repoId: string,
@@ -221,8 +253,7 @@ export async function pickDirectoryAndLoadFeatures(
 }
 
 /**
- * 自动加载：检查是否有已授权的目录，有就尝试读 features.json。
- * 只查询权限不请求（避免页面初始化时弹权限框报 SecurityError）。
+ * 自动加载：从已授权目录读 features.json。仅查询权限不请求。
  */
 export async function autoLoadFeaturesFromStoredDir(
   repoId: string,
@@ -238,91 +269,58 @@ export async function autoLoadFeaturesFromStoredDir(
 /* ------------------------- layout.json 读写 ------------------------- */
 
 /**
- * 保存 layout.json：
- * - 已授权目录 → 直接写 layout.json（与 features.json 同目录）
- * - 未授权 → 触发文件下载
- *
- * 关键：失败时不再 clearStoredHandle——避免下次保存又弹 picker。
- * 失败原因可能只是权限暂时回到 prompt 状态，下次用户手势内 ensurePermission 即可恢复。
+ * 失败时不再 clearStoredHandle——避免下次保存又弹 picker。
  */
 export async function saveLayoutFile(
   repoId: string,
   layout: LayoutFile,
 ): Promise<'wrote' | 'downloaded' | 'no-handle'> {
   const text = JSON.stringify(layout, null, 2)
-  console.log('[CodeSee FSA] saveLayoutFile called, repoId:', repoId, 'isFSASupported:', isFSASupported())
 
   if (isFSASupported()) {
     const handle = await getStoredHandle(repoId)
-    console.log('[CodeSee FSA] getStoredHandle result:', handle)
     if (handle) {
-      // 仅查询权限，不请求（避免无用户手势下报 SecurityError）
       const ok = await checkPermission(handle)
-      console.log('[CodeSee FSA] checkPermission result:', ok)
-      if (!ok) {
-        // 权限不在 granted（可能浏览器重启后回到 prompt）
-        // 不清掉 handle！让上层在用户手势内调 ensurePermission 恢复
-        return 'no-handle'
-      }
+      if (!ok) return 'no-handle'
       try {
-        // 优先与 features.json 同目录写入
-        // 如果 features.json 在 .codesee/ 下，layout.json 也写到 .codesee/
         const target = await resolveLayoutWriteTarget(handle)
         const fileHandle = await target.dirHandle.getFileHandle('layout.json', { create: true })
         const writable = await fileHandle.createWritable()
         await writable.write(text)
         await writable.close()
-        console.log('[CodeSee FSA] 写入成功:', target.path)
         return 'wrote'
-      } catch (err) {
-        console.error('[CodeSee FSA] 写入失败:', err)
-        // 不清 handle，下次重试
+      } catch {
         return 'no-handle'
       }
     }
-    console.log('[CodeSee FSA] 没有 stored handle，返回 no-handle')
     return 'no-handle'
   }
-  console.log('[CodeSee FSA] 不支持 FSA，下载文件')
   return downloadAsFile(text)
 }
 
-/**
- * 决定 layout.json 写到哪里：
- * - 如果根目录有 features.json → layout.json 写根目录
- * - 如果 .codesee/features.json 存在 → layout.json 写 .codesee/
- * - 都不存在 → 默认写根目录
- */
 async function resolveLayoutWriteTarget(
   rootHandle: FileSystemDirectoryHandle,
 ): Promise<{ dirHandle: FileSystemDirectoryHandle; path: string }> {
   try {
     await rootHandle.getFileHandle('features.json')
     return { dirHandle: rootHandle, path: 'layout.json' }
-  } catch { /* 不在根目录 */ }
+  } catch { /* noop */ }
   try {
     const sub = await rootHandle.getDirectoryHandle('.codesee')
     await sub.getFileHandle('features.json')
     return { dirHandle: sub, path: '.codesee/layout.json' }
-  } catch { /* 不在 .codesee/ */ }
+  } catch { /* noop */ }
   return { dirHandle: rootHandle, path: 'layout.json' }
 }
 
-/**
- * 读 layout.json：从已授权目录里读。
- * 优先级与 features.json 解析一致：根目录 → .codesee/。
- * 自动加载场景：只查询权限不请求。
- */
 export async function loadLayoutFile(repoId: string): Promise<LayoutFile | null> {
   if (!isFSASupported()) return null
   const handle = await getStoredHandle(repoId)
   if (!handle) return null
   const ok = await checkPermission(handle)
   if (!ok) return null
-  // 1. 根目录
   const fromRoot = await tryReadLayout(handle)
   if (fromRoot) return fromRoot
-  // 2. .codesee/
   try {
     const sub = await handle.getDirectoryHandle('.codesee')
     const fromSub = await tryReadLayout(sub)
@@ -342,6 +340,101 @@ async function tryReadLayout(dirHandle: FileSystemDirectoryHandle): Promise<Layo
   } catch {
     return null
   }
+}
+
+/* ------------------------- 项目元数据 (Projects Store) ------------------------- */
+
+/** 32-bit FNV-1a hash，用于 repoId 稳定生成 */
+function fnv1a(s: string): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return (h >>> 0).toString(16)
+}
+
+export function makeRepoId(kind: ProjectKind, ...keys: string[]): string {
+  if (kind === 'bundled') return `bundled:${keys.join(':')}`
+  return `${kind}:${fnv1a(keys.join('|'))}`
+}
+
+export async function listProjects(): Promise<ProjectEntry[]> {
+  const entries = await dbGetAll<ProjectEntry>(PROJECTS_STORE)
+  return entries.sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)
+}
+
+export async function getProject(repoId: string): Promise<ProjectEntry | null> {
+  return dbGet<ProjectEntry>(PROJECTS_STORE, repoId)
+}
+
+export async function upsertProject(entry: ProjectEntry): Promise<void> {
+  await dbPut(PROJECTS_STORE, entry.repoId, entry)
+}
+
+export async function touchProject(
+  repoId: string,
+  patch: Partial<ProjectEntry> = {},
+): Promise<void> {
+  const cur = await getProject(repoId)
+  if (!cur) return
+  await upsertProject({ ...cur, ...patch, lastOpenedAt: Date.now() })
+}
+
+export async function removeProject(repoId: string): Promise<void> {
+  await dbDelete(PROJECTS_STORE, repoId)
+  await dbDelete(HANDLE_STORE, repoId)
+  await dbDelete(UPLOAD_STORE, repoId)
+}
+
+/* ------------------------- 上传文件快照 ------------------------- */
+
+export interface UploadSnapshot {
+  raw: string
+  fileName: string
+  lastModified: number
+}
+
+export async function setUploadSnapshot(repoId: string, snap: UploadSnapshot): Promise<void> {
+  await dbPut(UPLOAD_STORE, repoId, snap)
+}
+
+export async function getUploadSnapshot(repoId: string): Promise<UploadSnapshot | null> {
+  return dbGet<UploadSnapshot>(UPLOAD_STORE, repoId)
+}
+
+/* ------------------------- 旧版本迁移 ------------------------- */
+
+const MIGRATION_FLAG_KEY = 'codesee.projects.migrated.v1'
+
+/**
+ * 把旧版的 'default' 目录句柄迁移到新的 projects store。
+ * 只跑一次；用 localStorage flag 标记。
+ */
+export async function migrateLegacyDefault(): Promise<void> {
+  if (typeof localStorage === 'undefined') return
+  if (localStorage.getItem(MIGRATION_FLAG_KEY) === '1') return
+  try {
+    const legacy = await dbGet<FileSystemDirectoryHandle>(HANDLE_STORE, 'default')
+    if (legacy) {
+      // 给老 handle 起个稳定的新 repoId
+      const newId = makeRepoId('fsa', 'legacy-default', legacy.name || 'unknown')
+      await dbPut(HANDLE_STORE, newId, legacy)
+      await dbDelete(HANDLE_STORE, 'default')
+      const exists = await getProject(newId)
+      if (!exists) {
+        await upsertProject({
+          repoId: newId,
+          kind: 'fsa',
+          displayName: legacy.name || '迁移项目',
+          sourceLabel: legacy.name || '',
+          lastOpenedAt: Date.now(),
+          addedAt: Date.now(),
+        })
+      }
+    }
+    localStorage.setItem(MIGRATION_FLAG_KEY, '1')
+  } catch { /* noop */ }
 }
 
 /* ------------------------- 浏览器下载兜底 ------------------------- */

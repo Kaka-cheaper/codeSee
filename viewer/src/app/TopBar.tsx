@@ -1,4 +1,4 @@
-import { FolderOpen, GitBranch, Globe, RotateCcw, Sparkles } from 'lucide-react'
+import { FolderOpen, GitBranch, Globe, RefreshCw, RotateCcw, Sparkles } from 'lucide-react'
 import type { FeaturesFile } from '@/fcg/types'
 import { useI18n } from '@/lib/i18n'
 
@@ -8,9 +8,16 @@ interface Props {
   sourceLabel: string
   onPick: () => void
   onClear: () => void
+  liveReload: boolean
+  onToggleLiveReload: () => void
+  reloadHint: 'idle' | 'updated'
+  liveAvailable: boolean
 }
 
-export function TopBar({ file, status, sourceLabel, onPick, onClear }: Props) {
+export function TopBar({
+  file, status, sourceLabel, onPick, onClear,
+  liveReload, onToggleLiveReload, reloadHint, liveAvailable,
+}: Props) {
   const { t, locale, setLocale } = useI18n()
 
   return (
@@ -76,6 +83,28 @@ export function TopBar({ file, status, sourceLabel, onPick, onClear }: Props) {
           <Globe size={11} />
           {t('lang.switch')}
         </button>
+        {liveAvailable && (
+          <button
+            onClick={onToggleLiveReload}
+            title={liveReload ? t('live.onTitle') : t('live.offTitle')}
+            className={
+              'inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-[10.5px] transition-colors ' +
+              (liveReload
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent-strong)]'
+                : 'border-[var(--color-border)] bg-[var(--color-bg-2)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-sunken)] hover:text-[var(--color-fg)]')
+            }
+          >
+            <RefreshCw
+              size={11}
+              className={liveReload ? 'animate-spin' : ''}
+              style={liveReload ? { animationDuration: '3s' } : undefined}
+            />
+            {liveReload ? t('live.on') : t('live.off')}
+            {liveReload && reloadHint === 'updated' && (
+              <span className="ml-0.5 text-[var(--color-accent-strong)]">·{t('live.updated')}</span>
+            )}
+          </button>
+        )}
         <button
           onClick={onPick}
           title={t('topbar.openTitle')}

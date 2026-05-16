@@ -41,6 +41,13 @@ const dict = {
     // Language
     'lang.switch': '中/En',
     'lang.title': '切换语言 / Switch Language',
+
+    // Live reload
+    'live.on': '实时',
+    'live.off': '实时',
+    'live.onTitle': '实时刷新：开（每 3 秒检查一次 features.json 变化）',
+    'live.offTitle': '实时刷新：关',
+    'live.updated': '已更新',
   },
   en: {
     // TopBar
@@ -80,6 +87,13 @@ const dict = {
     // Language
     'lang.switch': 'En/中',
     'lang.title': 'Switch Language / 切换语言',
+
+    // Live reload
+    'live.on': 'Live',
+    'live.off': 'Live',
+    'live.onTitle': 'Live reload: ON (poll features.json every 3s)',
+    'live.offTitle': 'Live reload: OFF',
+    'live.updated': 'Updated',
   },
 } as const
 

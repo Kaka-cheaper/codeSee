@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { GraphCanvas } from '@/graph/GraphCanvas'
 import { TopBar } from '@/app/TopBar'
-import { autoLoad, clearStored, loadFromFile, loadFromText } from '@/fcg/loader'
+import { autoLoad, clearStored, getBundledExampleUrl, loadFromFile, loadFromText } from '@/fcg/loader'
+import { useFileWatcher, type WatchSource } from '@/fcg/useFileWatcher'
+import { isFSASupported, pickFeaturesFile, readFeaturesFromHandle, clearFeaturesHandle } from '@/fcg/fileSystem'
 import type { FeaturesFile } from '@/fcg/types'
 import { cn } from '@/lib/cn'
 import { I18nContext, t as tFn, useI18n, type Locale } from '@/lib/i18n'
@@ -35,6 +37,25 @@ export default function App() {
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // 实时刷新相关
+  const [watchSource, setWatchSource] = useState<WatchSource | null>(null)
+  const [currentRaw, setCurrentRaw] = useState<string>('')
+  const [liveReload, setLiveReload] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('codesee.liveReload') === 'true'
+    } catch {
+      return false
+    }
+  })
+  const [reloadHint, setReloadHint] = useState<'idle' | 'updated'>('idle')
+  const toggleLiveReload = useCallback(() => {
+    setLiveReload((v) => {
+      const next = !v
+      try { localStorage.setItem('codesee.liveReload', String(next)) } catch { /* noop */ }
+      return next
+    })
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     autoLoad().then((res) => {
@@ -43,6 +64,11 @@ export default function App() {
         setFile(res.file)
         setSourceLabel(res.sourceLabel)
         setStatus('ok')
+        if (res.raw) setCurrentRaw(res.raw)
+        // 内置示例 / fetch 来源 → 可监听 URL
+        if (res.sourceKind === 'fetch') {
+          setWatchSource({ kind: 'url', url: getBundledExampleUrl() })
+        }
       } else {
         setStatus('missing')
       }
@@ -59,6 +85,7 @@ export default function App() {
       setFile(res.file)
       setSourceLabel(res.sourceLabel)
       setStatus('ok')
+      // 用户上传的本地文件，无法 URL 监听；保留原 watchSource（如果之前有 fsa）
     } else {
       setError(res.detail ?? '加载失败')
     }
@@ -78,13 +105,60 @@ export default function App() {
     }
   }, [])
 
-  const onPick = () => inputRef.current?.click()
-  const onClear = () => {
+  // watcher 检测到文件变化
+  const handleWatcherUpdate = useCallback((newFile: FeaturesFile, newRaw: string) => {
+    setFile(newFile)
+    setCurrentRaw(newRaw)
+    setReloadHint('updated')
+    window.setTimeout(() => setReloadHint('idle'), 2000)
+  }, [])
+
+  useFileWatcher({
+    enabled: liveReload,
+    source: watchSource,
+    currentRaw,
+    onChange: handleWatcherUpdate,
+  })
+
+  const onPick = useCallback(async () => {
+    // FSA 支持时优先用 picker（能拿到 FileSystemFileHandle，可后续轮询）
+    if (isFSASupported()) {
+      // 注意：showOpenFilePicker 必须在用户手势内调用，所以这里是同步路径
+      const repoId = file?.manifest.repo ?? 'default'
+      const handle = await pickFeaturesFile(repoId)
+      if (handle) {
+        const result = await readFeaturesFromHandle(handle)
+        if (result) {
+          const res = loadFromText(result.raw, handle.name)
+          if (res.ok) {
+            setFile(res.file)
+            setSourceLabel(res.sourceLabel)
+            setStatus('ok')
+            setCurrentRaw(result.raw)
+            setWatchSource({ kind: 'fsa', repoId })
+            setError(null)
+            return
+          } else {
+            setError(res.detail ?? '加载失败')
+            return
+          }
+        }
+      }
+      // picker 取消或失败 → fallback 到 input
+    }
+    inputRef.current?.click()
+  }, [file?.manifest.repo])
+
+  const onClear = useCallback(() => {
     clearStored()
     setFile(null)
     setSourceLabel('')
     setStatus('missing')
-  }
+    setWatchSource(null)
+    setCurrentRaw('')
+    // 清掉 FSA 句柄（如果有）
+    void clearFeaturesHandle(file?.manifest.repo ?? 'default')
+  }, [file?.manifest.repo])
 
   // 全局拖拽 — 用 window capture 模式监听，确保最先收到事件，避免被任何子元素拦截
   // 注意：HTML5 drag events 只在 draggable=true 元素上触发，
@@ -183,6 +257,10 @@ export default function App() {
         sourceLabel={sourceLabel}
         onPick={onPick}
         onClear={onClear}
+        liveReload={liveReload}
+        onToggleLiveReload={toggleLiveReload}
+        reloadHint={reloadHint}
+        liveAvailable={watchSource !== null}
       />
       <div className="relative flex-1">
         {file ? (

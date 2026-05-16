@@ -3,7 +3,7 @@ import type { FeaturesFile } from './types'
 const STORAGE_KEY = 'codesee.lastFeaturesFile.v0'
 
 export type LoadResult =
-  | { ok: true; file: FeaturesFile; sourceLabel: string; sourceKind: 'fetch' | 'storage' | 'upload' }
+  | { ok: true; file: FeaturesFile; sourceLabel: string; sourceKind: 'fetch' | 'storage' | 'upload'; raw?: string }
   | { ok: false; reason: 'missing' | 'invalid'; detail?: string }
 
 /** 启动时尝试自动加载：优先 localStorage（用户上次打开的），其次 /features.json（仓库自带示例）。 */
@@ -15,13 +15,20 @@ export async function autoLoad(): Promise<LoadResult> {
     const base = import.meta.env.BASE_URL ?? '/'
     const res = await fetch(`${base}features.json`, { cache: 'no-cache' })
     if (!res.ok) return { ok: false, reason: 'missing' }
-    const data = (await res.json()) as FeaturesFile
+    const raw = await res.text()
+    const data = JSON.parse(raw) as FeaturesFile
     const valid = validate(data)
     if (!valid.ok) return valid
-    return { ok: true, file: data, sourceLabel: '内置示例', sourceKind: 'fetch' }
+    return { ok: true, file: data, sourceLabel: '内置示例', sourceKind: 'fetch', raw }
   } catch {
     return { ok: false, reason: 'missing' }
   }
+}
+
+/** 内置示例的 URL（用于 watcher 轮询） */
+export function getBundledExampleUrl(): string {
+  const base = import.meta.env.BASE_URL ?? '/'
+  return `${base}features.json`
 }
 
 /** 从用户上传的 File 加载 */
@@ -64,6 +71,24 @@ export function clearStored() {
     localStorage.removeItem(STORAGE_KEY)
   } catch {
     /* noop */
+  }
+}
+
+/**
+ * 从 URL 拉取 features.json（用于 watcher 轮询）。
+ * 返回 raw text 用于内容对比，避免每次都 setState 引起重渲染。
+ */
+export async function fetchFromUrl(url: string): Promise<{ ok: true; raw: string; file: FeaturesFile } | { ok: false }> {
+  try {
+    const res = await fetch(url, { cache: 'no-cache' })
+    if (!res.ok) return { ok: false }
+    const raw = await res.text()
+    const data = JSON.parse(raw) as FeaturesFile
+    const valid = validate(data)
+    if (!valid.ok) return { ok: false }
+    return { ok: true, raw, file: data }
+  } catch {
+    return { ok: false }
   }
 }
 

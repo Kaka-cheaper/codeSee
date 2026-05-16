@@ -206,6 +206,108 @@ export async function loadLayoutFile(repoId: string): Promise<LayoutFile | null>
   }
 }
 
+/* ------------------------- features.json 文件句柄（用于实时刷新） ------------------------- */
+
+const FEATURES_HANDLE_STORE = 'feature-files'
+
+async function openFeaturesDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(HANDLE_DB, 2)
+    req.onupgradeneeded = (e) => {
+      const db = req.result
+      if (!db.objectStoreNames.contains(HANDLE_STORE)) {
+        db.createObjectStore(HANDLE_STORE)
+      }
+      if (!db.objectStoreNames.contains(FEATURES_HANDLE_STORE)) {
+        db.createObjectStore(FEATURES_HANDLE_STORE)
+      }
+      void e
+    }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+}
+
+/** 用户拖入 features.json 后，如果是 FSA File 拿到的，记下句柄供后续轮询 */
+export async function rememberFeaturesHandle(repoId: string, handle: FileSystemFileHandle): Promise<void> {
+  try {
+    const db = await openFeaturesDB()
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(FEATURES_HANDLE_STORE, 'readwrite')
+      tx.objectStore(FEATURES_HANDLE_STORE).put(handle, repoId)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => resolve()
+    })
+  } catch {
+    /* noop */
+  }
+}
+
+export async function getFeaturesHandle(repoId: string): Promise<FileSystemFileHandle | null> {
+  if (!isFSASupported()) return null
+  try {
+    const db = await openFeaturesDB()
+    return await new Promise<FileSystemFileHandle | null>((resolve) => {
+      const tx = db.transaction(FEATURES_HANDLE_STORE, 'readonly')
+      const req = tx.objectStore(FEATURES_HANDLE_STORE).get(repoId)
+      req.onsuccess = () => resolve(req.result ?? null)
+      req.onerror = () => resolve(null)
+    })
+  } catch {
+    return null
+  }
+}
+
+export async function clearFeaturesHandle(repoId: string): Promise<void> {
+  try {
+    const db = await openFeaturesDB()
+    await new Promise<void>((resolve) => {
+      const tx = db.transaction(FEATURES_HANDLE_STORE, 'readwrite')
+      tx.objectStore(FEATURES_HANDLE_STORE).delete(repoId)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => resolve()
+    })
+  } catch {
+    /* noop */
+  }
+}
+
+/** 让用户选择一个 features.json 文件（FSA File Picker），返回 handle 用于后续轮询 */
+export async function pickFeaturesFile(repoId: string): Promise<FileSystemFileHandle | null> {
+  if (!isFSASupported() || !('showOpenFilePicker' in window)) return null
+  try {
+    // @ts-expect-error showOpenFilePicker
+    const handles: FileSystemFileHandle[] = await window.showOpenFilePicker({
+      id: `codesee-features-${repoId.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
+      multiple: false,
+      types: [
+        {
+          description: 'CodeSee features.json',
+          accept: { 'application/json': ['.json'] },
+        },
+      ],
+    })
+    const handle = handles[0]
+    if (handle) await rememberFeaturesHandle(repoId, handle)
+    return handle ?? null
+  } catch {
+    return null
+  }
+}
+
+/** 从已记住的 features 句柄读最新内容（用于轮询） */
+export async function readFeaturesFromHandle(handle: FileSystemFileHandle): Promise<{ raw: string; lastModified: number } | null> {
+  try {
+    const ok = await checkPermission(handle as unknown as FileSystemDirectoryHandle)
+    if (!ok) return null
+    const file = await handle.getFile()
+    const raw = await file.text()
+    return { raw, lastModified: file.lastModified }
+  } catch {
+    return null
+  }
+}
+
 function downloadAsFile(text: string): 'downloaded' {
   const blob = new Blob([text], { type: 'application/json' })
   const url = URL.createObjectURL(blob)

@@ -358,9 +358,10 @@ function GraphInner({ file }: Props) {
           overviewVersionRef.current += 1
         }
 
-        // 自动保存：localStorage 立即写（草稿），文件防抖写
+        // localStorage 永远写——这是浏览器无感记忆的核心，刷新后能恢复
+        // autoSave 仅控制是否额外写到 FSA 文件
+        savePositions(repoId, positionsRef.current)
         if (autoSave) {
-          savePositions(repoId, positionsRef.current)
           scheduleAutoSaveFile()
         }
       }

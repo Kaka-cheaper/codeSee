@@ -72,29 +72,56 @@ export default function App() {
     setStatus('missing')
   }
 
-  // 全局拖拽
-  const onDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(true)
-  }
-  const onDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
-  }
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
-    const f = e.dataTransfer.files?.[0]
-    if (f) handleFile(f)
-  }
+  // 全局拖拽 — 用 window 级别监听，避免 ReactFlow 等子组件拦截
+  const dragCounterRef = useRef(0)
+
+  useEffect(() => {
+    const onWindowDragEnter = (e: DragEvent) => {
+      if (!e.dataTransfer?.types?.includes('Files')) return
+      e.preventDefault()
+      dragCounterRef.current += 1
+      setDragOver(true)
+    }
+    const onWindowDragOver = (e: DragEvent) => {
+      if (!e.dataTransfer?.types?.includes('Files')) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    }
+    const onWindowDragLeave = (e: DragEvent) => {
+      if (!e.dataTransfer?.types?.includes('Files')) return
+      e.preventDefault()
+      dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
+      if (dragCounterRef.current === 0) setDragOver(false)
+    }
+    const onWindowDrop = (e: DragEvent) => {
+      if (!e.dataTransfer?.types?.includes('Files')) return
+      e.preventDefault()
+      dragCounterRef.current = 0
+      setDragOver(false)
+      const f = e.dataTransfer.files?.[0]
+      if (f) {
+        handleFile(f)
+      } else {
+        console.warn('[CodeSee] drop fired but no file', e.dataTransfer.types)
+      }
+    }
+
+    window.addEventListener('dragenter', onWindowDragEnter)
+    window.addEventListener('dragover', onWindowDragOver)
+    window.addEventListener('dragleave', onWindowDragLeave)
+    window.addEventListener('drop', onWindowDrop)
+    return () => {
+      window.removeEventListener('dragenter', onWindowDragEnter)
+      window.removeEventListener('dragover', onWindowDragOver)
+      window.removeEventListener('dragleave', onWindowDragLeave)
+      window.removeEventListener('drop', onWindowDrop)
+    }
+  }, [handleFile])
 
   return (
     <I18nContext.Provider value={i18n}>
     <div
       className="relative flex h-full w-full flex-col text-[var(--color-fg)]"
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
     >
       <TopBar
         file={file}

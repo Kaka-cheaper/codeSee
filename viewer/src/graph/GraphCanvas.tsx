@@ -28,6 +28,7 @@ import { loadPositions, savePositions, clearPositions } from './positionStorage'
 import { useUndoRedo } from './useUndoRedo'
 import {
   isFSASupported,
+  hasAuthorized,
   loadLayoutFile,
   pickDirectory,
   saveLayoutFile,
@@ -126,19 +127,18 @@ function GraphInner({ file }: Props) {
   }, [repoId])
 
   // 自动保存开关（持久化到 localStorage）
+  // 默认 OFF——FSA 需要用户主动授权目录后才能真正自动保存，
+  // 默认开启会给用户"已经在自动保存"的错觉但实际上没生效
   const [autoSave, setAutoSave] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('codesee.autoSave') !== 'false'
+      return localStorage.getItem('codesee.autoSave') === 'true'
     } catch {
-      return true
+      return false
     }
   })
-  const toggleAutoSave = useCallback(() => {
-    setAutoSave((v) => {
-      const next = !v
-      try { localStorage.setItem('codesee.autoSave', String(next)) } catch { /* noop */ }
-      return next
-    })
+  const setAutoSavePersist = useCallback((next: boolean) => {
+    setAutoSave(next)
+    try { localStorage.setItem('codesee.autoSave', String(next)) } catch { /* noop */ }
   }, [])
 
   // 保存状态（用于 UI 提示）
@@ -157,6 +157,38 @@ function GraphInner({ file }: Props) {
       generated_at: new Date().toISOString(),
     }
   }, [])
+
+  // toggleAutoSave 智能化：
+  // - 当前 ON → 关闭
+  // - 当前 OFF + 已有授权目录 → 直接开启
+  // - 当前 OFF + 没授权（首次） → 在用户手势内弹目录选择器，授权成功就开启
+  const toggleAutoSave = useCallback(async () => {
+    if (autoSave) {
+      setAutoSavePersist(false)
+      return
+    }
+    // 已支持 FSA 才弹 picker，否则直接开启（落到 localStorage 草稿）
+    if (!isFSASupported()) {
+      setAutoSavePersist(true)
+      return
+    }
+    // 检测是否已授权
+    const authorized = await hasAuthorized(repoId)
+    if (authorized) {
+      setAutoSavePersist(true)
+      return
+    }
+    // 首次启用：弹 picker 让用户授权
+    const handle = await pickDirectory(repoId)
+    if (handle) {
+      // 授权成功，立刻写一次当前布局
+      await saveLayoutFile(repoId, serializeLayout()).catch(() => { /* noop */ })
+      setAutoSavePersist(true)
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+    }
+    // 用户取消授权 → 保持 OFF
+  }, [autoSave, repoId, setAutoSavePersist, serializeLayout])
 
   // 手动保存
   // 关键：showDirectoryPicker 必须在用户手势的同步调用栈内触发
@@ -187,12 +219,16 @@ function GraphInner({ file }: Props) {
         const retry = await saveLayoutFile(repoId, serializeLayout())
         console.log('[CodeSee Save] 重试 saveLayoutFile 结果:', retry)
         setSaveStatus(retry === 'wrote' ? 'saved' : 'failed')
+        // 首次授权成功后自动启用自动保存（用户既然手动保存了一次，下次同步也理应自动）
+        if (retry === 'wrote' && !autoSave) {
+          setAutoSavePersist(true)
+        }
       } else {
         setSaveStatus('saved') // 取消了，只存 localStorage
       }
     }
     setTimeout(() => setSaveStatus('idle'), 2500)
-  }, [repoId, serializeLayout])
+  }, [repoId, serializeLayout, autoSave, setAutoSavePersist])
 
   // 文件自动保存防抖（拖动时 onTick 高频，但落盘只需偶尔一次）
   // ⚠ 自动保存永远不触发下载或弹窗——只在已授权时静默写文件
@@ -890,7 +926,7 @@ function ViewSwitcher({ mode, focusedFeatureName, onChangeMode, onResetLayout, a
   onChangeMode: (m: ViewMode) => void
   onResetLayout: () => void
   autoSave: boolean
-  onToggleAutoSave: () => void
+  onToggleAutoSave: () => void | Promise<void>
   onSaveLayout: () => void
   saveStatus: 'idle' | 'saved' | 'downloaded' | 'failed'
   onUndo: () => void

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { GraphCanvas } from '@/graph/GraphCanvas'
 import { TopBar } from '@/app/TopBar'
-import { autoLoad, clearStored, loadFromFile } from '@/fcg/loader'
+import { autoLoad, clearStored, loadFromFile, loadFromText } from '@/fcg/loader'
 import type { FeaturesFile } from '@/fcg/types'
 import { cn } from '@/lib/cn'
 import { I18nContext, t as tFn, useI18n, type Locale } from '@/lib/i18n'
@@ -64,6 +64,20 @@ export default function App() {
     }
   }, [])
 
+  const handleText = useCallback((text: string, label: string) => {
+    setError(null)
+    const res = loadFromText(text, label)
+    if (res.ok) {
+      setFile(res.file)
+      setSourceLabel(res.sourceLabel)
+      setStatus('ok')
+      return true
+    } else {
+      setError(res.detail ?? '加载失败')
+      return false
+    }
+  }, [])
+
   const onPick = () => inputRef.current?.click()
   const onClear = () => {
     clearStored()
@@ -99,10 +113,13 @@ export default function App() {
       e.preventDefault()
       dragCounterRef.current = 0
       setDragOver(false)
-      // 优先从 files 读，回退到 items（某些 IDE/编辑器拖动时 files 为空）
       const dt = e.dataTransfer
       if (!dt) return
+
+      // 1. 优先从 files 读
       let f: File | null = dt.files?.[0] ?? null
+
+      // 2. 回退到 items 取 file（部分场景 files 为空）
       if (!f && dt.items) {
         for (let i = 0; i < dt.items.length; i++) {
           const item = dt.items[i]
@@ -112,11 +129,34 @@ export default function App() {
           }
         }
       }
+
       if (f) {
         handleFile(f)
-      } else {
-        console.warn('[CodeSee] drop fired but no file. types:', Array.from(dt.types ?? []), 'items:', dt.items?.length)
+        return
       }
+
+      // 3. 最后回退：读 text/plain（VSCode/Cursor 等 IDE 拖动会把文件内容放在这里）
+      const types = Array.from(dt.types ?? [])
+      if (types.includes('text/plain') && dt.items) {
+        for (let i = 0; i < dt.items.length; i++) {
+          const item = dt.items[i]
+          if (item.kind === 'string' && item.type === 'text/plain') {
+            item.getAsString((text) => {
+              const trimmed = text.trim()
+              // 判断是否是 JSON
+              if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                handleText(trimmed, 'IDE drop')
+              } else {
+                setError('IDE 拖动只传递了文件路径而非内容。请改用文件资源管理器拖动 .codesee/features.json，或点击"打开"按钮选择文件。')
+              }
+            })
+            return
+          }
+        }
+      }
+
+      console.warn('[CodeSee] drop fired but no file. types:', types, 'items:', dt.items?.length)
+      setError('未能从拖动中获取文件。请改用文件资源管理器拖动，或点击"打开"按钮。')
     }
 
     // capture=true 确保最先收到事件，绕过任何子元素的 stopPropagation
@@ -130,7 +170,7 @@ export default function App() {
       window.removeEventListener('dragleave', onDragLeave, true)
       window.removeEventListener('drop', onDrop, true)
     }
-  }, [handleFile])
+  }, [handleFile, handleText])
 
   return (
     <I18nContext.Provider value={i18n}>

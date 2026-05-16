@@ -29,9 +29,9 @@ import { useUndoRedo } from './useUndoRedo'
 import {
   isFSASupported,
   loadLayoutFile,
-  pickDirectory,
   saveLayoutFile,
   getStoredHandle,
+  ensurePermission,
   type LayoutFile,
 } from '@/fcg/fileSystem'
 import { EpicNodeView, type EpicNodeData } from './EpicNodeView'
@@ -160,11 +160,10 @@ function GraphInner({ file }: Props) {
 
   // toggleAutoSave 智能化：
   // - 当前 ON → 关闭
-  // - 当前 OFF → 启用：如果已有 handle 直接 prompt 权限（不弹 picker），
-  //              没有 handle 才弹 picker
-  // 关键：FSA 的 requestPermission 必须在用户手势同步调用栈内调用，
-  //       所以这里必须**直接** await getStoredHandle → handle.requestPermission，
-  //       不能先调 saveLayoutFile（它内部太多 await）
+  // - 当前 OFF → 启用：
+  //     * 已有目录授权 → 直接 ensurePermission（仅小权限框，绝不弹文件夹选择器）
+  //     * 没有目录授权 → 提示用户先点"打开"按钮选择目录
+  // 关键：FSA 的 requestPermission 必须在用户手势同步调用栈内调用
   const toggleAutoSave = useCallback(async () => {
     if (autoSave) {
       setAutoSavePersist(false)
@@ -175,42 +174,32 @@ function GraphInner({ file }: Props) {
       setAutoSavePersist(true)
       return
     }
-    // 已有 stored handle：直接 prompt 权限（不弹文件夹选择器！）
+    // 已有 stored handle：直接 ensurePermission（不弹文件夹选择器！）
     const stored = await getStoredHandle(repoId)
     if (stored) {
-      // queryPermission → 已 granted 直接 OK，prompt 状态触发原生权限确认
-      const opts = { mode: 'readwrite' as const }
-      try {
-        // @ts-expect-error queryPermission 不在标准 typings
-        let perm: PermissionState = await stored.queryPermission(opts)
-        if (perm === 'prompt') {
-          // @ts-expect-error requestPermission 不在标准 typings
-          perm = await stored.requestPermission(opts)
-        }
-        if (perm === 'granted') {
-          // 写一次当前布局，然后开启
-          await saveLayoutFile(repoId, serializeLayout()).catch(() => { /* noop */ })
-          setAutoSavePersist(true)
-          setSaveStatus('saved')
-          setTimeout(() => setSaveStatus('idle'), 1500)
-          return
-        }
-      } catch { /* fall through to picker */ }
+      const ok = await ensurePermission(stored)
+      if (ok) {
+        // 写一次当前布局，然后开启
+        await saveLayoutFile(repoId, serializeLayout()).catch(() => { /* noop */ })
+        setAutoSavePersist(true)
+        setSaveStatus('saved')
+        setTimeout(() => setSaveStatus('idle'), 1500)
+        return
+      }
+      // 授权被拒：保持 OFF，提示用户
+      setSaveStatus('failed')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+      return
     }
-    // 没有 stored handle / 权限被拒：弹 picker
-    const handle = await pickDirectory(repoId)
-    if (handle) {
-      await saveLayoutFile(repoId, serializeLayout()).catch(() => { /* noop */ })
-      setAutoSavePersist(true)
-      setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('idle'), 1500)
-    }
-    // 用户取消授权 → 保持 OFF
+    // 没有 stored handle：不在这里弹 picker——
+    // 让用户去顶部"打开"按钮选目录，那里才是统一的授权入口
+    setSaveStatus('failed')
+    setTimeout(() => setSaveStatus('idle'), 2000)
   }, [autoSave, repoId, setAutoSavePersist, serializeLayout])
 
   // 手动保存
-  // 关键：showDirectoryPicker 必须在用户手势的同步调用栈内触发
-  // 所以不能在 await 之后调用它——必须作为 click 的第一个 async 操作
+  // 关键：永远不重新弹 directory picker——已授权的目录全程复用
+  // 如果没有目录授权，提示用户先点"打开"按钮选择目录
   const saveLayout = useCallback(async () => {
     console.log('[CodeSee Save] 开始保存, repoId:', repoId)
     savePositions(repoId, positionsRef.current)
@@ -222,31 +211,31 @@ function GraphInner({ file }: Props) {
       return
     }
 
-    console.log('[CodeSee Save] FSA 支持，尝试 saveLayoutFile...')
-    // 直接尝试写文件（saveLayoutFile 内部会用 stored handle）
+    // 检查是否有已授权的目录
+    const stored = await getStoredHandle(repoId)
+    if (!stored) {
+      // 没授权过任何目录：localStorage 已写完，给"saved"提示
+      // （之后用户去点"打开"按钮选目录，下次保存才会写到磁盘）
+      console.log('[CodeSee Save] 没有目录授权，仅存 localStorage')
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+      return
+    }
+
+    // 已有授权的目录：确保权限（必要时弹小权限框，绝不弹 picker）
+    const ok = await ensurePermission(stored)
+    if (!ok) {
+      setSaveStatus('failed')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+      return
+    }
+
+    // 写文件
     const result = await saveLayoutFile(repoId, serializeLayout())
     console.log('[CodeSee Save] saveLayoutFile 结果:', result)
-    if (result === 'wrote') {
-      setSaveStatus('saved')
-    } else {
-      console.log('[CodeSee Save] 没有 handle，弹 pickDirectory...')
-      // 没有 stored handle → 弹目录选择器
-      const handle = await pickDirectory(repoId)
-      console.log('[CodeSee Save] pickDirectory 结果:', handle)
-      if (handle) {
-        const retry = await saveLayoutFile(repoId, serializeLayout())
-        console.log('[CodeSee Save] 重试 saveLayoutFile 结果:', retry)
-        setSaveStatus(retry === 'wrote' ? 'saved' : 'failed')
-        // 首次授权成功后自动启用自动保存（用户既然手动保存了一次，下次同步也理应自动）
-        if (retry === 'wrote' && !autoSave) {
-          setAutoSavePersist(true)
-        }
-      } else {
-        setSaveStatus('saved') // 取消了，只存 localStorage
-      }
-    }
+    setSaveStatus(result === 'wrote' ? 'saved' : 'failed')
     setTimeout(() => setSaveStatus('idle'), 2500)
-  }, [repoId, serializeLayout, autoSave, setAutoSavePersist])
+  }, [repoId, serializeLayout])
 
   // 文件自动保存防抖（拖动时 onTick 高频，但落盘只需偶尔一次）
   // ⚠ 自动保存永远不触发下载或弹窗——只在已授权时静默写文件

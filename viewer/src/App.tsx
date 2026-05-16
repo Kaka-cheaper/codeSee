@@ -2,9 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { GraphCanvas } from '@/graph/GraphCanvas'
 import { TopBar } from '@/app/TopBar'
-import { autoLoad, clearStored, getBundledExampleUrl, loadFromFile, loadFromText } from '@/fcg/loader'
+import { autoLoad, getBundledExampleUrl, loadFromFile, loadFromText, clearStored } from '@/fcg/loader'
 import { useFileWatcher, type WatchSource } from '@/fcg/useFileWatcher'
-import { isFSASupported, pickFeaturesFile, readFeaturesFromHandle, clearFeaturesHandle } from '@/fcg/fileSystem'
+import {
+  isFSASupported,
+  pickDirectoryAndLoadFeatures,
+  autoLoadFeaturesFromStoredDir,
+  forgetDirectory,
+  hasAuthorized,
+} from '@/fcg/fileSystem'
 import type { FeaturesFile } from '@/fcg/types'
 import { cn } from '@/lib/cn'
 import { I18nContext, t as tFn, useI18n, type Locale } from '@/lib/i18n'
@@ -56,23 +62,43 @@ export default function App() {
     })
   }, [])
 
+  // 启动时：
+  //   1. 优先尝试已授权目录（FSA）→ 读 features.json
+  //   2. 兜底走 autoLoad（localStorage / 内置示例）
   useEffect(() => {
     let cancelled = false
-    autoLoad().then((res) => {
+    ;(async () => {
+      // 1. FSA 已授权 → 自动加载
+      if (isFSASupported() && (await hasAuthorized('default'))) {
+        const fsa = await autoLoadFeaturesFromStoredDir('default')
+        if (!cancelled && fsa) {
+          const res = loadFromText(fsa.raw, fsa.fileName)
+          if (res.ok) {
+            setFile(res.file)
+            setSourceLabel(res.sourceLabel)
+            setStatus('ok')
+            setCurrentRaw(fsa.raw)
+            setWatchSource({ kind: 'fsa', repoId: 'default' })
+            return
+          }
+        }
+      }
+
+      // 2. 兜底：localStorage / 内置示例
+      const res = await autoLoad()
       if (cancelled) return
       if (res.ok) {
         setFile(res.file)
         setSourceLabel(res.sourceLabel)
         setStatus('ok')
         if (res.raw) setCurrentRaw(res.raw)
-        // 内置示例 / fetch 来源 → 可监听 URL
         if (res.sourceKind === 'fetch') {
           setWatchSource({ kind: 'url', url: getBundledExampleUrl() })
         }
       } else {
         setStatus('missing')
       }
-    })
+    })()
     return () => {
       cancelled = true
     }
@@ -85,7 +111,7 @@ export default function App() {
       setFile(res.file)
       setSourceLabel(res.sourceLabel)
       setStatus('ok')
-      // 用户上传的本地文件，无法 URL 监听；保留原 watchSource（如果之前有 fsa）
+      // 用户手动上传的文件，无 directory 授权，watchSource 不变
     } else {
       setError(res.detail ?? '加载失败')
     }
@@ -120,34 +146,36 @@ export default function App() {
     onChange: handleWatcherUpdate,
   })
 
+  // 打开按钮：
+  // - FSA 支持 → 弹 directory picker，让用户选包含 features.json 的目录（一次授权）
+  // - FSA 不支持 → 兜底用 file input
   const onPick = useCallback(async () => {
-    // FSA 支持时优先用 picker（能拿到 FileSystemFileHandle，可后续轮询）
     if (isFSASupported()) {
-      // 注意：showOpenFilePicker 必须在用户手势内调用，所以这里是同步路径
-      const repoId = file?.manifest.repo ?? 'default'
-      const handle = await pickFeaturesFile(repoId)
-      if (handle) {
-        const result = await readFeaturesFromHandle(handle)
-        if (result) {
-          const res = loadFromText(result.raw, handle.name)
+      const result = await pickDirectoryAndLoadFeatures('default')
+      if (result) {
+        if (result.features) {
+          const res = loadFromText(result.features.raw, result.features.fileName)
           if (res.ok) {
             setFile(res.file)
             setSourceLabel(res.sourceLabel)
             setStatus('ok')
-            setCurrentRaw(result.raw)
-            setWatchSource({ kind: 'fsa', repoId })
+            setCurrentRaw(result.features.raw)
+            setWatchSource({ kind: 'fsa', repoId: 'default' })
             setError(null)
             return
           } else {
             setError(res.detail ?? '加载失败')
             return
           }
+        } else {
+          setError('选中的目录里没找到 features.json，请确认目录正确（应包含 features.json 或 .codesee/features.json）')
+          return
         }
       }
-      // picker 取消或失败 → fallback 到 input
+      // 用户取消 picker → fallback 到 input
     }
     inputRef.current?.click()
-  }, [file?.manifest.repo])
+  }, [])
 
   const onClear = useCallback(() => {
     clearStored()
@@ -156,9 +184,9 @@ export default function App() {
     setStatus('missing')
     setWatchSource(null)
     setCurrentRaw('')
-    // 清掉 FSA 句柄（如果有）
-    void clearFeaturesHandle(file?.manifest.repo ?? 'default')
-  }, [file?.manifest.repo])
+    // 取消目录授权（用户主动重置才清）
+    void forgetDirectory('default')
+  }, [])
 
   // 全局拖拽 — 用 window capture 模式监听，确保最先收到事件，避免被任何子元素拦截
   // 注意：HTML5 drag events 只在 draggable=true 元素上触发，
@@ -221,7 +249,7 @@ export default function App() {
               if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
                 handleText(trimmed, 'IDE drop')
               } else {
-                setError('IDE 拖动只传递了文件路径而非内容。请改用文件资源管理器拖动 .codesee/features.json，或点击"打开"按钮选择文件。')
+                setError('IDE 拖动只传递了文件路径而非内容。请改用文件资源管理器拖动 .codesee/features.json，或点击"打开"按钮选择目录。')
               }
             })
             return
@@ -230,7 +258,7 @@ export default function App() {
       }
 
       console.warn('[CodeSee] drop fired but no file. types:', types, 'items:', dt.items?.length)
-      setError('未能从拖动中获取文件。请改用文件资源管理器拖动，或点击"打开"按钮。')
+      setError('未能从拖动中获取文件。请改用文件资源管理器拖动，或点击"打开"按钮选择目录。')
     }
 
     // capture=true 确保最先收到事件，绕过任何子元素的 stopPropagation

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { fetchFromUrl } from './loader'
-import { getFeaturesHandle, readFeaturesFromHandle } from './fileSystem'
+import { autoLoadFeaturesFromStoredDir } from './fileSystem'
 import type { FeaturesFile } from './types'
 
 const POLL_INTERVAL_MS = 3000
@@ -22,11 +22,11 @@ interface Options {
  *
  * 两种数据源：
  * - url：fetch /features.json（内置示例 / 静态部署）
- * - fsa：File System Access API 文件句柄（用户授权过的本地文件）
+ * - fsa：File System Access API directory handle（用户授权过的目录里的 features.json）
  *
  * 关键设计：
  * - 用 raw text 对比而非 JSON.stringify，避免序列化抖动
- * - 文件句柄用 lastModified 优先判断，加速对比
+ * - 文件 lastModified 优先判断，加速对比
  * - enabled 关闭时彻底停止轮询，不浪费请求
  */
 export function useFileWatcher({ enabled, source, currentRaw, onChange }: Options): void {
@@ -62,9 +62,8 @@ export function useFileWatcher({ enabled, source, currentRaw, onChange }: Option
             onChangeRef.current(res.file, res.raw)
           }
         } else {
-          const handle = await getFeaturesHandle(source.repoId)
-          if (!handle || cancelled) return
-          const result = await readFeaturesFromHandle(handle)
+          // fsa：从 stored dir handle 读 features.json
+          const result = await autoLoadFeaturesFromStoredDir(source.repoId)
           if (!result || cancelled) return
           // lastModified 没变就跳过 raw 对比
           if (result.lastModified === lastModifiedRef.current) return

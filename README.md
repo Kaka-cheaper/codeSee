@@ -276,16 +276,34 @@ This refreshes prompts, validator, and the AGENTS.md CodeSee section without tou
 
 ## Roadmap
 
+### Top priority
+
 - [ ] **Prompt refinement (community-driven)** — real-world usage produces the best constraints; contributions welcome for edge cases, anti-patterns, and domain-specific rules
 - [ ] **Semantic-aware layout** — layout should respect feature logic, not just node positions; exploring AI-driven layout via `layout.json` (already decoupled from data)
+
+### Ecosystem & integrations
+
+- [ ] **Trellis integration** — consume `.trellis/spec/` and `.trellis/tasks/` as the source for `features.json` (forward projection from PRD instead of reverse engineering from code); aim to become Trellis's visualization sidecar
+- [ ] **Spec-driven scan** — generalize the Trellis approach: prefer reading project specs/PRDs/workflow docs over scanning source code, when available
+- [ ] **Real-time observation mode** — local watcher + auto-refresh canvas when `features.json` changes; mount alongside the CLI/IDE so users see the graph update live as the AI works
+
+### Canvas & UX
+
 - [ ] **Canvas editing** — edit feature names, add notes, lock nodes directly on the canvas
 - [ ] **Search & filter** — find features by name, filter by epic/tag/role
 - [ ] **Diff view** — highlight what changed between two versions of `features.json`
 - [ ] **Multi-project dashboard** — switch between projects without re-dragging files
-- [ ] **CI integration** — validate `features.json` in GitHub Actions / GitLab CI
 - [ ] **Export** — PNG / SVG / PDF export of the current view
 - [ ] **Dark theme** — toggle between warm-ivory and dark mode
+
+### Tooling
+
+- [ ] **CI integration** — validate `features.json` in GitHub Actions / GitLab CI
 - [ ] **Plugin system** — custom node renderers, custom layout algorithms
+
+### Long-term (optional)
+
+- [ ] **Vector index** — semantic embedding for "find similar features" / cross-project reuse; must remain optional and never replace the JSON-as-source-of-truth principle
 
 ---
 

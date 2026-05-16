@@ -72,44 +72,30 @@ export default function App() {
     setStatus('missing')
   }
 
-  // 全局拖拽 — 用 window 级别监听，避免 ReactFlow 等子组件拦截
-  // 关键：dragenter/dragover/dragleave/drop 必须无条件 preventDefault，
-  // 否则浏览器会把文件当成 URL 在新标签页打开
+  // 全局拖拽 — 用 window capture 模式监听，确保最先收到事件，避免被任何子元素拦截
+  // 注意：HTML5 drag events 只在 draggable=true 元素上触发，
+  // ReactFlow 节点拖动用的是 mousedown/mousemove，不会冲突。
   const dragCounterRef = useRef(0)
 
   useEffect(() => {
-    const isFileDrag = (e: DragEvent): boolean => {
-      const types = e.dataTransfer?.types
-      if (!types) return false
-      // types 可能是 DOMStringList 或 array
-      for (let i = 0; i < types.length; i++) {
-        if (types[i] === 'Files') return true
-      }
-      return false
-    }
-
-    const onWindowDragEnter = (e: DragEvent) => {
+    const onDragEnter = (e: DragEvent) => {
+      // 必须 preventDefault 否则 dragover 不会触发
       e.preventDefault()
-      if (isFileDrag(e)) {
-        dragCounterRef.current += 1
-        setDragOver(true)
-      }
+      dragCounterRef.current += 1
+      // 不在 dragenter 时检查 types——某些浏览器出于安全考虑，
+      // 在 dragenter/dragover 阶段隐藏 files 类型，只在 drop 时暴露
+      setDragOver(true)
     }
-    const onWindowDragOver = (e: DragEvent) => {
-      // 必须无条件 preventDefault，否则浏览器会接管 drop
+    const onDragOver = (e: DragEvent) => {
       e.preventDefault()
-      if (e.dataTransfer && isFileDrag(e)) {
-        e.dataTransfer.dropEffect = 'copy'
-      }
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
     }
-    const onWindowDragLeave = (e: DragEvent) => {
+    const onDragLeave = (e: DragEvent) => {
       e.preventDefault()
-      if (isFileDrag(e)) {
-        dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
-        if (dragCounterRef.current === 0) setDragOver(false)
-      }
+      dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
+      if (dragCounterRef.current === 0) setDragOver(false)
     }
-    const onWindowDrop = (e: DragEvent) => {
+    const onDrop = (e: DragEvent) => {
       e.preventDefault()
       dragCounterRef.current = 0
       setDragOver(false)
@@ -121,15 +107,16 @@ export default function App() {
       }
     }
 
-    window.addEventListener('dragenter', onWindowDragEnter)
-    window.addEventListener('dragover', onWindowDragOver)
-    window.addEventListener('dragleave', onWindowDragLeave)
-    window.addEventListener('drop', onWindowDrop)
+    // capture=true 确保最先收到事件，绕过任何子元素的 stopPropagation
+    window.addEventListener('dragenter', onDragEnter, true)
+    window.addEventListener('dragover', onDragOver, true)
+    window.addEventListener('dragleave', onDragLeave, true)
+    window.addEventListener('drop', onDrop, true)
     return () => {
-      window.removeEventListener('dragenter', onWindowDragEnter)
-      window.removeEventListener('dragover', onWindowDragOver)
-      window.removeEventListener('dragleave', onWindowDragLeave)
-      window.removeEventListener('drop', onWindowDrop)
+      window.removeEventListener('dragenter', onDragEnter, true)
+      window.removeEventListener('dragover', onDragOver, true)
+      window.removeEventListener('dragleave', onDragLeave, true)
+      window.removeEventListener('drop', onDrop, true)
     }
   }, [handleFile])
 

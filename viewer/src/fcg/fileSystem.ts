@@ -28,7 +28,7 @@ function openHandleDB(): Promise<IDBDatabase> {
   })
 }
 
-async function getStoredHandle(repoId: string): Promise<FileSystemDirectoryHandle | null> {
+export async function getStoredHandle(repoId: string): Promise<FileSystemDirectoryHandle | null> {
   if (!('showDirectoryPicker' in window)) return null
   try {
     const db = await openHandleDB()

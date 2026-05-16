@@ -28,10 +28,10 @@ import { loadPositions, savePositions, clearPositions } from './positionStorage'
 import { useUndoRedo } from './useUndoRedo'
 import {
   isFSASupported,
-  hasAuthorized,
   loadLayoutFile,
   pickDirectory,
   saveLayoutFile,
+  getStoredHandle,
   type LayoutFile,
 } from '@/fcg/fileSystem'
 import { EpicNodeView, type EpicNodeData } from './EpicNodeView'
@@ -127,18 +127,18 @@ function GraphInner({ file }: Props) {
   }, [repoId])
 
   // 自动保存开关（持久化到 localStorage）
-  // 默认 OFF——FSA 需要用户主动授权目录后才能真正自动保存，
-  // 默认开启会给用户"已经在自动保存"的错觉但实际上没生效
+  // 默认 OFF——FSA 需要用户主动授权目录后才能真正自动保存。
+  // key 用 v2 区分旧版本（旧版本默认 ON 但实际不工作，会污染用户预期）
   const [autoSave, setAutoSave] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('codesee.autoSave') === 'true'
+      return localStorage.getItem('codesee.autoSave.v2') === 'true'
     } catch {
       return false
     }
   })
   const setAutoSavePersist = useCallback((next: boolean) => {
     setAutoSave(next)
-    try { localStorage.setItem('codesee.autoSave', String(next)) } catch { /* noop */ }
+    try { localStorage.setItem('codesee.autoSave.v2', String(next)) } catch { /* noop */ }
   }, [])
 
   // 保存状态（用于 UI 提示）
@@ -160,32 +160,50 @@ function GraphInner({ file }: Props) {
 
   // toggleAutoSave 智能化：
   // - 当前 ON → 关闭
-  // - 当前 OFF + 已有授权目录 → 直接开启
-  // - 当前 OFF + 没授权（首次） → 在用户手势内弹目录选择器，授权成功就开启
+  // - 当前 OFF → 启用：如果已有 handle 直接 prompt 权限（不弹 picker），
+  //              没有 handle 才弹 picker
+  // 关键：FSA 的 requestPermission 必须在用户手势同步调用栈内调用，
+  //       所以这里必须**直接** await getStoredHandle → handle.requestPermission，
+  //       不能先调 saveLayoutFile（它内部太多 await）
   const toggleAutoSave = useCallback(async () => {
     if (autoSave) {
       setAutoSavePersist(false)
       return
     }
-    // 已支持 FSA 才弹 picker，否则直接开启（落到 localStorage 草稿）
+    // 不支持 FSA：直接开（仅 localStorage 草稿）
     if (!isFSASupported()) {
       setAutoSavePersist(true)
       return
     }
-    // 检测是否已授权
-    const authorized = await hasAuthorized(repoId)
-    if (authorized) {
-      setAutoSavePersist(true)
-      return
+    // 已有 stored handle：直接 prompt 权限（不弹文件夹选择器！）
+    const stored = await getStoredHandle(repoId)
+    if (stored) {
+      // queryPermission → 已 granted 直接 OK，prompt 状态触发原生权限确认
+      const opts = { mode: 'readwrite' as const }
+      try {
+        // @ts-expect-error queryPermission 不在标准 typings
+        let perm: PermissionState = await stored.queryPermission(opts)
+        if (perm === 'prompt') {
+          // @ts-expect-error requestPermission 不在标准 typings
+          perm = await stored.requestPermission(opts)
+        }
+        if (perm === 'granted') {
+          // 写一次当前布局，然后开启
+          await saveLayoutFile(repoId, serializeLayout()).catch(() => { /* noop */ })
+          setAutoSavePersist(true)
+          setSaveStatus('saved')
+          setTimeout(() => setSaveStatus('idle'), 1500)
+          return
+        }
+      } catch { /* fall through to picker */ }
     }
-    // 首次启用：弹 picker 让用户授权
+    // 没有 stored handle / 权限被拒：弹 picker
     const handle = await pickDirectory(repoId)
     if (handle) {
-      // 授权成功，立刻写一次当前布局
       await saveLayoutFile(repoId, serializeLayout()).catch(() => { /* noop */ })
       setAutoSavePersist(true)
       setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('idle'), 2000)
+      setTimeout(() => setSaveStatus('idle'), 1500)
     }
     // 用户取消授权 → 保持 OFF
   }, [autoSave, repoId, setAutoSavePersist, serializeLayout])

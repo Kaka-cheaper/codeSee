@@ -9,9 +9,9 @@
 The feature-level canvas for AI-collaborative development. AI maintains a semantic flow graph of your project — you stay in control without reading every line.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Prompts](https://img.shields.io/badge/Prompts-6-blue.svg)](./prompts/)
+[![Prompts](https://img.shields.io/badge/Prompts-8-blue.svg)](./prompts/)
 [![Viewer](https://img.shields.io/badge/Viewer-React_Flow-purple.svg)](./viewer/)
-[![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/AGENTS.md)
+[![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/SKILL.md)
 [![Demo](https://img.shields.io/badge/Live_Demo-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/)
 [![中文](https://img.shields.io/badge/Lang-中文-red.svg)](./README.zh-CN.md)
 [![LINUX DO](https://img.shields.io/badge/LINUX-DO-FFB003.svg?logo=data:image/svg%2bxml;base64,DQo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiPjxwYXRoIGQ9Ik00Ni44Mi0uMDU1aDYuMjVxMjMuOTY5IDIuMDYyIDM4IDIxLjQyNmM1LjI1OCA3LjY3NiA4LjIxNSAxNi4xNTYgOC44NzUgMjUuNDV2Ni4yNXEtMi4wNjQgMjMuOTY4LTIxLjQzIDM4LTExLjUxMiA3Ljg4NS0yNS40NDUgOC44NzRoLTYuMjVxLTIzLjk3LTIuMDY0LTM4LjAwNC0yMS40M1EuOTcxIDY3LjA1Ni0uMDU0IDUzLjE4di02LjQ3M0MxLjM2MiAzMC43ODEgOC41MDMgMTguMTQ4IDIxLjM3IDguODE3IDI5LjA0NyAzLjU2MiAzNy41MjcuNjA0IDQ2LjgyMS0uMDU2IiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZWNlY2VjO2ZpbGwtb3BhY2l0eToxIi8+PHBhdGggZD0iTTQ3LjI2NiAyLjk1N3EyMi41My0uNjUgMzcuNzc3IDE1LjczOGE0OS43IDQ5LjcgMCAwIDEgNi44NjcgMTAuMTU3cS00MS45NjQuMjIyLTgzLjkzIDAgOS43NS0xOC42MTYgMzAuMDI0LTI0LjM4N2E2MSA2MSAwIDAgMSA5LjI2Mi0xLjUwOCIgc3R5bGU9InN0cm9rZTpub25lO2ZpbGwtcnVsZTpldmVub2RkO2ZpbGw6IzE5MTkxOTtmaWxsLW9wYWNpdHk6MSIvPjxwYXRoIGQ9Ik03Ljk4IDcwLjkyNmMyNy45NzctLjAzNSA1NS45NTQgMCA4My45My4xMTNRODMuNDI2IDg3LjQ3MyA2Ni4xMyA5NC4wODZxLTE4LjgxIDYuNTQ0LTM2LjgzMi0xLjg5OC0xNC4yMDMtNy4wOS0yMS4zMTctMjEuMjYyIiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZjlhZjAwO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+)](https://linux.do/)
@@ -83,6 +83,8 @@ CodeSee solves this: AI writes the code AND writes the feature map. You see the 
 | **Incremental sync** | Each code change updates only affected features. The graph grows with your project. |
 | **Validation** | Built-in validator catches schema violations, hallucinated enums, and structural issues before you see them. |
 | **Multi-language** | UI supports Chinese/English toggle. Semantic text language configurable via `manifest.lang`. |
+| **SDD compatible** | Auto-detects `.specify/`, `.trellis/`, `.bmad-core/`, `.agents/skills/` and consumes spec/PRD docs directly — no source-code reverse engineering. |
+| **SKILL.md standard** | Cross-platform skill following [agentskills.io](https://agentskills.io/) — works on Claude Code / Cursor / Codex / Gemini CLI / Copilot / 20+ platforms out of the box. |
 
 ---
 
@@ -102,8 +104,10 @@ This injects `AGENTS.md` + `.codesee/` (prompts, validator) into your project.
 
 ### 2. Let AI scan
 
-Open your project in any AI IDE (Cursor / Claude Code / Kiro / Copilot).
-The AI reads `AGENTS.md` and automatically generates `.codesee/features.json`.
+Open your project in any AI IDE (Cursor / Claude Code / Kiro / Copilot / Codex / Gemini CLI / ...).
+The AI reads `AGENTS.md` (or `.agents/skills/codesee/SKILL.md` for SKILL.md-compatible IDEs) and automatically generates `.codesee/features.json`.
+
+If your project uses a Spec-Driven Development framework (`.specify/`, `.trellis/`, `.bmad-core/`, ...), CodeSee will detect it and consume the spec/PRD docs directly — no source code scan needed.
 
 ### 3. View the graph
 
@@ -120,14 +124,16 @@ Open `http://localhost:5173/`, drag in your `.codesee/features.json`.
 ## How It Works
 
 ```
-Your Project/                      CodeSee Viewer/
-├── AGENTS.md          ←───────── templates/AGENTS.md
-├── .codesee/                      viewer/
-│   ├── prompts/*.md   ←───────── prompts/*.md
-│   ├── scripts/       ←───────── scripts/validate-features.mjs
-│   ├── features.json  ──────────→ Drag into viewer
-│   └── layout.json    ←───────── Saved from viewer (FSA)
-└── your code
+Your Project/                              CodeSee Viewer/
+├── AGENTS.md                  ←────────── templates/AGENTS.md
+├── .agents/skills/codesee/    ←────────── templates/SKILL.md  (cross-platform skill)
+│   └── SKILL.md
+├── .codesee/                              viewer/
+│   ├── prompts/*.md           ←────────── prompts/*.md  (scan / scan-sdd / sync / ...)
+│   ├── scripts/               ←────────── scripts/validate-features.mjs
+│   ├── features.json          ──────────→ Drag into viewer
+│   └── layout.json            ←────────── Saved from viewer (FSA)
+└── your code  (or .specify / .trellis / .bmad-core / ... for SDD projects)
 ```
 
 | Layer | What | Who maintains |
@@ -150,12 +156,13 @@ Your Project/                      CodeSee Viewer/
 
 ## Best Practices
 
-### Two usage scenarios
+### Three usage scenarios
 
 | Scenario | When | How |
 | -------- | ---- | --- |
 | **A. Greenfield (recommended)** | Starting a new project from scratch with AI | Install CodeSee first, then develop. AI updates `features.json` after each feature it writes. |
-| **B. Brownfield** | Adding CodeSee to an existing project | Run a full scan first, then switch to incremental sync. |
+| **B. SDD project** | Project already uses spec-kit / Trellis / BMAD / Agent Skills | CodeSee auto-detects and consumes spec/PRD docs directly — most accurate, fewest tokens. |
+| **C. Brownfield** | Adding CodeSee to an existing code-only project | Run a full code scan first, then switch to incremental sync. |
 
 ### Why Greenfield is the best practice
 
@@ -188,6 +195,17 @@ The canvas becomes your **living architecture diagram** that's always in sync wi
 4. From now on, every code change triggers incremental sync
 ```
 
+### SDD project workflow
+
+```
+1. Install CodeSee — install script auto-detects your SDD framework
+2. AI reads .codesee/prompts/scan-sdd.md → consumes your spec/PRD docs
+3. Each task done in your SDD framework → AI runs sync (no re-scanning code)
+4. The canvas reflects your spec library, not your code structure
+```
+
+This is the highest-fidelity path: spec → features.json is forward projection (preserves intent), while code → features.json is reverse engineering (loses intent).
+
 ---
 
 ## Design Principles
@@ -208,13 +226,18 @@ codeSee/
 │   ├── src/{fcg,graph,app,lib}
 │   └── public/{features,layout}.json   Example data
 ├── prompts/                 AI prompt templates (copied to target projects)
-│   ├── scan.md              Entry point (routes to light/heavy)
+│   ├── scan.md              Entry point (auto-routes: sdd / planning / light / heavy)
+│   ├── scan-sdd.md          SDD projects (spec-kit / Trellis / BMAD / Agent Skills)
 │   ├── scan-light.md        Light projects (one-shot)
 │   ├── scan-heavy.md        Heavy projects (phased)
+│   ├── scan-planning.md     Doc-only / planning stage
 │   ├── sync.md              Incremental sync
 │   ├── _schema.md           Schema + enums + example (single source of truth)
 │   └── _rules.md            Constraints (MUST/SHOULD/MAY)
-├── templates/               AGENTS.md templates
+├── templates/               Entry-rule templates
+│   ├── AGENTS.md            Full AGENTS.md
+│   ├── AGENTS-snippet.md    Appendable snippet (for projects with existing AGENTS.md)
+│   └── SKILL.md             Cross-platform skill entry (agentskills.io standard)
 ├── scripts/                 Install script + validator
 ├── docs/                    Design docs
 ├── LICENSE                  MIT
@@ -275,6 +298,30 @@ Re-run the install script with `-Force` (PowerShell) or `--force` (Bash):
 ```
 
 This refreshes prompts, validator, and the AGENTS.md CodeSee section without touching your `features.json` or `layout.json`.
+</details>
+
+<details>
+<summary><strong>My project uses spec-kit / Trellis / BMAD — does it just work?</strong></summary>
+
+Yes. The install script auto-detects these directories:
+
+- `.specify/` — GitHub Spec Kit
+- `.trellis/` — Mindfold Trellis
+- `.bmad-core/` or `bmad/` — BMAD-METHOD
+- `.agents/skills/` — Agent Skills standard
+- `.agent-os/` — Builder Methods Agent OS
+
+When detected, the install script reports which framework it found, and `scan.md` routes to `scan-sdd.md` which consumes spec/PRD docs directly. No source code scan needed — far more accurate than reverse engineering.
+</details>
+
+<details>
+<summary><strong>What's the difference between AGENTS.md and SKILL.md?</strong></summary>
+
+`AGENTS.md` is the original entry-rule format used by Cursor, Claude Code, Kiro, etc. — placed at project root.
+
+`SKILL.md` is the [agentskills.io](https://agentskills.io/) cross-platform standard (Anthropic, December 2025) used by 20+ AI tools. Placed at `.agents/skills/codesee/SKILL.md`. It uses progressive disclosure (only ~30-50 tokens load at startup, full instructions load on demand).
+
+The install script writes both — your AI IDE will pick whichever it understands.
 </details>
 
 ---

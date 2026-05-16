@@ -9,9 +9,9 @@
 面向 AI 协作开发的功能级画布。AI 维护项目的语义流程图——你不用逐行读代码就能掌控全局。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Prompts](https://img.shields.io/badge/Prompts-6-blue.svg)](./prompts/)
+[![Prompts](https://img.shields.io/badge/Prompts-8-blue.svg)](./prompts/)
 [![Viewer](https://img.shields.io/badge/Viewer-React_Flow-purple.svg)](./viewer/)
-[![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/AGENTS.md)
+[![Standard](https://img.shields.io/badge/AgentSkills-Standard-green.svg)](./templates/SKILL.md)
 [![Demo](https://img.shields.io/badge/在线演示-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/)
 [![English](https://img.shields.io/badge/Lang-English-red.svg)](./README.md)
 [![LINUX DO](https://img.shields.io/badge/LINUX-DO-FFB003.svg?logo=data:image/svg%2bxml;base64,DQo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiPjxwYXRoIGQ9Ik00Ni44Mi0uMDU1aDYuMjVxMjMuOTY5IDIuMDYyIDM4IDIxLjQyNmM1LjI1OCA3LjY3NiA4LjIxNSAxNi4xNTYgOC44NzUgMjUuNDV2Ni4yNXEtMi4wNjQgMjMuOTY4LTIxLjQzIDM4LTExLjUxMiA3Ljg4NS0yNS40NDUgOC44NzRoLTYuMjVxLTIzLjk3LTIuMDY0LTM4LjAwNC0yMS40M1EuOTcxIDY3LjA1Ni0uMDU0IDUzLjE4di02LjQ3M0MxLjM2MiAzMC43ODEgOC41MDMgMTguMTQ4IDIxLjM3IDguODE3IDI5LjA0NyAzLjU2MiAzNy41MjcuNjA0IDQ2LjgyMS0uMDU2IiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZWNlY2VjO2ZpbGwtb3BhY2l0eToxIi8+PHBhdGggZD0iTTQ3LjI2NiAyLjk1N3EyMi41My0uNjUgMzcuNzc3IDE1LjczOGE0OS43IDQ5LjcgMCAwIDEgNi44NjcgMTAuMTU3cS00MS45NjQuMjIyLTgzLjkzIDAgOS43NS0xOC42MTYgMzAuMDI0LTI0LjM4N2E2MSA2MSAwIDAgMSA5LjI2Mi0xLjUwOCIgc3R5bGU9InN0cm9rZTpub25lO2ZpbGwtcnVsZTpldmVub2RkO2ZpbGw6IzE5MTkxOTtmaWxsLW9wYWNpdHk6MSIvPjxwYXRoIGQ9Ik03Ljk4IDcwLjkyNmMyNy45NzctLjAzNSA1NS45NTQgMCA4My45My4xMTNRODMuNDI2IDg3LjQ3MyA2Ni4xMyA5NC4wODZxLTE4LjgxIDYuNTQ0LTM2LjgzMi0xLjg5OC0xNC4yMDMtNy4wOS0yMS4zMTctMjEuMjYyIiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZjlhZjAwO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+)](https://linux.do/)
@@ -83,6 +83,8 @@ CodeSee 解决这个问题：AI 写代码的同时也写功能地图。你看到
 | **增量同步** | 每次改动只更新受影响的 feature。图随项目生长。 |
 | **内置校验** | 校验器自动捕获 schema 违规、幻觉枚举值、结构问题。 |
 | **多语言** | UI 支持中英文切换。语义文本语言通过 `manifest.lang` 配置。 |
+| **SDD 兼容** | 自动检测 `.specify/`、`.trellis/`、`.bmad-core/`、`.agents/skills/`，直接消费 spec/PRD 文档——不再反向工程源码。 |
+| **SKILL.md 标准** | 遵循 [agentskills.io](https://agentskills.io/) 跨平台 skill 标准——Claude Code / Cursor / Codex / Gemini CLI / Copilot 等 20+ 平台开箱即用。 |
 
 ---
 
@@ -102,8 +104,10 @@ CodeSee 解决这个问题：AI 写代码的同时也写功能地图。你看到
 
 ### 2. 让 AI 扫描
 
-在你的项目里打开任意 AI IDE（Cursor / Claude Code / Kiro / Copilot）。
-AI 读取 `AGENTS.md` 后自动生成 `.codesee/features.json`。
+在你的项目里打开任意 AI IDE（Cursor / Claude Code / Kiro / Copilot / Codex / Gemini CLI / ...）。
+AI 读取 `AGENTS.md`（或 SKILL.md 兼容 IDE 读取 `.agents/skills/codesee/SKILL.md`）后自动生成 `.codesee/features.json`。
+
+如果你的项目使用 SDD 框架（`.specify/`、`.trellis/`、`.bmad-core/` 等），CodeSee 会自动检测并直接消费 spec/PRD 文档——不需要扫描源码。
 
 ### 3. 查看画布
 
@@ -120,14 +124,16 @@ npm run dev
 ## 工作原理
 
 ```
-你的项目/                          CodeSee Viewer/
-├── AGENTS.md          ←───────── templates/AGENTS.md
-├── .codesee/                      viewer/
-│   ├── prompts/*.md   ←───────── prompts/*.md
-│   ├── scripts/       ←───────── scripts/validate-features.mjs
-│   ├── features.json  ──────────→ 拖入 viewer
-│   └── layout.json    ←───────── viewer 保存（File System Access API）
-└── 你的代码
+你的项目/                                  CodeSee Viewer/
+├── AGENTS.md                  ←────────── templates/AGENTS.md
+├── .agents/skills/codesee/    ←────────── templates/SKILL.md（跨平台 skill）
+│   └── SKILL.md
+├── .codesee/                              viewer/
+│   ├── prompts/*.md           ←────────── prompts/*.md（scan / scan-sdd / sync / ...）
+│   ├── scripts/               ←────────── scripts/validate-features.mjs
+│   ├── features.json          ──────────→ 拖入 viewer
+│   └── layout.json            ←────────── viewer 保存（File System Access API）
+└── 你的代码（或 .specify / .trellis / .bmad-core / ... SDD 项目）
 ```
 
 | 层 | 内容 | 谁维护 |
@@ -150,12 +156,13 @@ npm run dev
 
 ## 最佳实践
 
-### 两种使用场景
+### 三种使用场景
 
 | 场景 | 时机 | 方式 |
 | ---- | ---- | ---- |
 | **A. 从0开发（推荐）** | 和 AI 从零开始一个新项目 | 先装 CodeSee，再开发。AI 每写完一个功能就更新 features.json |
-| **B. 接入已有项目** | 给已有项目加 CodeSee | 先跑一次全量扫描，之后切换到增量同步 |
+| **B. SDD 项目** | 项目已用 spec-kit / Trellis / BMAD / Agent Skills | CodeSee 自动检测并直接消费 spec/PRD 文档——最准、最省 token |
+| **C. 接入已有项目** | 给已有的纯代码项目加 CodeSee | 先跑一次代码全量扫描，之后切换到增量同步 |
 
 ### 为什么"从0开发"是最佳实践
 
@@ -188,6 +195,17 @@ npm run dev
 4. 之后每次代码改动自动触发增量同步
 ```
 
+### SDD 项目的工作流
+
+```
+1. 安装 CodeSee——install 脚本自动检测你用的 SDD 框架
+2. AI 读取 .codesee/prompts/scan-sdd.md → 直接消费 spec/PRD 文档
+3. 你在 SDD 框架里完成任务 → AI 触发 sync（无需重扫源码）
+4. 画布反映的是你的 spec 库结构，而非代码结构
+```
+
+这是最准确的路径：spec → features.json 是正向投影（意图保真），而 code → features.json 是反向工程（意图丢失）。
+
 ---
 
 ## 设计原则
@@ -208,13 +226,18 @@ codeSee/
 │   ├── src/{fcg,graph,app,lib}
 │   └── public/{features,layout}.json   示例数据
 ├── prompts/                 AI prompt 模板（通过 install 脚本拷贝到目标项目）
-│   ├── scan.md              入口（路由到 light/heavy）
+│   ├── scan.md              入口（自动路由：sdd / planning / light / heavy）
+│   ├── scan-sdd.md          SDD 项目（spec-kit / Trellis / BMAD / Agent Skills）
 │   ├── scan-light.md        轻型项目（一次产出）
 │   ├── scan-heavy.md        重型项目（分阶段）
+│   ├── scan-planning.md     纯文档/规划阶段
 │   ├── sync.md              增量同步
 │   ├── _schema.md           Schema + 枚举 + 示例（唯一真值源）
 │   └── _rules.md            约束分级（MUST/SHOULD/MAY）
-├── templates/               AGENTS.md 模板
+├── templates/               入口规则模板
+│   ├── AGENTS.md            完整 AGENTS.md
+│   ├── AGENTS-snippet.md    可追加片段（用于已有 AGENTS.md 的项目）
+│   └── SKILL.md             跨平台 skill 入口（agentskills.io 标准）
 ├── scripts/                 安装脚本 + 校验器
 ├── docs/                    设计文档
 ├── LICENSE                  MIT
@@ -275,6 +298,30 @@ AI 给每个 Epic 分配了递增的 `order`（0, 1, 2, ..., N），而不是把
 ```
 
 这会刷新 prompts、校验器和 AGENTS.md 的 CodeSee 段落，不会动你的 `features.json` 和 `layout.json`。
+</details>
+
+<details>
+<summary><strong>我的项目用了 spec-kit / Trellis / BMAD——能直接用吗？</strong></summary>
+
+可以。install 脚本自动检测这些目录：
+
+- `.specify/` — GitHub Spec Kit
+- `.trellis/` — Mindfold Trellis
+- `.bmad-core/` 或 `bmad/` — BMAD-METHOD
+- `.agents/skills/` — Agent Skills 标准
+- `.agent-os/` — Builder Methods Agent OS
+
+检测到后，install 脚本会报告找到的框架，scan.md 路由到 scan-sdd.md，AI 直接消费 spec/PRD 文档——不扫源码，准确率远高于反向工程。
+</details>
+
+<details>
+<summary><strong>AGENTS.md 和 SKILL.md 的区别？</strong></summary>
+
+`AGENTS.md` 是 Cursor、Claude Code、Kiro 等使用的原始入口规则格式——放在项目根目录。
+
+`SKILL.md` 是 [agentskills.io](https://agentskills.io/) 跨平台标准（Anthropic 2025 年 12 月发布），20+ AI 工具支持。放在 `.agents/skills/codesee/SKILL.md`。它使用渐进式披露（启动时只加载 ~30-50 token，完整指令按需加载）。
+
+install 脚本会同时写入两个文件——你的 AI IDE 会读它能理解的那个。
 </details>
 
 ---

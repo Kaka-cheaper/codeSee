@@ -99,11 +99,23 @@ export default function App() {
       e.preventDefault()
       dragCounterRef.current = 0
       setDragOver(false)
-      const f = e.dataTransfer?.files?.[0]
+      // 优先从 files 读，回退到 items（某些 IDE/编辑器拖动时 files 为空）
+      const dt = e.dataTransfer
+      if (!dt) return
+      let f: File | null = dt.files?.[0] ?? null
+      if (!f && dt.items) {
+        for (let i = 0; i < dt.items.length; i++) {
+          const item = dt.items[i]
+          if (item.kind === 'file') {
+            f = item.getAsFile()
+            if (f) break
+          }
+        }
+      }
       if (f) {
         handleFile(f)
       } else {
-        console.warn('[CodeSee] drop fired but no file', e.dataTransfer?.types)
+        console.warn('[CodeSee] drop fired but no file. types:', Array.from(dt.types ?? []), 'items:', dt.items?.length)
       }
     }
 

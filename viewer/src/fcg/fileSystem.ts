@@ -73,6 +73,9 @@ async function clearStoredHandle(repoId: string): Promise<void> {
 
 /* ------------------------- 权限验证 ------------------------- */
 
+/**
+ * 在用户手势内调用，可能弹出权限请求。
+ */
 async function ensurePermission(handle: FileSystemDirectoryHandle): Promise<boolean> {
   const opts = { mode: 'readwrite' as const }
   // @ts-expect-error queryPermission 不在标准 typings
@@ -81,6 +84,21 @@ async function ensurePermission(handle: FileSystemDirectoryHandle): Promise<bool
   // @ts-expect-error requestPermission 不在标准 typings
   const next = await handle.requestPermission(opts)
   return next === 'granted'
+}
+
+/**
+ * 仅查询权限，不请求。可以在自动加载/页面初始化时安全调用。
+ * 浏览器要求 requestPermission 必须在用户手势内调用，否则报 SecurityError。
+ */
+async function checkPermission(handle: FileSystemDirectoryHandle): Promise<boolean> {
+  const opts = { mode: 'readwrite' as const }
+  try {
+    // @ts-expect-error queryPermission 不在标准 typings
+    const cur = await handle.queryPermission(opts)
+    return cur === 'granted'
+  } catch {
+    return false
+  }
 }
 
 /* ------------------------- 对外 API ------------------------- */
@@ -168,12 +186,13 @@ export async function saveLayoutFile(
 
 /**
  * 读 layout.json：从已授权目录里读。如果没授权或文件不存在，返回 null。
+ * 自动加载场景：只查询权限不请求（避免页面初始化时弹权限框报 SecurityError）。
  */
 export async function loadLayoutFile(repoId: string): Promise<LayoutFile | null> {
   if (!isFSASupported()) return null
   const handle = await getStoredHandle(repoId)
   if (!handle) return null
-  const ok = await ensurePermission(handle)
+  const ok = await checkPermission(handle)
   if (!ok) return null
   try {
     const fileHandle = await handle.getFileHandle('layout.json')

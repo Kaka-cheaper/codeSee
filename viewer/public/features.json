@@ -1,330 +1,686 @@
 {
   "version": "0",
   "manifest": {
-    "repo": "demo/online-shop",
-    "commit": "abc1234",
-    "generated_at": "2026-05-15T00:00:00.000Z",
-    "generator": "user"
+    "repo": "codesee",
+    "generated_at": "2026-05-16T00:00:00.000Z",
+    "generator": "ai@claude-opus",
+    "lang": "zh-CN"
   },
   "epics": [
-    { "id": "auth", "name": "用户认证", "summary": "注册、登录、权限管理", "order": 0, "importance": "normal" },
-    { "id": "catalog", "name": "商品浏览", "summary": "商品列表、搜索、详情", "order": 1, "importance": "core" },
-    { "id": "cart", "name": "购物车", "summary": "加购、改数量、清空", "order": 1, "importance": "core" },
-    { "id": "order", "name": "订单与支付", "summary": "下单、支付、回调、发货", "order": 2, "importance": "core" },
-    { "id": "admin", "name": "后台管理", "summary": "商品上架、订单处理、数据看板", "order": 3, "importance": "auxiliary" }
+    { "id": "install", "name": "集成安装", "summary": "把 CodeSee 注入到任意目标项目，一次执行注入提示词、AGENTS.md、校验器、技能入口", "order": 0, "importance": "core", "tags": ["entry"] },
+    { "id": "scan", "name": "首次扫描", "summary": "AI 读项目（源码或 SDD 文档）产出语义流程图数据", "order": 1, "importance": "core" },
+    { "id": "viewer", "name": "画布与可视化", "summary": "前端读取数据渲染语义流程图，支持三视图切换与详情下钻", "order": 2, "importance": "core" },
+    { "id": "layout", "name": "布局编辑与持久化", "summary": "拖动节点、保存布局、自动保存、实时刷新画布", "order": 3, "importance": "core" },
+    { "id": "sync", "name": "增量同步", "summary": "代码改动后增量更新数据，遵守检查点协议", "order": 4, "importance": "core" },
+    { "id": "validate", "name": "校验工具", "summary": "结构与质量校验脚本，AI 写完必须自检通过", "order": 5, "importance": "auxiliary" }
   ],
   "features": [
     {
-      "id": "f-register",
-      "name": "用户注册",
-      "summary": "邮箱注册，发送验证邮件",
-      "epicId": "auth",
-      "triggers": [{ "kind": "http", "detail": "POST /api/auth/register" }],
-      "tags": ["auth"],
+      "id": "f-install",
+      "name": "一键集成",
+      "summary": "把提示词、AGENTS.md、校验器注入目标项目",
+      "epicId": "install",
+      "triggers": [
+        { "kind": "cli", "detail": "pwsh scripts/install.ps1 <target> [-Force]" },
+        { "kind": "cli", "detail": "bash scripts/install.sh <target> [--force]" }
+      ],
+      "tags": ["cli"],
       "steps": [
-        { "id": "input", "name": "接收注册表单", "role": "input" },
-        { "id": "validate", "name": "校验邮箱格式", "role": "validation" },
-        { "id": "check-dup", "name": "查重邮箱", "role": "data-read" },
-        { "id": "hash", "name": "哈希密码", "role": "compute" },
-        { "id": "save", "name": "写入用户表", "role": "data-write" },
-        { "id": "send-email", "name": "发送验证邮件", "role": "side-effect" },
-        { "id": "ok", "name": "返回注册成功", "role": "output" },
-        { "id": "fail-dup", "name": "返回邮箱已存在", "role": "error" }
+        { "id": "verify-target", "name": "验证目标目录", "role": "validation", "refs": [{ "file": "scripts/install.ps1" }] },
+        { "id": "detect-sdd", "name": "检测规范驱动框架", "role": "data-read", "note": "查找 .specify / .trellis / .bmad-core / .agents/skills 等目录", "refs": [{ "file": "scripts/install.ps1" }] },
+        { "id": "copy-prompts", "name": "拷贝提示词", "role": "data-write", "refs": [{ "file": "scripts/install.ps1" }, { "file": "scripts/install.sh" }] },
+        { "id": "merge-agents", "name": "合并 AGENTS 文件", "role": "data-write", "note": "三态合并：无文件直接拷贝 / 有文件无标记则追加片段 / 已有标记则按起止标记替换", "refs": [{ "file": "templates/AGENTS.md" }, { "file": "templates/AGENTS-snippet.md" }] },
+        { "id": "copy-skill", "name": "拷贝技能入口", "role": "data-write", "note": "兼容标准技能入口规范", "refs": [{ "file": "templates/SKILL.md" }] },
+        { "id": "copy-validator", "name": "拷贝校验脚本", "role": "data-write", "refs": [{ "file": "scripts/validate-features.mjs" }] },
+        { "id": "write-gitignore", "name": "写入忽略规则", "role": "data-write", "refs": [{ "file": "scripts/install.ps1" }] },
+        { "id": "ok", "name": "提示后续步骤", "role": "output" },
+        { "id": "fail-target", "name": "目录无效报错", "role": "error" }
       ],
       "flow": [
-        { "from": "input", "to": "validate", "kind": "next" },
-        { "from": "validate", "to": "check-dup", "kind": "next" },
-        { "from": "check-dup", "to": "hash", "kind": "conditional", "condition": "邮箱可用" },
-        { "from": "check-dup", "to": "fail-dup", "kind": "conditional", "condition": "邮箱已存在" },
-        { "from": "hash", "to": "save", "kind": "next" },
-        { "from": "save", "to": "ok", "kind": "next" },
-        { "from": "save", "to": "send-email", "kind": "async" }
+        { "from": "verify-target", "to": "detect-sdd", "kind": "conditional", "condition": "目录有效" },
+        { "from": "verify-target", "to": "fail-target", "kind": "error", "condition": "目录不存在或等于自身" },
+        { "from": "detect-sdd", "to": "copy-prompts", "kind": "next" },
+        { "from": "copy-prompts", "to": "merge-agents", "kind": "next" },
+        { "from": "merge-agents", "to": "copy-skill", "kind": "next" },
+        { "from": "copy-skill", "to": "copy-validator", "kind": "next" },
+        { "from": "copy-validator", "to": "write-gitignore", "kind": "next" },
+        { "from": "write-gitignore", "to": "ok", "kind": "next" }
       ],
       "confidence": 0.95,
-      "provenance": "user",
-      "updated_at": "2026-05-15T00:00:00.000Z"
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
     },
     {
-      "id": "f-login",
-      "name": "用户登录",
-      "summary": "邮箱密码登录，签发 JWT",
-      "epicId": "auth",
-      "triggers": [{ "kind": "http", "detail": "POST /api/auth/login" }],
-      "tags": ["auth"],
+      "id": "f-scan-entry",
+      "name": "扫描入口分流",
+      "summary": "判断项目阶段并路由到子提示词",
+      "epicId": "scan",
+      "triggers": [{ "kind": "manual", "detail": "AI 读取 .codesee/prompts/scan.md" }],
+      "tags": ["prompt"],
       "steps": [
-        { "id": "input", "name": "接收登录请求", "role": "input" },
-        { "id": "find", "name": "查询用户", "role": "data-read" },
-        { "id": "verify", "name": "比对密码", "role": "auth" },
-        { "id": "issue", "name": "签发令牌", "role": "compute" },
-        { "id": "ok", "name": "返回令牌", "role": "output" },
-        { "id": "fail", "name": "返回认证失败", "role": "error" }
+        { "id": "ask-lang", "name": "询问输出语言", "role": "input", "note": "默认中文，写入清单", "refs": [{ "file": "prompts/scan.md" }] },
+        { "id": "detect-sdd", "name": "检测规范框架", "role": "data-read", "refs": [{ "file": "prompts/scan.md" }] },
+        { "id": "scale-check", "name": "规模自检", "role": "validation", "note": "文件数 / 子模块 / 端点数 / 业务领域数", "refs": [{ "file": "prompts/scan.md" }] },
+        { "id": "route", "name": "路由到子提示词", "role": "compute", "refs": [{ "file": "prompts/scan.md" }] },
+        { "id": "report", "name": "告知用户档位", "role": "output" }
       ],
       "flow": [
-        { "from": "input", "to": "find", "kind": "next" },
-        { "from": "find", "to": "verify", "kind": "next" },
-        { "from": "verify", "to": "issue", "kind": "conditional", "condition": "密码正确" },
-        { "from": "verify", "to": "fail", "kind": "conditional", "condition": "密码错误" },
-        { "from": "issue", "to": "ok", "kind": "next" }
-      ],
-      "confidence": 0.95,
-      "provenance": "user",
-      "updated_at": "2026-05-15T00:00:00.000Z"
-    },
-    {
-      "id": "f-product-list",
-      "name": "商品列表",
-      "summary": "分页查询商品，支持分类筛选",
-      "epicId": "catalog",
-      "triggers": [{ "kind": "http", "detail": "GET /api/products" }],
-      "tags": ["catalog"],
-      "steps": [
-        { "id": "input", "name": "解析查询参数", "role": "input" },
-        { "id": "query", "name": "查询商品表", "role": "data-read" },
-        { "id": "format", "name": "格式化列表", "role": "transform" },
-        { "id": "ok", "name": "返回商品列表", "role": "output" }
-      ],
-      "flow": [
-        { "from": "input", "to": "query", "kind": "next" },
-        { "from": "query", "to": "format", "kind": "next" },
-        { "from": "format", "to": "ok", "kind": "next" }
-      ],
-      "confidence": 0.95,
-      "provenance": "user",
-      "updated_at": "2026-05-15T00:00:00.000Z"
-    },
-    {
-      "id": "f-product-search",
-      "name": "商品搜索",
-      "summary": "关键词全文搜索商品",
-      "epicId": "catalog",
-      "triggers": [{ "kind": "http", "detail": "GET /api/products/search" }],
-      "tags": ["catalog", "search"],
-      "steps": [
-        { "id": "input", "name": "接收搜索词", "role": "input" },
-        { "id": "search", "name": "全文检索", "role": "data-read" },
-        { "id": "rank", "name": "相关度排序", "role": "compute" },
-        { "id": "ok", "name": "返回搜索结果", "role": "output" }
-      ],
-      "flow": [
-        { "from": "input", "to": "search", "kind": "next" },
-        { "from": "search", "to": "rank", "kind": "next" },
-        { "from": "rank", "to": "ok", "kind": "next" }
+        { "from": "ask-lang", "to": "detect-sdd", "kind": "next" },
+        { "from": "detect-sdd", "to": "route", "kind": "conditional", "condition": "命中规范框架" },
+        { "from": "detect-sdd", "to": "scale-check", "kind": "conditional", "condition": "未命中规范框架" },
+        { "from": "scale-check", "to": "route", "kind": "next" },
+        { "from": "route", "to": "report", "kind": "next" }
       ],
       "confidence": 0.9,
-      "provenance": "user",
-      "updated_at": "2026-05-15T00:00:00.000Z"
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
     },
     {
-      "id": "f-product-detail",
-      "name": "商品详情",
-      "summary": "查看单个商品的完整信息与库存",
-      "epicId": "catalog",
-      "triggers": [{ "kind": "http", "detail": "GET /api/products/:id" }],
-      "tags": ["catalog"],
+      "id": "f-scan-light",
+      "name": "轻型扫描",
+      "summary": "百文件以下项目一次性产出数据",
+      "epicId": "scan",
+      "triggers": [{ "kind": "manual", "detail": "AI 执行 .codesee/prompts/scan-light.md" }],
+      "tags": ["prompt"],
       "steps": [
-        { "id": "input", "name": "解析商品 ID", "role": "input" },
-        { "id": "fetch", "name": "查询商品详情", "role": "data-read" },
-        { "id": "stock", "name": "查询实时库存", "role": "data-read" },
-        { "id": "ok", "name": "返回详情", "role": "output" },
-        { "id": "not-found", "name": "返回商品不存在", "role": "error" }
+        { "id": "read-all", "name": "通读项目", "role": "data-read", "refs": [{ "file": "prompts/scan-light.md" }] },
+        { "id": "draw-epics", "name": "划分模块", "role": "compute", "note": "3-6 个，给阶段编号与重要性" },
+        { "id": "extract-features", "name": "抽取功能", "role": "compute", "note": "反问'用户一句话能说清吗'，区分功能与组件" },
+        { "id": "write-steps", "name": "写步骤与流转", "role": "compute", "note": "3-10 个步骤，流转类型必填" },
+        { "id": "attach-refs", "name": "挂载源码引用", "role": "transform" },
+        { "id": "write-cross", "name": "写跨功能关系", "role": "compute" },
+        { "id": "write-epic-flow", "name": "写主线", "role": "compute" },
+        { "id": "calibrate-conf", "name": "校准置信度", "role": "compute" },
+        { "id": "save-file", "name": "写入数据文件", "role": "data-write" },
+        { "id": "validate", "name": "跑校验脚本", "role": "side-effect" },
+        { "id": "fail-validate", "name": "校验失败修复", "role": "error" }
       ],
       "flow": [
-        { "from": "input", "to": "fetch", "kind": "next" },
-        { "from": "fetch", "to": "stock", "kind": "conditional", "condition": "商品存在" },
-        { "from": "fetch", "to": "not-found", "kind": "conditional", "condition": "商品不存在" },
-        { "from": "stock", "to": "ok", "kind": "next" }
+        { "from": "read-all", "to": "draw-epics", "kind": "next" },
+        { "from": "draw-epics", "to": "extract-features", "kind": "next" },
+        { "from": "extract-features", "to": "write-steps", "kind": "next" },
+        { "from": "write-steps", "to": "attach-refs", "kind": "next" },
+        { "from": "attach-refs", "to": "write-cross", "kind": "next" },
+        { "from": "write-cross", "to": "write-epic-flow", "kind": "next" },
+        { "from": "write-epic-flow", "to": "calibrate-conf", "kind": "next" },
+        { "from": "calibrate-conf", "to": "save-file", "kind": "next" },
+        { "from": "save-file", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "fail-validate", "kind": "error", "condition": "退出码非 0" }
       ],
       "confidence": 0.9,
-      "provenance": "user",
-      "updated_at": "2026-05-15T00:00:00.000Z"
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
     },
     {
-      "id": "f-add-to-cart",
-      "name": "加入购物车",
-      "summary": "将商品加入当前用户的购物车",
-      "epicId": "cart",
-      "triggers": [{ "kind": "http", "detail": "POST /api/cart/items" }],
-      "tags": ["cart"],
+      "id": "f-scan-heavy",
+      "name": "重型扫描",
+      "summary": "百文件以上项目分四阶段累积产出",
+      "epicId": "scan",
+      "triggers": [{ "kind": "manual", "detail": "AI 执行 .codesee/prompts/scan-heavy.md" }],
+      "tags": ["prompt"],
       "steps": [
-        { "id": "input", "name": "接收加购请求", "role": "input" },
-        { "id": "auth", "name": "验证登录态", "role": "auth" },
-        { "id": "check-stock", "name": "校验库存", "role": "data-read" },
-        { "id": "upsert", "name": "写入购物车", "role": "data-write" },
-        { "id": "ok", "name": "返回购物车", "role": "output" },
-        { "id": "fail-stock", "name": "返回库存不足", "role": "error" }
+        { "id": "phase1-index", "name": "建立骨架索引", "role": "compute", "note": "只填名称与归属，不写步骤", "refs": [{ "file": "prompts/scan-heavy.md" }] },
+        { "id": "checkpoint1", "name": "请用户确认", "role": "output" },
+        { "id": "phase2-deep", "name": "逐模块深入", "role": "compute", "note": "抽步骤与流转" },
+        { "id": "phase3-cross", "name": "写关系与主线", "role": "compute", "note": "发布订阅占比不少于三成（有事件机制时）" },
+        { "id": "phase4-audit", "name": "整体回补自检", "role": "validation" },
+        { "id": "save-file", "name": "写入数据文件", "role": "data-write" },
+        { "id": "validate", "name": "跑校验脚本", "role": "side-effect" },
+        { "id": "fail-validate", "name": "校验失败修复", "role": "error" }
       ],
       "flow": [
-        { "from": "input", "to": "auth", "kind": "next" },
-        { "from": "auth", "to": "check-stock", "kind": "next" },
-        { "from": "check-stock", "to": "upsert", "kind": "conditional", "condition": "库存充足" },
-        { "from": "check-stock", "to": "fail-stock", "kind": "conditional", "condition": "库存不足" },
-        { "from": "upsert", "to": "ok", "kind": "next" }
-      ],
-      "confidence": 0.9,
-      "provenance": "user",
-      "updated_at": "2026-05-15T00:00:00.000Z"
-    },
-    {
-      "id": "f-view-cart",
-      "name": "查看购物车",
-      "summary": "展示当前用户购物车内容与总价",
-      "epicId": "cart",
-      "triggers": [{ "kind": "http", "detail": "GET /api/cart" }],
-      "tags": ["cart"],
-      "steps": [
-        { "id": "input", "name": "验证登录态", "role": "auth" },
-        { "id": "fetch", "name": "查询购物车", "role": "data-read" },
-        { "id": "calc", "name": "计算总价", "role": "compute" },
-        { "id": "ok", "name": "返回购物车详情", "role": "output" }
-      ],
-      "flow": [
-        { "from": "input", "to": "fetch", "kind": "next" },
-        { "from": "fetch", "to": "calc", "kind": "next" },
-        { "from": "calc", "to": "ok", "kind": "next" }
-      ],
-      "confidence": 0.95,
-      "provenance": "user",
-      "updated_at": "2026-05-15T00:00:00.000Z"
-    },
-    {
-      "id": "f-checkout",
-      "name": "下单结算",
-      "summary": "提交订单，调用支付，扣库存",
-      "epicId": "order",
-      "triggers": [{ "kind": "http", "detail": "POST /api/orders/checkout" }],
-      "tags": ["order", "payment"],
-      "steps": [
-        { "id": "input", "name": "接收订单", "role": "input" },
-        { "id": "lock-stock", "name": "锁定库存", "role": "data-write" },
-        { "id": "calc", "name": "计算总价", "role": "compute" },
-        { "id": "save", "name": "创建订单记录", "role": "data-write" },
-        { "id": "pay", "name": "调用支付网关", "role": "side-effect" },
-        { "id": "ok", "name": "返回订单号", "role": "output" },
-        { "id": "fail-stock", "name": "库存不足回滚", "role": "error" }
-      ],
-      "flow": [
-        { "from": "input", "to": "lock-stock", "kind": "next" },
-        { "from": "lock-stock", "to": "calc", "kind": "conditional", "condition": "锁定成功" },
-        { "from": "lock-stock", "to": "fail-stock", "kind": "conditional", "condition": "库存不足" },
-        { "from": "calc", "to": "save", "kind": "next" },
-        { "from": "save", "to": "pay", "kind": "next" },
-        { "from": "pay", "to": "ok", "kind": "async" }
+        { "from": "phase1-index", "to": "checkpoint1", "kind": "next" },
+        { "from": "checkpoint1", "to": "phase2-deep", "kind": "next" },
+        { "from": "phase2-deep", "to": "phase3-cross", "kind": "next" },
+        { "from": "phase3-cross", "to": "phase4-audit", "kind": "next" },
+        { "from": "phase4-audit", "to": "save-file", "kind": "next" },
+        { "from": "save-file", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "fail-validate", "kind": "error", "condition": "退出码非 0" }
       ],
       "confidence": 0.85,
-      "provenance": "user",
-      "updated_at": "2026-05-15T00:00:00.000Z"
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
     },
     {
-      "id": "f-pay-callback",
-      "name": "支付回调",
-      "summary": "接收支付网关回调，更新订单状态，触发发货",
-      "epicId": "order",
-      "triggers": [{ "kind": "http", "detail": "POST /api/orders/pay-callback" }],
-      "tags": ["order", "payment"],
+      "id": "f-scan-sdd",
+      "name": "规范文档扫描",
+      "summary": "命中规范框架时直接消费需求文档而不读源码",
+      "epicId": "scan",
+      "triggers": [{ "kind": "manual", "detail": "命中 .specify / .trellis / .bmad-core 等目录" }],
+      "tags": ["prompt", "sdd"],
       "steps": [
-        { "id": "input", "name": "接收回调", "role": "input" },
-        { "id": "verify", "name": "验证签名", "role": "auth" },
-        { "id": "update", "name": "更新订单状态", "role": "data-write" },
-        { "id": "deduct", "name": "正式扣减库存", "role": "data-write" },
-        { "id": "notify", "name": "通知发货系统", "role": "side-effect" },
-        { "id": "ok", "name": "返回确认", "role": "output" },
-        { "id": "fail-sign", "name": "签名验证失败", "role": "error" }
+        { "id": "locate-spec", "name": "定位规范文档", "role": "data-read", "refs": [{ "file": "prompts/scan-sdd.md" }] },
+        { "id": "read-prd", "name": "读取需求文档", "role": "data-read" },
+        { "id": "extract-epics", "name": "抽取模块功能", "role": "compute" },
+        { "id": "mark-status", "name": "标记规划或已实现", "role": "transform" },
+        { "id": "save-file", "name": "写入数据文件", "role": "data-write" },
+        { "id": "validate", "name": "跑校验脚本", "role": "side-effect" },
+        { "id": "fail-validate", "name": "校验失败修复", "role": "error" }
       ],
       "flow": [
-        { "from": "input", "to": "verify", "kind": "next" },
-        { "from": "verify", "to": "update", "kind": "conditional", "condition": "签名有效" },
-        { "from": "verify", "to": "fail-sign", "kind": "conditional", "condition": "签名无效" },
-        { "from": "update", "to": "deduct", "kind": "next" },
-        { "from": "deduct", "to": "notify", "kind": "async" },
-        { "from": "deduct", "to": "ok", "kind": "next" }
+        { "from": "locate-spec", "to": "read-prd", "kind": "next" },
+        { "from": "read-prd", "to": "extract-epics", "kind": "next" },
+        { "from": "extract-epics", "to": "mark-status", "kind": "next" },
+        { "from": "mark-status", "to": "save-file", "kind": "next" },
+        { "from": "save-file", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "fail-validate", "kind": "error", "condition": "退出码非 0" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-scan-planning",
+      "name": "规划阶段扫描",
+      "summary": "纯文档项目产出规划版功能",
+      "epicId": "scan",
+      "triggers": [{ "kind": "manual", "detail": "项目几乎无源码时" }],
+      "tags": ["prompt"],
+      "steps": [
+        { "id": "read-docs", "name": "读设计文档", "role": "data-read", "refs": [{ "file": "prompts/scan-planning.md" }] },
+        { "id": "tag-planned", "name": "打规划标签", "role": "transform" },
+        { "id": "low-conf", "name": "降低置信度", "role": "transform", "note": "等代码实现后再升级" },
+        { "id": "save-file", "name": "写入数据文件", "role": "data-write" },
+        { "id": "validate", "name": "跑校验脚本", "role": "side-effect" },
+        { "id": "fail-validate", "name": "校验失败修复", "role": "error" }
+      ],
+      "flow": [
+        { "from": "read-docs", "to": "tag-planned", "kind": "next" },
+        { "from": "tag-planned", "to": "low-conf", "kind": "next" },
+        { "from": "low-conf", "to": "save-file", "kind": "next" },
+        { "from": "save-file", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "fail-validate", "kind": "error", "condition": "退出码非 0" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-load-features",
+      "name": "加载功能数据",
+      "summary": "启动自动加载、打开按钮、拖入三种入口",
+      "epicId": "viewer",
+      "triggers": [
+        { "kind": "startup", "detail": "页面挂载时自动加载" },
+        { "kind": "ui", "detail": "顶栏点击打开按钮" },
+        { "kind": "ui", "detail": "拖入文件" }
+      ],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "auto-fsa", "name": "尝试目录加载", "role": "data-read", "note": "查浏览器持久化的目录句柄，根目录或子目录里查找数据文件", "refs": [{ "file": "viewer/src/fcg/fileSystem.ts" }, { "file": "viewer/src/App.tsx" }] },
+        { "id": "auto-storage", "name": "尝试本地缓存", "role": "data-read", "refs": [{ "file": "viewer/src/fcg/loader.ts" }] },
+        { "id": "auto-bundled", "name": "兜底加载示例", "role": "data-read", "note": "即本仓库自身的语义图", "refs": [{ "file": "viewer/src/fcg/loader.ts" }] },
+        { "id": "pick-dir", "name": "弹目录选择器", "role": "input", "note": "一次性授权，后续永不重弹", "refs": [{ "file": "viewer/src/fcg/fileSystem.ts" }] },
+        { "id": "drop-file", "name": "接收拖入文件", "role": "input", "refs": [{ "file": "viewer/src/App.tsx" }] },
+        { "id": "validate-schema", "name": "校验文件结构", "role": "validation", "refs": [{ "file": "viewer/src/fcg/loader.ts" }] },
+        { "id": "set-state", "name": "更新画布状态", "role": "output" },
+        { "id": "fail-invalid", "name": "提示格式不合法", "role": "error" }
+      ],
+      "flow": [
+        { "from": "auto-fsa", "to": "validate-schema", "kind": "conditional", "condition": "目录已授权且找到文件" },
+        { "from": "auto-fsa", "to": "auto-storage", "kind": "conditional", "condition": "未授权或未找到" },
+        { "from": "auto-storage", "to": "auto-bundled", "kind": "conditional", "condition": "本地无缓存" },
+        { "from": "auto-storage", "to": "validate-schema", "kind": "conditional", "condition": "本地有缓存" },
+        { "from": "auto-bundled", "to": "validate-schema", "kind": "next" },
+        { "from": "pick-dir", "to": "validate-schema", "kind": "next" },
+        { "from": "drop-file", "to": "validate-schema", "kind": "next" },
+        { "from": "validate-schema", "to": "set-state", "kind": "conditional", "condition": "格式合法" },
+        { "from": "validate-schema", "to": "fail-invalid", "kind": "error", "condition": "格式非法" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-render-graph",
+      "name": "渲染语义流程图",
+      "summary": "用 React Flow 渲染节点、边、容器、缩略图",
+      "epicId": "viewer",
+      "triggers": [{ "kind": "event", "detail": "数据状态变化时重渲染" }],
+      "tags": ["frontend", "render"],
+      "steps": [
+        { "id": "build-view", "name": "构建节点与边", "role": "compute", "note": "概览/功能/流程三种视图各有独立节点集合", "refs": [{ "file": "viewer/src/graph/fcgView.ts" }] },
+        { "id": "measure", "name": "测量节点尺寸", "role": "compute", "note": "先以透明状态渲染，待测出宽高再跑布局", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "elk-layout", "name": "算节点位置", "role": "compute", "refs": [{ "file": "viewer/src/graph/layout.ts" }] },
+        { "id": "merge-prev", "name": "合并历史位置", "role": "transform", "note": "已存在节点复用旧位置，新节点用算法位置并触发淡入" },
+        { "id": "fade-in", "name": "新节点淡入", "role": "side-effect", "refs": [{ "file": "viewer/src/graph/nodeAnim.ts" }, { "file": "viewer/src/index.css" }] },
+        { "id": "render-rf", "name": "提交画布渲染", "role": "output" }
+      ],
+      "flow": [
+        { "from": "build-view", "to": "measure", "kind": "next" },
+        { "from": "measure", "to": "elk-layout", "kind": "next" },
+        { "from": "elk-layout", "to": "merge-prev", "kind": "next" },
+        { "from": "merge-prev", "to": "fade-in", "kind": "async", "condition": "存在新增节点" },
+        { "from": "merge-prev", "to": "render-rf", "kind": "next" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-view-switch",
+      "name": "三视图切换",
+      "summary": "在概览、功能、流程之间下钻或返回",
+      "epicId": "viewer",
+      "triggers": [
+        { "kind": "ui", "detail": "顶栏视图切换按钮" },
+        { "kind": "ui", "detail": "双击模块进入功能视图" },
+        { "kind": "ui", "detail": "双击功能进入流程视图" }
+      ],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "click", "name": "接收切换或双击", "role": "input", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "set-mode", "name": "更新视图模式", "role": "transform" },
+        { "id": "fit-view", "name": "平滑过渡视图", "role": "side-effect", "note": "调用画布自适应函数带过渡动画" },
+        { "id": "ok", "name": "重算并渲染", "role": "output" }
+      ],
+      "flow": [
+        { "from": "click", "to": "set-mode", "kind": "next" },
+        { "from": "set-mode", "to": "fit-view", "kind": "async" },
+        { "from": "fit-view", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.95,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-details-panel",
+      "name": "节点详情面板",
+      "summary": "点击节点弹出右侧详情，展示摘要与引用",
+      "epicId": "viewer",
+      "triggers": [{ "kind": "ui", "detail": "单击节点" }],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "click", "name": "捕获节点单击", "role": "input", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "lookup", "name": "查找节点元数据", "role": "data-read", "refs": [{ "file": "viewer/src/graph/DetailsPanel.tsx" }] },
+        { "id": "render-panel", "name": "渲染详情面板", "role": "output" },
+        { "id": "close", "name": "关闭面板", "role": "input", "note": "点空白处或按 ESC" }
+      ],
+      "flow": [
+        { "from": "click", "to": "lookup", "kind": "next" },
+        { "from": "lookup", "to": "render-panel", "kind": "next" },
+        { "from": "close", "to": "render-panel", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-i18n",
+      "name": "中英文切换",
+      "summary": "界面文案中英双语，记忆用户选择",
+      "epicId": "viewer",
+      "triggers": [{ "kind": "ui", "detail": "顶栏语言切换按钮" }],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "init", "name": "读取语言偏好", "role": "data-read", "refs": [{ "file": "viewer/src/lib/i18n.ts" }, { "file": "viewer/src/App.tsx" }] },
+        { "id": "click", "name": "切换语言", "role": "input" },
+        { "id": "persist", "name": "持久化偏好", "role": "data-write" },
+        { "id": "rerender", "name": "重渲染文案", "role": "output" }
+      ],
+      "flow": [
+        { "from": "init", "to": "rerender", "kind": "next" },
+        { "from": "click", "to": "persist", "kind": "next" },
+        { "from": "persist", "to": "rerender", "kind": "next" }
+      ],
+      "confidence": 0.95,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-error-fallback",
+      "name": "容错与降级",
+      "summary": "异常边界与未知枚举兜底防白屏",
+      "epicId": "viewer",
+      "triggers": [{ "kind": "event", "detail": "组件树抛错或数据含非法枚举" }],
+      "tags": ["frontend", "robustness"],
+      "steps": [
+        { "id": "catch", "name": "捕获组件异常", "role": "validation", "refs": [{ "file": "viewer/src/app/ErrorBoundary.tsx" }] },
+        { "id": "enum-fallback", "name": "未知枚举走默认值", "role": "transform", "note": "样式映射表都加兜底", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }, { "file": "viewer/src/graph/StepNodeView.tsx" }] },
+        { "id": "self-heal", "name": "本地缓存自愈", "role": "side-effect", "note": "校验失败立刻清理，下次刷新不再卡死", "refs": [{ "file": "viewer/src/fcg/loader.ts" }] },
+        { "id": "show-card", "name": "展示错误卡片", "role": "output" }
+      ],
+      "flow": [
+        { "from": "catch", "to": "show-card", "kind": "next" },
+        { "from": "enum-fallback", "to": "show-card", "kind": "next" },
+        { "from": "self-heal", "to": "show-card", "kind": "next" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-edit-layout",
+      "name": "拖动编辑布局",
+      "summary": "节点与容器拖动，容器内部节点跟随",
+      "epicId": "layout",
+      "triggers": [{ "kind": "ui", "detail": "鼠标拖动节点或容器" }],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "drag", "name": "捕获拖动事件", "role": "input", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "apply-changes", "name": "应用变更", "role": "transform", "note": "受控模式下统一处理位置变化" },
+        { "id": "follow-group", "name": "容器内节点跟随", "role": "transform", "note": "监听容器位置变化，将偏移量传递到组内节点" },
+        { "id": "recalc-bounds", "name": "重算容器包围盒", "role": "compute" },
+        { "id": "write-cache", "name": "写本地缓存", "role": "data-write", "refs": [{ "file": "viewer/src/graph/positionStorage.ts" }] }
+      ],
+      "flow": [
+        { "from": "drag", "to": "apply-changes", "kind": "next" },
+        { "from": "apply-changes", "to": "follow-group", "kind": "conditional", "condition": "拖动的是容器" },
+        { "from": "apply-changes", "to": "recalc-bounds", "kind": "conditional", "condition": "拖动的是节点" },
+        { "from": "follow-group", "to": "recalc-bounds", "kind": "next" },
+        { "from": "recalc-bounds", "to": "write-cache", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-save-layout",
+      "name": "保存布局到磁盘",
+      "summary": "把节点位置写入与数据同目录的布局文件",
+      "epicId": "layout",
+      "triggers": [{ "kind": "ui", "detail": "工具栏保存按钮" }],
+      "tags": ["frontend", "fsa"],
+      "steps": [
+        { "id": "click", "name": "点击保存", "role": "input", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "write-cache", "name": "写本地缓存", "role": "data-write" },
+        { "id": "check-handle", "name": "查目录授权", "role": "data-read", "refs": [{ "file": "viewer/src/fcg/fileSystem.ts" }] },
+        { "id": "ensure-perm", "name": "确认读写权限", "role": "auth", "note": "必要时弹小权限框，绝不弹文件夹选择器" },
+        { "id": "resolve-target", "name": "判断写入位置", "role": "compute", "note": "与数据同目录" },
+        { "id": "write-file", "name": "写入布局文件", "role": "data-write" },
+        { "id": "ok", "name": "提示保存成功", "role": "output" },
+        { "id": "fallback-storage", "name": "无授权仅缓存", "role": "other", "note": "提示用户先点打开按钮选目录" },
+        { "id": "fail-perm", "name": "权限被拒报错", "role": "error" }
+      ],
+      "flow": [
+        { "from": "click", "to": "write-cache", "kind": "next" },
+        { "from": "write-cache", "to": "check-handle", "kind": "next" },
+        { "from": "check-handle", "to": "ensure-perm", "kind": "conditional", "condition": "已有目录授权" },
+        { "from": "check-handle", "to": "fallback-storage", "kind": "conditional", "condition": "无目录授权" },
+        { "from": "ensure-perm", "to": "resolve-target", "kind": "conditional", "condition": "权限通过" },
+        { "from": "ensure-perm", "to": "fail-perm", "kind": "error", "condition": "权限被拒" },
+        { "from": "resolve-target", "to": "write-file", "kind": "next" },
+        { "from": "write-file", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-autosave",
+      "name": "自动保存",
+      "summary": "拖动停止后防抖写盘，永不重弹选择器",
+      "epicId": "layout",
+      "triggers": [{ "kind": "ui", "detail": "工具栏自动保存开关" }],
+      "tags": ["frontend", "fsa"],
+      "steps": [
+        { "id": "toggle", "name": "切换开关", "role": "input", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "check-handle", "name": "查目录授权", "role": "data-read", "refs": [{ "file": "viewer/src/fcg/fileSystem.ts" }] },
+        { "id": "ensure-perm", "name": "确认读写权限", "role": "auth", "note": "已授权时只弹小权限框" },
+        { "id": "persist-flag", "name": "持久化开关", "role": "data-write" },
+        { "id": "debounce-write", "name": "节流写入文件", "role": "side-effect", "note": "拖动停止后延迟落盘" },
+        { "id": "guide-pick", "name": "引导先点打开", "role": "output", "note": "无授权时不在此处弹选择器" },
+        { "id": "fail-perm", "name": "授权被拒提示", "role": "error" }
+      ],
+      "flow": [
+        { "from": "toggle", "to": "check-handle", "kind": "conditional", "condition": "切换为开" },
+        { "from": "toggle", "to": "persist-flag", "kind": "conditional", "condition": "切换为关" },
+        { "from": "check-handle", "to": "ensure-perm", "kind": "conditional", "condition": "已有授权" },
+        { "from": "check-handle", "to": "guide-pick", "kind": "conditional", "condition": "无授权" },
+        { "from": "ensure-perm", "to": "persist-flag", "kind": "conditional", "condition": "权限通过" },
+        { "from": "ensure-perm", "to": "fail-perm", "kind": "error", "condition": "权限被拒" },
+        { "from": "persist-flag", "to": "debounce-write", "kind": "async" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-undo-redo",
+      "name": "撤销与重做",
+      "summary": "拖动后用快捷键在历史栈中跳转",
+      "epicId": "layout",
+      "triggers": [
+        { "kind": "ui", "detail": "工具栏撤销重做按钮" },
+        { "kind": "ui", "detail": "撤销重做快捷键" }
+      ],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "drag-stop", "name": "拖动结束记录", "role": "data-write", "refs": [{ "file": "viewer/src/graph/useUndoRedo.ts" }] },
+        { "id": "input", "name": "捕获按键事件", "role": "input" },
+        { "id": "apply", "name": "应用历史快照", "role": "transform" },
+        { "id": "ok", "name": "更新画布位置", "role": "output" }
+      ],
+      "flow": [
+        { "from": "drag-stop", "to": "input", "kind": "next" },
+        { "from": "input", "to": "apply", "kind": "next" },
+        { "from": "apply", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-live-reload",
+      "name": "画布实时刷新",
+      "summary": "AI 改完文件后画布自动应用变更并淡入新节点",
+      "epicId": "layout",
+      "triggers": [{ "kind": "ui", "detail": "顶栏实时开关" }],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "toggle", "name": "开启实时", "role": "input", "refs": [{ "file": "viewer/src/App.tsx" }] },
+        { "id": "poll", "name": "定时轮询数据", "role": "data-read", "note": "网址模式拉取；目录模式从已授权目录读", "refs": [{ "file": "viewer/src/fcg/useFileWatcher.ts" }] },
+        { "id": "diff", "name": "对比内容变化", "role": "compute" },
+        { "id": "parse", "name": "解析新内容", "role": "transform" },
+        { "id": "notify", "name": "通知画布更新", "role": "output", "note": "新节点会按淡入动画出现" },
+        { "id": "skip-noop", "name": "无变化跳过", "role": "other" },
+        { "id": "fail-parse", "name": "解析失败忽略本次", "role": "error" }
+      ],
+      "flow": [
+        { "from": "toggle", "to": "poll", "kind": "next" },
+        { "from": "poll", "to": "diff", "kind": "async" },
+        { "from": "diff", "to": "parse", "kind": "conditional", "condition": "内容有变化" },
+        { "from": "diff", "to": "skip-noop", "kind": "conditional", "condition": "内容未变" },
+        { "from": "parse", "to": "notify", "kind": "next" },
+        { "from": "parse", "to": "fail-parse", "kind": "error", "condition": "JSON 解析异常" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-sync-incremental",
+      "name": "增量同步",
+      "summary": "代码改动后只动受影响的功能",
+      "epicId": "sync",
+      "triggers": [{ "kind": "manual", "detail": "AI 读取 .codesee/prompts/sync.md" }],
+      "tags": ["prompt"],
+      "steps": [
+        { "id": "scene-judge", "name": "判断同步场景", "role": "compute", "note": "从零开发 / 已有项目改动 / 规划升级实现", "refs": [{ "file": "prompts/sync.md" }] },
+        { "id": "read-current", "name": "读取现有数据", "role": "data-read", "note": "获取语言设置决定输出语言" },
+        { "id": "read-diff", "name": "读取代码差异", "role": "data-read" },
+        { "id": "infer-target", "name": "推断受影响功能", "role": "compute" },
+        { "id": "respect-locked", "name": "保护锁定与他人", "role": "validation", "note": "不重命名既有标识，废弃用过期标签" },
+        { "id": "patch", "name": "写入最小变更", "role": "data-write" },
+        { "id": "validate", "name": "跑校验脚本", "role": "side-effect" },
+        { "id": "summary", "name": "回报变更摘要", "role": "output" },
+        { "id": "fail-validate", "name": "校验失败回头修", "role": "error" }
+      ],
+      "flow": [
+        { "from": "scene-judge", "to": "read-current", "kind": "next" },
+        { "from": "read-current", "to": "read-diff", "kind": "next" },
+        { "from": "read-diff", "to": "infer-target", "kind": "next" },
+        { "from": "infer-target", "to": "respect-locked", "kind": "next" },
+        { "from": "respect-locked", "to": "patch", "kind": "next" },
+        { "from": "patch", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "summary", "kind": "conditional", "condition": "退出码 0" },
+        { "from": "validate", "to": "fail-validate", "kind": "error", "condition": "退出码 1" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-sync-checkpoint",
+      "name": "检查点协议",
+      "summary": "大任务拆成多个逻辑闭环，每完成一个就同步",
+      "epicId": "sync",
+      "triggers": [{ "kind": "manual", "detail": "用户给的任务涉及多文件" }],
+      "tags": ["prompt", "process"],
+      "steps": [
+        { "id": "split", "name": "拆分逻辑闭环", "role": "compute", "note": "用户能感知 + 可独立验证 = 一个闭环", "refs": [{ "file": "prompts/sync.md" }] },
+        { "id": "implement", "name": "实现一个闭环", "role": "side-effect" },
+        { "id": "checkpoint-sync", "name": "立即同步", "role": "data-write" },
+        { "id": "next-loop", "name": "进入下一个闭环", "role": "other" },
+        { "id": "final-audit", "name": "最终一致性核查", "role": "validation", "note": "覆盖度 / 关系 / 主线 / 引用 / 校验器" },
+        { "id": "report", "name": "汇报检查点", "role": "output" },
+        { "id": "fail-audit", "name": "核查不通过修复", "role": "error" }
+      ],
+      "flow": [
+        { "from": "split", "to": "implement", "kind": "next" },
+        { "from": "implement", "to": "checkpoint-sync", "kind": "next" },
+        { "from": "checkpoint-sync", "to": "next-loop", "kind": "loop", "condition": "还有未完成闭环" },
+        { "from": "next-loop", "to": "implement", "kind": "next" },
+        { "from": "checkpoint-sync", "to": "final-audit", "kind": "conditional", "condition": "所有闭环完成" },
+        { "from": "final-audit", "to": "report", "kind": "next" },
+        { "from": "final-audit", "to": "fail-audit", "kind": "error", "condition": "覆盖度不足或校验失败" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
+    },
+    {
+      "id": "f-sync-planned-upgrade",
+      "name": "规划升级实现",
+      "summary": "把规划中的功能升级为已实现（仅本次改过的）",
+      "epicId": "sync",
+      "triggers": [{ "kind": "manual", "detail": "存在规划标签且本次任务动过其引用文件" }],
+      "tags": ["prompt"],
+      "steps": [
+        { "id": "find-planned", "name": "查规划标签功能", "role": "data-read", "refs": [{ "file": "prompts/sync.md" }] },
+        { "id": "match-mine", "name": "匹配本次改动", "role": "compute", "note": "多智能体安全：引用文件存在不等于已实现" },
+        { "id": "remove-tag", "name": "移除规划标签", "role": "transform" },
+        { "id": "fill-refs", "name": "补真实引用", "role": "transform" },
+        { "id": "raise-conf", "name": "升置信度", "role": "transform" },
+        { "id": "refine-steps", "name": "细化步骤", "role": "compute" },
+        { "id": "add-error", "name": "补错误分支", "role": "compute" },
+        { "id": "save-file", "name": "写入数据文件", "role": "data-write" },
+        { "id": "skip-others", "name": "他人功能保持原状", "role": "other", "note": "可能正在被别人实现" },
+        { "id": "fail-mismatch", "name": "无匹配跳过", "role": "error" }
+      ],
+      "flow": [
+        { "from": "find-planned", "to": "match-mine", "kind": "next" },
+        { "from": "match-mine", "to": "remove-tag", "kind": "conditional", "condition": "本次确实动过" },
+        { "from": "match-mine", "to": "skip-others", "kind": "conditional", "condition": "本次未动" },
+        { "from": "match-mine", "to": "fail-mismatch", "kind": "error", "condition": "无任何匹配" },
+        { "from": "remove-tag", "to": "fill-refs", "kind": "next" },
+        { "from": "fill-refs", "to": "raise-conf", "kind": "next" },
+        { "from": "raise-conf", "to": "refine-steps", "kind": "next" },
+        { "from": "refine-steps", "to": "add-error", "kind": "next" },
+        { "from": "add-error", "to": "save-file", "kind": "next" }
       ],
       "confidence": 0.8,
-      "provenance": "user",
-      "updated_at": "2026-05-15T00:00:00.000Z"
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
     },
     {
-      "id": "f-order-list",
-      "name": "我的订单",
-      "summary": "查看当前用户的历史订单列表",
-      "epicId": "order",
-      "triggers": [{ "kind": "http", "detail": "GET /api/orders" }],
-      "tags": ["order"],
+      "id": "f-validate-structure",
+      "name": "结构校验",
+      "summary": "校验枚举、必填、引用完整性",
+      "epicId": "validate",
+      "triggers": [
+        { "kind": "cli", "detail": "node .codesee/scripts/validate-features.mjs" },
+        { "kind": "cli", "detail": "可加 --strict 把警告也视为错误" }
+      ],
+      "tags": ["cli"],
       "steps": [
-        { "id": "input", "name": "验证登录态", "role": "auth" },
-        { "id": "query", "name": "查询订单列表", "role": "data-read" },
-        { "id": "ok", "name": "返回订单列表", "role": "output" }
+        { "id": "read-file", "name": "读取数据文件", "role": "data-read", "refs": [{ "file": "scripts/validate-features.mjs" }] },
+        { "id": "parse-json", "name": "解析 JSON", "role": "transform" },
+        { "id": "check-version", "name": "校验顶层", "role": "validation" },
+        { "id": "check-epics", "name": "校验模块唯一性", "role": "validation" },
+        { "id": "check-features", "name": "校验功能必填", "role": "validation", "note": "归属引用、来源、置信度范围" },
+        { "id": "check-steps", "name": "校验步骤角色", "role": "validation" },
+        { "id": "check-flow", "name": "校验流转端点", "role": "validation", "note": "类型必填，自环报错" },
+        { "id": "check-cross", "name": "校验跨功能与主线", "role": "validation" },
+        { "id": "report", "name": "输出错误清单", "role": "output" },
+        { "id": "exit-1", "name": "有错以非零退出", "role": "error" }
       ],
       "flow": [
-        { "from": "input", "to": "query", "kind": "next" },
-        { "from": "query", "to": "ok", "kind": "next" }
+        { "from": "read-file", "to": "parse-json", "kind": "next" },
+        { "from": "parse-json", "to": "check-version", "kind": "next" },
+        { "from": "check-version", "to": "check-epics", "kind": "next" },
+        { "from": "check-epics", "to": "check-features", "kind": "next" },
+        { "from": "check-features", "to": "check-steps", "kind": "next" },
+        { "from": "check-steps", "to": "check-flow", "kind": "next" },
+        { "from": "check-flow", "to": "check-cross", "kind": "next" },
+        { "from": "check-cross", "to": "report", "kind": "next" },
+        { "from": "report", "to": "exit-1", "kind": "error", "condition": "存在错误" }
       ],
       "confidence": 0.95,
-      "provenance": "user",
-      "updated_at": "2026-05-15T00:00:00.000Z"
+      "provenance": "ai",
+      "updated_at": "2026-05-16T00:00:00.000Z"
     },
     {
-      "id": "f-admin-products",
-      "name": "商品管理",
-      "summary": "后台上架、下架、编辑商品",
-      "epicId": "admin",
-      "triggers": [{ "kind": "ui", "detail": "管理后台 - 商品页" }],
-      "tags": ["admin"],
+      "id": "f-validate-heuristic",
+      "name": "启发式质量警告",
+      "summary": "检测命名反例与关系比例失衡",
+      "epicId": "validate",
+      "triggers": [{ "kind": "cli", "detail": "结构校验通过后自动跑" }],
+      "tags": ["cli"],
       "steps": [
-        { "id": "input", "name": "管理员操作", "role": "input" },
-        { "id": "auth", "name": "校验管理员权限", "role": "auth" },
-        { "id": "crud", "name": "执行增删改", "role": "data-write" },
-        { "id": "invalidate", "name": "清除商品缓存", "role": "side-effect" },
-        { "id": "ok", "name": "返回操作结果", "role": "output" }
+        { "id": "step-name", "name": "扫命名反例", "role": "compute", "note": "禁止英文标识符 / 函数调用形式 / 调用某某后跟代码", "refs": [{ "file": "scripts/validate-features.mjs" }] },
+        { "id": "ratio-check", "name": "查关系比例", "role": "compute", "note": "触发占比过高且无发布订阅则警告" },
+        { "id": "async-check", "name": "查异步比例", "role": "compute", "note": "副作用多但异步占比低则警告" },
+        { "id": "conf-uniform", "name": "查置信度雷同", "role": "compute" },
+        { "id": "report-warn", "name": "输出建议警告", "role": "output" }
       ],
       "flow": [
-        { "from": "input", "to": "auth", "kind": "next" },
-        { "from": "auth", "to": "crud", "kind": "next" },
-        { "from": "crud", "to": "invalidate", "kind": "async" },
-        { "from": "crud", "to": "ok", "kind": "next" }
+        { "from": "step-name", "to": "ratio-check", "kind": "next" },
+        { "from": "ratio-check", "to": "async-check", "kind": "next" },
+        { "from": "async-check", "to": "conf-uniform", "kind": "next" },
+        { "from": "conf-uniform", "to": "report-warn", "kind": "next" }
       ],
-      "confidence": 0.85,
+      "confidence": 0.8,
       "provenance": "ai",
-      "updated_at": "2026-05-15T00:00:00.000Z"
-    },
-    {
-      "id": "f-admin-dashboard",
-      "name": "数据看板",
-      "summary": "展示销售额、订单量、热门商品等统计",
-      "epicId": "admin",
-      "triggers": [{ "kind": "ui", "detail": "管理后台 - 看板页" }],
-      "tags": ["admin", "analytics"],
-      "steps": [
-        { "id": "input", "name": "加载看板页", "role": "input" },
-        { "id": "auth", "name": "校验管理员权限", "role": "auth" },
-        { "id": "agg-sales", "name": "聚合销售数据", "role": "compute" },
-        { "id": "agg-orders", "name": "聚合订单数据", "role": "compute" },
-        { "id": "render", "name": "渲染图表", "role": "output" }
-      ],
-      "flow": [
-        { "from": "input", "to": "auth", "kind": "next" },
-        { "from": "auth", "to": "agg-sales", "kind": "next" },
-        { "from": "auth", "to": "agg-orders", "kind": "next" },
-        { "from": "agg-sales", "to": "render", "kind": "next" },
-        { "from": "agg-orders", "to": "render", "kind": "next" }
-      ],
-      "confidence": 0.7,
-      "provenance": "ai",
-      "updated_at": "2026-05-15T00:00:00.000Z"
+      "updated_at": "2026-05-16T00:00:00.000Z"
     }
   ],
   "cross_feature": [
-    { "from": "f-register", "to": "f-login", "kind": "triggers", "note": "注册完成后引导登录" },
-    { "from": "f-login", "to": "f-add-to-cart", "kind": "triggers", "note": "登录后才能加购" },
-    { "from": "f-product-detail", "to": "f-add-to-cart", "kind": "triggers", "note": "详情页点击加购" },
-    { "from": "f-view-cart", "to": "f-checkout", "kind": "triggers", "note": "购物车点击结算" },
-    { "from": "f-checkout", "to": "f-pay-callback", "kind": "publishes", "note": "支付网关异步回调" },
-    { "from": "f-pay-callback", "to": "f-order-list", "kind": "publishes", "note": "支付成功后订单可见" },
-    { "from": "f-admin-products", "to": "f-product-list", "kind": "publishes", "note": "上架后商品列表更新" }
+    { "from": "f-install", "to": "f-scan-entry", "kind": "triggers", "note": "安装完成后 AI 触发首次扫描" },
+    { "from": "f-scan-entry", "to": "f-scan-light", "kind": "triggers", "note": "轻型项目走轻型扫描" },
+    { "from": "f-scan-entry", "to": "f-scan-heavy", "kind": "triggers", "note": "重型项目走重型扫描" },
+    { "from": "f-scan-entry", "to": "f-scan-sdd", "kind": "triggers", "note": "规范项目直接消费文档" },
+    { "from": "f-scan-entry", "to": "f-scan-planning", "kind": "triggers", "note": "纯文档项目走规划扫描" },
+    { "from": "f-scan-light", "to": "f-validate-structure", "kind": "depends_on", "note": "扫描完必须跑校验" },
+    { "from": "f-scan-heavy", "to": "f-validate-structure", "kind": "depends_on", "note": "扫描完必须跑校验" },
+    { "from": "f-scan-sdd", "to": "f-validate-structure", "kind": "depends_on", "note": "扫描完必须跑校验" },
+    { "from": "f-scan-planning", "to": "f-validate-structure", "kind": "depends_on", "note": "扫描完必须跑校验" },
+    { "from": "f-scan-light", "to": "f-load-features", "kind": "publishes", "note": "扫描产物供前端加载" },
+    { "from": "f-scan-heavy", "to": "f-load-features", "kind": "publishes", "note": "扫描产物供前端加载" },
+    { "from": "f-load-features", "to": "f-render-graph", "kind": "triggers", "note": "加载完成后渲染" },
+    { "from": "f-render-graph", "to": "f-view-switch", "kind": "depends_on", "note": "视图切换基于已渲染图" },
+    { "from": "f-render-graph", "to": "f-details-panel", "kind": "depends_on", "note": "详情面板依赖节点存在" },
+    { "from": "f-render-graph", "to": "f-edit-layout", "kind": "depends_on", "note": "拖动基于已渲染节点" },
+    { "from": "f-edit-layout", "to": "f-save-layout", "kind": "triggers", "note": "用户拖完点保存" },
+    { "from": "f-edit-layout", "to": "f-autosave", "kind": "triggers", "note": "开了自动保存就静默落盘" },
+    { "from": "f-edit-layout", "to": "f-undo-redo", "kind": "triggers", "note": "拖动结束写入历史栈" },
+    { "from": "f-save-layout", "to": "f-load-features", "kind": "publishes", "note": "下次启动自动恢复布局" },
+    { "from": "f-autosave", "to": "f-load-features", "kind": "publishes", "note": "下次启动自动恢复布局" },
+    { "from": "f-sync-incremental", "to": "f-live-reload", "kind": "publishes", "note": "AI 改完文件画布自动刷新" },
+    { "from": "f-sync-incremental", "to": "f-validate-structure", "kind": "depends_on", "note": "同步完必须跑校验" },
+    { "from": "f-sync-checkpoint", "to": "f-sync-incremental", "kind": "triggers", "note": "每个检查点触发一次同步" },
+    { "from": "f-sync-planned-upgrade", "to": "f-sync-incremental", "kind": "depends_on", "note": "规划升级是同步的特殊场景" },
+    { "from": "f-validate-structure", "to": "f-validate-heuristic", "kind": "triggers", "note": "结构通过后跑启发式" },
+    { "from": "f-error-fallback", "to": "f-load-features", "kind": "subscribes", "note": "监听加载失败兜底" },
+    { "from": "f-error-fallback", "to": "f-render-graph", "kind": "subscribes", "note": "监听渲染异常兜底" }
   ],
   "epic_flow": [
-    { "from": "auth", "to": "catalog", "kind": "next", "note": "登录后浏览商品" },
-    { "from": "catalog", "to": "cart", "kind": "next", "note": "看中商品加入购物车" },
-    { "from": "cart", "to": "order", "kind": "next", "note": "购物车结算下单" },
-    { "from": "order", "to": "admin", "kind": "next", "note": "订单产生后后台处理" }
+    { "from": "install", "to": "scan", "kind": "next", "note": "集成完成后 AI 启动首次扫描" },
+    { "from": "scan", "to": "viewer", "kind": "next", "note": "扫描产物喂给前端可视化" },
+    { "from": "viewer", "to": "layout", "kind": "next", "note": "看到图后才会动手编辑布局" },
+    { "from": "layout", "to": "sync", "kind": "enables", "note": "布局保存使后续同步可以平滑刷新" },
+    { "from": "sync", "to": "viewer", "kind": "next", "note": "同步后实时刷新画布" },
+    { "from": "scan", "to": "validate", "kind": "depends_on", "note": "扫描产物必须通过校验" },
+    { "from": "sync", "to": "validate", "kind": "depends_on", "note": "每次同步必须通过校验" }
   ]
 }

@@ -253,15 +253,20 @@ export async function pickDirectoryAndLoadFeatures(
 }
 
 /**
- * 自动加载：从已授权目录读 features.json。仅查询权限不请求。
+ * 自动加载：从已授权目录读 features.json。
+ * - 默认（自动场景）：仅查询权限不请求，避免无用户手势时报 SecurityError
+ * - requestIfNeeded=true（用户手势场景）：权限是 prompt 时弹小权限框请求授权
  */
 export async function autoLoadFeaturesFromStoredDir(
   repoId: string,
+  options: { requestIfNeeded?: boolean } = {},
 ): Promise<FeaturesReadResult | null> {
   if (!isFSASupported()) return null
   const handle = await getStoredHandle(repoId)
   if (!handle) return null
-  const ok = await checkPermission(handle)
+  const ok = options.requestIfNeeded
+    ? await ensurePermission(handle)
+    : await checkPermission(handle)
   if (!ok) return null
   return loadFeaturesFromDirectory(handle)
 }

@@ -92,8 +92,14 @@ export default function App() {
     return merged
   }, [])
 
-  /** 把项目数据加载到画布。不改 lastOpenedAt（调用方控制）。 */
-  const loadProject = useCallback(async (repoId: string): Promise<boolean> => {
+  /** 把项目数据加载到画布。不改 lastOpenedAt（调用方控制）。
+   * fromUserGesture=true 时（用户点击切换），FSA 项目会主动请求权限（弹小权限框）。
+   * 启动自动加载场景下传 false，避免无用户手势时报 SecurityError。
+   */
+  const loadProject = useCallback(async (
+    repoId: string,
+    fromUserGesture: boolean = false,
+  ): Promise<boolean> => {
     setError(null)
 
     // 1. 内置项目
@@ -125,10 +131,18 @@ export default function App() {
     }
 
     if (project.kind === 'fsa') {
-      const fsa = await autoLoadFeaturesFromStoredDir(repoId)
+      // 用户手势场景：权限是 prompt 时弹小权限框请求；
+      // 启动自动场景：仅查询权限，丢了就提示用户去重新点一次
+      const fsa = await autoLoadFeaturesFromStoredDir(repoId, {
+        requestIfNeeded: fromUserGesture,
+      })
       if (!fsa) {
-        // 授权可能丢了，提示用户重新选择
-        setError(`目录「${project.displayName}」未授权或文件已不存在，请重新打开`)
+        if (fromUserGesture) {
+          // 用户手动点了仍然失败 → 授权被拒或文件不存在
+          setError(`无法访问「${project.displayName}」：可能授权被拒或目录已移动。请用「添加项目」重新选择。`)
+        } else {
+          // 启动自动场景失败 → 不报错，让候选回退机制接管
+        }
         return false
       }
       const parsed = loadFromText(fsa.raw, fsa.fileName)
@@ -173,7 +187,8 @@ export default function App() {
 
   /** 切换到某项目（用户操作）：更新 lastOpenedAt，更新 active，加载内容 */
   const switchProject = useCallback(async (repoId: string) => {
-    const ok = await loadProject(repoId)
+    // fromUserGesture=true：FSA 项目权限是 prompt 时会弹小权限框
+    const ok = await loadProject(repoId, true)
     if (!ok) return
     setActiveRepoId(repoId)
     try { localStorage.setItem(ACTIVE_REPO_KEY, repoId) } catch { /* noop */ }

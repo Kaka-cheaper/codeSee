@@ -2,28 +2,40 @@
  * 内置示例项目：始终可用、无需授权、做"看不懂就先看示例"的入口。
  *
  * URL 走 BASE_URL，部署到 GitHub Pages 等子路径也能正确解析。
+ *
+ * 启动时支持 URL 参数指定默认项目：
+ *   ?example=codesee     → 默认中文版（CodeSee 自身）
+ *   ?example=codesee-en  → 默认英文版
+ *   ?example=blog-system → 默认博客示例
+ *   未指定                → 按浏览器语言自动选（zh-* → 中文，否则英文）
  */
 
 import { makeRepoId, type ProjectEntry } from './fileSystem'
 
 export interface BundledProjectDef {
-  /** 稳定的 slug，用于生成 repoId 和 fetch URL */
+  /** 稳定的 slug，用于生成 repoId、fetch URL 与 ?example= 参数 */
   slug: string
   displayName: string
   sourceLabel: string
   /** features.json 相对 BASE_URL 的路径 */
   path: string
-  /** 可选的精挑布局 layout.json 路径——优先于 fallback。
-   *  让首屏看到的 codesee/blog-system 等是"作者人挑过的"布局，而不是 ELK 默认输出。 */
+  /** 可选的精挑布局 layout.json 路径——优先于 fallback。 */
   layoutPath?: string
 }
 
 const BUNDLED_DEFS: BundledProjectDef[] = [
   {
     slug: 'codesee',
-    displayName: 'CodeSee',
+    displayName: 'CodeSee（中文）',
     sourceLabel: '内置示例',
     path: 'features.json',
+    layoutPath: 'examples/codesee-layout.json',
+  },
+  {
+    slug: 'codesee-en',
+    displayName: 'CodeSee (English)',
+    sourceLabel: 'Bundled example',
+    path: 'examples/codesee-en.json',
     layoutPath: 'examples/codesee-layout.json',
   },
   {
@@ -53,13 +65,34 @@ export function bundledAsProjectEntry(): ProjectEntry[] {
     displayName: b.displayName,
     sourceLabel: b.sourceLabel,
     bundledUrl: b.url,
-    lastOpenedAt: 0, // 内置项目不会因"打开"提升排序
+    lastOpenedAt: 0,
     addedAt: now,
   }))
 }
 
-/** 默认首启项目（CodeSee 自身） */
+/**
+ * 决定首屏默认加载哪个内置项目：
+ *   1. URL ?example=<slug> 显式指定
+ *   2. 浏览器语言：zh-* → codesee；其他 → codesee-en
+ */
 export function getDefaultBundledRepoId(): string {
+  // 1. URL 参数
+  if (typeof window !== 'undefined') {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const slug = params.get('example')
+      if (slug && BUNDLED_DEFS.some((d) => d.slug === slug)) {
+        return makeRepoId('bundled', slug)
+      }
+    } catch { /* noop */ }
+  }
+  // 2. 浏览器语言
+  if (typeof navigator !== 'undefined') {
+    const lang = (navigator.language || '').toLowerCase()
+    if (!lang.startsWith('zh')) {
+      return makeRepoId('bundled', 'codesee-en')
+    }
+  }
   return makeRepoId('bundled', 'codesee')
 }
 

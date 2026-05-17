@@ -40,6 +40,16 @@ export default function App() {
       const stored = localStorage.getItem('codesee.locale')
       if (stored === 'en' || stored === 'zh-CN') return stored
     } catch { /* noop */ }
+    // 首启无偏好：跟 URL ?example=codesee-en 或浏览器语言走
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const slug = params.get('example')
+      if (slug === 'codesee-en' || slug === 'blog-system') return 'en'
+      if (slug === 'codesee') return 'zh-CN'
+    } catch { /* noop */ }
+    if (typeof navigator !== 'undefined' && !navigator.language?.toLowerCase().startsWith('zh')) {
+      return 'en'
+    }
     return 'zh-CN'
   })
   const handleSetLocale = useCallback((l: Locale) => {

@@ -68,9 +68,6 @@ export function TopBar({
         <span className="text-[13px] font-medium tracking-tight text-[var(--color-fg)]">
           CodeSee
         </span>
-        <span className="ml-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-2)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-fg-subtle)]">
-          MVP
-        </span>
         {status === 'missing' && (
           <span className="ml-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-2)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-fg-muted)]">
             {t('topbar.noData')}

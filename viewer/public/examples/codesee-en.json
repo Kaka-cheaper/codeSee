@@ -1,0 +1,686 @@
+{
+  "version": "0",
+  "manifest": {
+    "repo": "codesee",
+    "generated_at": "2026-05-17T00:00:00.000Z",
+    "generator": "ai@claude-opus",
+    "lang": "en"
+  },
+  "epics": [
+    { "id": "install", "name": "Install", "summary": "Inject CodeSee (prompts, AGENTS.md, validator, skill entry) into any target project", "order": 0, "importance": "core", "tags": ["entry"] },
+    { "id": "scan", "name": "First Scan", "summary": "AI reads the project (source or SDD docs) and produces the semantic flow graph", "order": 1, "importance": "core" },
+    { "id": "viewer", "name": "Canvas & Visualization", "summary": "Frontend renders the semantic flow graph with three views and detail drill-down", "order": 2, "importance": "core" },
+    { "id": "layout", "name": "Layout Editing & Persistence", "summary": "Drag nodes, save layout, autosave, live-reload the canvas", "order": 3, "importance": "core" },
+    { "id": "sync", "name": "Incremental Sync", "summary": "After every code change, only the affected features are updated, following the checkpoint protocol", "order": 4, "importance": "core" },
+    { "id": "validate", "name": "Validator", "summary": "Schema and quality checks. AI must pass it after every write.", "order": 5, "importance": "auxiliary" }
+  ],
+  "features": [
+    {
+      "id": "f-install",
+      "name": "One-shot Install",
+      "summary": "Inject prompts, AGENTS.md, and validator into the target project",
+      "epicId": "install",
+      "triggers": [
+        { "kind": "cli", "detail": "pwsh scripts/install.ps1 <target> [-Force]" },
+        { "kind": "cli", "detail": "bash scripts/install.sh <target> [--force]" }
+      ],
+      "tags": ["cli"],
+      "steps": [
+        { "id": "verify-target", "name": "Verify target dir", "role": "validation", "refs": [{ "file": "scripts/install.ps1" }] },
+        { "id": "detect-sdd", "name": "Detect SDD framework", "role": "data-read", "note": "Look for .specify / .trellis / .bmad-core / .agents/skills etc.", "refs": [{ "file": "scripts/install.ps1" }] },
+        { "id": "copy-prompts", "name": "Copy prompts", "role": "data-write", "refs": [{ "file": "scripts/install.ps1" }, { "file": "scripts/install.sh" }] },
+        { "id": "merge-agents", "name": "Merge AGENTS.md", "role": "data-write", "note": "Three-way merge: copy if absent / append snippet if no marker / replace by markers if marker present", "refs": [{ "file": "templates/AGENTS.md" }, { "file": "templates/AGENTS-snippet.md" }] },
+        { "id": "copy-skill", "name": "Copy SKILL entry", "role": "data-write", "note": "agentskills.io cross-platform standard", "refs": [{ "file": "templates/SKILL.md" }] },
+        { "id": "copy-validator", "name": "Copy validator", "role": "data-write", "refs": [{ "file": "scripts/validate-features.mjs" }] },
+        { "id": "write-gitignore", "name": "Write .gitignore", "role": "data-write", "refs": [{ "file": "scripts/install.ps1" }] },
+        { "id": "ok", "name": "Print next steps", "role": "output" },
+        { "id": "fail-target", "name": "Invalid target", "role": "error" }
+      ],
+      "flow": [
+        { "from": "verify-target", "to": "detect-sdd", "kind": "conditional", "condition": "valid directory" },
+        { "from": "verify-target", "to": "fail-target", "kind": "error", "condition": "missing or self-target" },
+        { "from": "detect-sdd", "to": "copy-prompts", "kind": "next" },
+        { "from": "copy-prompts", "to": "merge-agents", "kind": "next" },
+        { "from": "merge-agents", "to": "copy-skill", "kind": "next" },
+        { "from": "copy-skill", "to": "copy-validator", "kind": "next" },
+        { "from": "copy-validator", "to": "write-gitignore", "kind": "next" },
+        { "from": "write-gitignore", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.95,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-scan-entry",
+      "name": "Scan Entry Router",
+      "summary": "Detect project stage and route to a sub-prompt",
+      "epicId": "scan",
+      "triggers": [{ "kind": "manual", "detail": "AI reads .codesee/prompts/scan.md" }],
+      "tags": ["prompt"],
+      "steps": [
+        { "id": "ask-lang", "name": "Ask output language", "role": "input", "note": "Default zh-CN, written into manifest", "refs": [{ "file": "prompts/scan.md" }] },
+        { "id": "detect-sdd", "name": "Detect SDD framework", "role": "data-read", "refs": [{ "file": "prompts/scan.md" }] },
+        { "id": "scale-check", "name": "Scale self-check", "role": "validation", "note": "files / submodules / endpoints / business domains", "refs": [{ "file": "prompts/scan.md" }] },
+        { "id": "route", "name": "Route to sub-prompt", "role": "compute", "refs": [{ "file": "prompts/scan.md" }] },
+        { "id": "report", "name": "Report chosen mode", "role": "output" }
+      ],
+      "flow": [
+        { "from": "ask-lang", "to": "detect-sdd", "kind": "next" },
+        { "from": "detect-sdd", "to": "route", "kind": "conditional", "condition": "SDD framework hit" },
+        { "from": "detect-sdd", "to": "scale-check", "kind": "conditional", "condition": "no SDD" },
+        { "from": "scale-check", "to": "route", "kind": "next" },
+        { "from": "route", "to": "report", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-scan-light",
+      "name": "Light Scan",
+      "summary": "Single-pass scan for projects under ~100 files",
+      "epicId": "scan",
+      "triggers": [{ "kind": "manual", "detail": "AI executes .codesee/prompts/scan-light.md" }],
+      "tags": ["prompt"],
+      "steps": [
+        { "id": "read-all", "name": "Read project end to end", "role": "data-read", "refs": [{ "file": "prompts/scan-light.md" }] },
+        { "id": "draw-epics", "name": "Draw epics", "role": "compute", "note": "3-6 epics with order and importance" },
+        { "id": "extract-features", "name": "Extract features", "role": "compute", "note": "Ask 'can a user say it in one sentence?' to separate features from components" },
+        { "id": "write-steps", "name": "Write steps and flow", "role": "compute", "note": "3-10 steps, flow.kind required" },
+        { "id": "attach-refs", "name": "Attach source refs", "role": "transform" },
+        { "id": "write-cross", "name": "Write cross-feature links", "role": "compute" },
+        { "id": "write-epic-flow", "name": "Write the main line", "role": "compute" },
+        { "id": "calibrate-conf", "name": "Calibrate confidence", "role": "compute" },
+        { "id": "save-file", "name": "Write features.json", "role": "data-write" },
+        { "id": "validate", "name": "Run validator", "role": "side-effect" },
+        { "id": "fail-validate", "name": "Fix validation failure", "role": "error" }
+      ],
+      "flow": [
+        { "from": "read-all", "to": "draw-epics", "kind": "next" },
+        { "from": "draw-epics", "to": "extract-features", "kind": "next" },
+        { "from": "extract-features", "to": "write-steps", "kind": "next" },
+        { "from": "write-steps", "to": "attach-refs", "kind": "next" },
+        { "from": "attach-refs", "to": "write-cross", "kind": "next" },
+        { "from": "write-cross", "to": "write-epic-flow", "kind": "next" },
+        { "from": "write-epic-flow", "to": "calibrate-conf", "kind": "next" },
+        { "from": "calibrate-conf", "to": "save-file", "kind": "next" },
+        { "from": "save-file", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "fail-validate", "kind": "error", "condition": "non-zero exit" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-scan-heavy",
+      "name": "Heavy Scan",
+      "summary": "Four-phase scan for projects over ~100 files",
+      "epicId": "scan",
+      "triggers": [{ "kind": "manual", "detail": "AI executes .codesee/prompts/scan-heavy.md" }],
+      "tags": ["prompt"],
+      "steps": [
+        { "id": "phase1-index", "name": "Build skeleton index", "role": "compute", "note": "Names and ownership only, no steps yet", "refs": [{ "file": "prompts/scan-heavy.md" }] },
+        { "id": "checkpoint1", "name": "Ask user to confirm", "role": "output" },
+        { "id": "phase2-deep", "name": "Deep dive per epic", "role": "compute", "note": "Extract steps and flow" },
+        { "id": "phase3-cross", "name": "Write relations and main line", "role": "compute", "note": "publishes/subscribes share at least 30% if there is an event mechanism" },
+        { "id": "phase4-audit", "name": "Final audit and refill", "role": "validation" },
+        { "id": "save-file", "name": "Write features.json", "role": "data-write" },
+        { "id": "validate", "name": "Run validator", "role": "side-effect" },
+        { "id": "fail-validate", "name": "Fix validation failure", "role": "error" }
+      ],
+      "flow": [
+        { "from": "phase1-index", "to": "checkpoint1", "kind": "next" },
+        { "from": "checkpoint1", "to": "phase2-deep", "kind": "next" },
+        { "from": "phase2-deep", "to": "phase3-cross", "kind": "next" },
+        { "from": "phase3-cross", "to": "phase4-audit", "kind": "next" },
+        { "from": "phase4-audit", "to": "save-file", "kind": "next" },
+        { "from": "save-file", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "fail-validate", "kind": "error", "condition": "non-zero exit" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-scan-sdd",
+      "name": "SDD Doc Scan",
+      "summary": "Consume spec/PRD docs directly when an SDD framework is detected — no source code scan",
+      "epicId": "scan",
+      "triggers": [{ "kind": "manual", "detail": ".specify / .trellis / .bmad-core etc. detected" }],
+      "tags": ["prompt", "sdd"],
+      "steps": [
+        { "id": "locate-spec", "name": "Locate spec docs", "role": "data-read", "refs": [{ "file": "prompts/scan-sdd.md" }] },
+        { "id": "read-prd", "name": "Read PRD docs", "role": "data-read" },
+        { "id": "extract-epics", "name": "Extract epics and features", "role": "compute" },
+        { "id": "mark-status", "name": "Mark planned vs implemented", "role": "transform" },
+        { "id": "save-file", "name": "Write features.json", "role": "data-write" },
+        { "id": "validate", "name": "Run validator", "role": "side-effect" },
+        { "id": "fail-validate", "name": "Fix validation failure", "role": "error" }
+      ],
+      "flow": [
+        { "from": "locate-spec", "to": "read-prd", "kind": "next" },
+        { "from": "read-prd", "to": "extract-epics", "kind": "next" },
+        { "from": "extract-epics", "to": "mark-status", "kind": "next" },
+        { "from": "mark-status", "to": "save-file", "kind": "next" },
+        { "from": "save-file", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "fail-validate", "kind": "error", "condition": "non-zero exit" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-scan-planning",
+      "name": "Planning Scan",
+      "summary": "Doc-only project produces a 'planned' features graph",
+      "epicId": "scan",
+      "triggers": [{ "kind": "manual", "detail": "Project has almost no source code" }],
+      "tags": ["prompt"],
+      "steps": [
+        { "id": "read-docs", "name": "Read design docs", "role": "data-read", "refs": [{ "file": "prompts/scan-planning.md" }] },
+        { "id": "tag-planned", "name": "Mark as planned", "role": "transform" },
+        { "id": "low-conf", "name": "Lower confidence", "role": "transform", "note": "Upgrade later when code lands" },
+        { "id": "save-file", "name": "Write features.json", "role": "data-write" },
+        { "id": "validate", "name": "Run validator", "role": "side-effect" },
+        { "id": "fail-validate", "name": "Fix validation failure", "role": "error" }
+      ],
+      "flow": [
+        { "from": "read-docs", "to": "tag-planned", "kind": "next" },
+        { "from": "tag-planned", "to": "low-conf", "kind": "next" },
+        { "from": "low-conf", "to": "save-file", "kind": "next" },
+        { "from": "save-file", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "fail-validate", "kind": "error", "condition": "non-zero exit" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-load-features",
+      "name": "Load features.json",
+      "summary": "Three entry points: startup auto-load, Open button, drag and drop",
+      "epicId": "viewer",
+      "triggers": [
+        { "kind": "startup", "detail": "Auto-load on page mount" },
+        { "kind": "ui", "detail": "Top-bar Open button" },
+        { "kind": "ui", "detail": "Drop a file on the canvas" }
+      ],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "auto-fsa", "name": "Try authorized directory", "role": "data-read", "note": "Use persisted browser directory handle, look in root or .codesee/", "refs": [{ "file": "viewer/src/fcg/fileSystem.ts" }, { "file": "viewer/src/App.tsx" }] },
+        { "id": "auto-storage", "name": "Try local cache", "role": "data-read", "refs": [{ "file": "viewer/src/fcg/loader.ts" }] },
+        { "id": "auto-bundled", "name": "Fall back to bundled example", "role": "data-read", "note": "i.e. CodeSee modeling itself", "refs": [{ "file": "viewer/src/fcg/loader.ts" }] },
+        { "id": "pick-dir", "name": "Show directory picker", "role": "input", "note": "One-time auth, never re-prompted", "refs": [{ "file": "viewer/src/fcg/fileSystem.ts" }] },
+        { "id": "drop-file", "name": "Receive dropped file", "role": "input", "refs": [{ "file": "viewer/src/App.tsx" }] },
+        { "id": "validate-schema", "name": "Validate schema", "role": "validation", "refs": [{ "file": "viewer/src/fcg/loader.ts" }] },
+        { "id": "set-state", "name": "Update canvas state", "role": "output" },
+        { "id": "fail-invalid", "name": "Show invalid format error", "role": "error" }
+      ],
+      "flow": [
+        { "from": "auto-fsa", "to": "validate-schema", "kind": "conditional", "condition": "directory authorized and file found" },
+        { "from": "auto-fsa", "to": "auto-storage", "kind": "conditional", "condition": "no auth or not found" },
+        { "from": "auto-storage", "to": "auto-bundled", "kind": "conditional", "condition": "no local cache" },
+        { "from": "auto-storage", "to": "validate-schema", "kind": "conditional", "condition": "local cache hit" },
+        { "from": "auto-bundled", "to": "validate-schema", "kind": "next" },
+        { "from": "pick-dir", "to": "validate-schema", "kind": "next" },
+        { "from": "drop-file", "to": "validate-schema", "kind": "next" },
+        { "from": "validate-schema", "to": "set-state", "kind": "conditional", "condition": "schema valid" },
+        { "from": "validate-schema", "to": "fail-invalid", "kind": "error", "condition": "schema invalid" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-render-graph",
+      "name": "Render the Graph",
+      "summary": "React Flow renders nodes, edges, containers, and the minimap",
+      "epicId": "viewer",
+      "triggers": [{ "kind": "event", "detail": "Re-render when data state changes" }],
+      "tags": ["frontend", "render"],
+      "steps": [
+        { "id": "build-view", "name": "Build nodes and edges", "role": "compute", "note": "Each view (overview / features / steps) has its own node set", "refs": [{ "file": "viewer/src/graph/fcgView.ts" }] },
+        { "id": "measure", "name": "Measure node sizes", "role": "compute", "note": "Render invisibly first to get real width/height before layout", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "elk-layout", "name": "Compute positions", "role": "compute", "refs": [{ "file": "viewer/src/graph/layout.ts" }] },
+        { "id": "merge-prev", "name": "Merge with previous positions", "role": "transform", "note": "Existing nodes keep old positions; new nodes get computed positions and trigger fade-in" },
+        { "id": "fade-in", "name": "Fade in new nodes", "role": "side-effect", "refs": [{ "file": "viewer/src/graph/nodeAnim.ts" }, { "file": "viewer/src/index.css" }] },
+        { "id": "render-rf", "name": "Hand off to React Flow", "role": "output" }
+      ],
+      "flow": [
+        { "from": "build-view", "to": "measure", "kind": "next" },
+        { "from": "measure", "to": "elk-layout", "kind": "next" },
+        { "from": "elk-layout", "to": "merge-prev", "kind": "next" },
+        { "from": "merge-prev", "to": "fade-in", "kind": "async", "condition": "new nodes exist" },
+        { "from": "merge-prev", "to": "render-rf", "kind": "next" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-view-switch",
+      "name": "Three-View Switching",
+      "summary": "Drill down or back among Overview, Features, and Steps",
+      "epicId": "viewer",
+      "triggers": [
+        { "kind": "ui", "detail": "Top-bar view switch buttons" },
+        { "kind": "ui", "detail": "Double-click an Epic to enter Features view" },
+        { "kind": "ui", "detail": "Double-click a Feature to enter Steps view" }
+      ],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "click", "name": "Receive switch or dbl-click", "role": "input", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "set-mode", "name": "Update view mode", "role": "transform" },
+        { "id": "fit-view", "name": "Smooth view transition", "role": "side-effect", "note": "Calls fitView with a transition" },
+        { "id": "ok", "name": "Recompute and render", "role": "output" }
+      ],
+      "flow": [
+        { "from": "click", "to": "set-mode", "kind": "next" },
+        { "from": "set-mode", "to": "fit-view", "kind": "async" },
+        { "from": "fit-view", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.95,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-details-panel",
+      "name": "Node Details Panel",
+      "summary": "Click a node to open the side panel with summary and refs",
+      "epicId": "viewer",
+      "triggers": [{ "kind": "ui", "detail": "Single-click on a node" }],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "click", "name": "Capture node click", "role": "input", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "lookup", "name": "Look up node metadata", "role": "data-read", "refs": [{ "file": "viewer/src/graph/DetailsPanel.tsx" }] },
+        { "id": "render-panel", "name": "Render the panel", "role": "output" },
+        { "id": "close", "name": "Close the panel", "role": "input", "note": "Click empty area or press ESC" }
+      ],
+      "flow": [
+        { "from": "click", "to": "lookup", "kind": "next" },
+        { "from": "lookup", "to": "render-panel", "kind": "next" },
+        { "from": "close", "to": "render-panel", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-i18n",
+      "name": "Bilingual UI",
+      "summary": "Toggle Chinese / English UI text and remember the choice",
+      "epicId": "viewer",
+      "triggers": [{ "kind": "ui", "detail": "Top-bar language toggle" }],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "init", "name": "Read language preference", "role": "data-read", "refs": [{ "file": "viewer/src/lib/i18n.ts" }, { "file": "viewer/src/App.tsx" }] },
+        { "id": "click", "name": "Toggle language", "role": "input" },
+        { "id": "persist", "name": "Persist preference", "role": "data-write" },
+        { "id": "rerender", "name": "Re-render UI text", "role": "output" }
+      ],
+      "flow": [
+        { "from": "init", "to": "rerender", "kind": "next" },
+        { "from": "click", "to": "persist", "kind": "next" },
+        { "from": "persist", "to": "rerender", "kind": "next" }
+      ],
+      "confidence": 0.95,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-error-fallback",
+      "name": "Error Fallback",
+      "summary": "ErrorBoundary plus unknown-enum fallback to prevent white screens",
+      "epicId": "viewer",
+      "triggers": [{ "kind": "event", "detail": "Component tree throws or data has unknown enum values" }],
+      "tags": ["frontend", "robustness"],
+      "steps": [
+        { "id": "catch", "name": "Catch component error", "role": "validation", "refs": [{ "file": "viewer/src/app/ErrorBoundary.tsx" }] },
+        { "id": "enum-fallback", "name": "Fall back unknown enums", "role": "transform", "note": "Style maps all default to 'other' / 'next'", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }, { "file": "viewer/src/graph/StepNodeView.tsx" }] },
+        { "id": "self-heal", "name": "Self-heal local cache", "role": "side-effect", "note": "On parse failure, clear immediately so refresh recovers", "refs": [{ "file": "viewer/src/fcg/loader.ts" }] },
+        { "id": "show-card", "name": "Show error card", "role": "output" }
+      ],
+      "flow": [
+        { "from": "catch", "to": "show-card", "kind": "next" },
+        { "from": "enum-fallback", "to": "show-card", "kind": "next" },
+        { "from": "self-heal", "to": "show-card", "kind": "next" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-edit-layout",
+      "name": "Drag to Edit Layout",
+      "summary": "Drag nodes and containers; container internals follow",
+      "epicId": "layout",
+      "triggers": [{ "kind": "ui", "detail": "Mouse-drag on a node or container" }],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "drag", "name": "Capture drag event", "role": "input", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "apply-changes", "name": "Apply changes", "role": "transform", "note": "Controlled-mode change handler" },
+        { "id": "follow-group", "name": "Follow group drag", "role": "transform", "note": "When the group moves, propagate offset to its members" },
+        { "id": "recalc-bounds", "name": "Recompute bounding box", "role": "compute" },
+        { "id": "write-cache", "name": "Write to local cache", "role": "data-write", "refs": [{ "file": "viewer/src/graph/positionStorage.ts" }] }
+      ],
+      "flow": [
+        { "from": "drag", "to": "apply-changes", "kind": "next" },
+        { "from": "apply-changes", "to": "follow-group", "kind": "conditional", "condition": "dragged a container" },
+        { "from": "apply-changes", "to": "recalc-bounds", "kind": "conditional", "condition": "dragged a node" },
+        { "from": "follow-group", "to": "recalc-bounds", "kind": "next" },
+        { "from": "recalc-bounds", "to": "write-cache", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-save-layout",
+      "name": "Save Layout to Disk",
+      "summary": "Write node positions to layout.json next to features.json",
+      "epicId": "layout",
+      "triggers": [{ "kind": "ui", "detail": "Toolbar save button" }],
+      "tags": ["frontend", "fsa"],
+      "steps": [
+        { "id": "click", "name": "Click save", "role": "input", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "write-cache", "name": "Write to local cache", "role": "data-write" },
+        { "id": "check-handle", "name": "Check directory auth", "role": "data-read", "refs": [{ "file": "viewer/src/fcg/fileSystem.ts" }] },
+        { "id": "ensure-perm", "name": "Ensure read/write permission", "role": "auth", "note": "Small permission popup if needed; never the folder picker" },
+        { "id": "resolve-target", "name": "Resolve write target", "role": "compute", "note": "Same folder as features.json" },
+        { "id": "write-file", "name": "Write layout file", "role": "data-write" },
+        { "id": "ok", "name": "Show 'saved' toast", "role": "output" },
+        { "id": "fallback-storage", "name": "Local cache only (no auth)", "role": "other", "note": "Tell user to click Add project first" },
+        { "id": "fail-perm", "name": "Permission denied", "role": "error" }
+      ],
+      "flow": [
+        { "from": "click", "to": "write-cache", "kind": "next" },
+        { "from": "write-cache", "to": "check-handle", "kind": "next" },
+        { "from": "check-handle", "to": "ensure-perm", "kind": "conditional", "condition": "directory authorized" },
+        { "from": "check-handle", "to": "fallback-storage", "kind": "conditional", "condition": "no directory auth" },
+        { "from": "ensure-perm", "to": "resolve-target", "kind": "conditional", "condition": "permission granted" },
+        { "from": "ensure-perm", "to": "fail-perm", "kind": "error", "condition": "permission denied" },
+        { "from": "resolve-target", "to": "write-file", "kind": "next" },
+        { "from": "write-file", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-autosave",
+      "name": "Autosave",
+      "summary": "Debounced disk write after drag stops; never re-prompts the picker",
+      "epicId": "layout",
+      "triggers": [{ "kind": "ui", "detail": "Toolbar autosave toggle" }],
+      "tags": ["frontend", "fsa"],
+      "steps": [
+        { "id": "toggle", "name": "Toggle on/off", "role": "input", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
+        { "id": "check-handle", "name": "Check directory auth", "role": "data-read", "refs": [{ "file": "viewer/src/fcg/fileSystem.ts" }] },
+        { "id": "ensure-perm", "name": "Ensure read/write permission", "role": "auth", "note": "Already authorized → small permission popup" },
+        { "id": "persist-flag", "name": "Persist toggle state", "role": "data-write" },
+        { "id": "debounce-write", "name": "Debounced disk write", "role": "side-effect", "note": "Flush some time after drag stops" },
+        { "id": "guide-pick", "name": "Guide user to Add project", "role": "output", "note": "Don't show folder picker here" },
+        { "id": "fail-perm", "name": "Permission denied notice", "role": "error" }
+      ],
+      "flow": [
+        { "from": "toggle", "to": "check-handle", "kind": "conditional", "condition": "toggling on" },
+        { "from": "toggle", "to": "persist-flag", "kind": "conditional", "condition": "toggling off" },
+        { "from": "check-handle", "to": "ensure-perm", "kind": "conditional", "condition": "authorized" },
+        { "from": "check-handle", "to": "guide-pick", "kind": "conditional", "condition": "not authorized" },
+        { "from": "ensure-perm", "to": "persist-flag", "kind": "conditional", "condition": "permission granted" },
+        { "from": "ensure-perm", "to": "fail-perm", "kind": "error", "condition": "permission denied" },
+        { "from": "persist-flag", "to": "debounce-write", "kind": "async" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-undo-redo",
+      "name": "Undo / Redo",
+      "summary": "Step through layout history with keyboard shortcuts",
+      "epicId": "layout",
+      "triggers": [
+        { "kind": "ui", "detail": "Toolbar undo/redo buttons" },
+        { "kind": "ui", "detail": "Undo/redo keyboard shortcuts" }
+      ],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "drag-stop", "name": "Snapshot on drag end", "role": "data-write", "refs": [{ "file": "viewer/src/graph/useUndoRedo.ts" }] },
+        { "id": "input", "name": "Capture key event", "role": "input" },
+        { "id": "apply", "name": "Apply history snapshot", "role": "transform" },
+        { "id": "ok", "name": "Update canvas positions", "role": "output" }
+      ],
+      "flow": [
+        { "from": "drag-stop", "to": "input", "kind": "next" },
+        { "from": "input", "to": "apply", "kind": "next" },
+        { "from": "apply", "to": "ok", "kind": "next" }
+      ],
+      "confidence": 0.9,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-live-reload",
+      "name": "Canvas Live Reload",
+      "summary": "When AI updates the file, the canvas auto-applies the change and fades in new nodes",
+      "epicId": "layout",
+      "triggers": [{ "kind": "ui", "detail": "Top-bar Live toggle" }],
+      "tags": ["frontend"],
+      "steps": [
+        { "id": "toggle", "name": "Enable Live mode", "role": "input", "refs": [{ "file": "viewer/src/App.tsx" }] },
+        { "id": "poll", "name": "Poll the source", "role": "data-read", "note": "URL fetch or read from authorized directory", "refs": [{ "file": "viewer/src/fcg/useFileWatcher.ts" }] },
+        { "id": "diff", "name": "Diff content", "role": "compute" },
+        { "id": "parse", "name": "Parse new content", "role": "transform" },
+        { "id": "notify", "name": "Notify the canvas", "role": "output", "note": "New nodes appear with fade-in animation" },
+        { "id": "skip-noop", "name": "Skip when unchanged", "role": "other" },
+        { "id": "fail-parse", "name": "Ignore parse failure this round", "role": "error" }
+      ],
+      "flow": [
+        { "from": "toggle", "to": "poll", "kind": "next" },
+        { "from": "poll", "to": "diff", "kind": "async" },
+        { "from": "diff", "to": "parse", "kind": "conditional", "condition": "content changed" },
+        { "from": "diff", "to": "skip-noop", "kind": "conditional", "condition": "content unchanged" },
+        { "from": "parse", "to": "notify", "kind": "next" },
+        { "from": "parse", "to": "fail-parse", "kind": "error", "condition": "JSON parse error" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-sync-incremental",
+      "name": "Incremental Sync",
+      "summary": "After code changes, only touch the affected features",
+      "epicId": "sync",
+      "triggers": [{ "kind": "manual", "detail": "AI reads .codesee/prompts/sync.md" }],
+      "tags": ["prompt"],
+      "steps": [
+        { "id": "scene-judge", "name": "Determine sync scenario", "role": "compute", "note": "Greenfield / change in existing project / planning upgrade", "refs": [{ "file": "prompts/sync.md" }] },
+        { "id": "read-current", "name": "Read existing data", "role": "data-read", "note": "Pick output language from manifest.lang" },
+        { "id": "read-diff", "name": "Read code diff", "role": "data-read" },
+        { "id": "infer-target", "name": "Infer affected features", "role": "compute" },
+        { "id": "respect-locked", "name": "Respect locked and others", "role": "validation", "note": "Don't rename existing ids; deprecate via tags" },
+        { "id": "patch", "name": "Write minimal change", "role": "data-write" },
+        { "id": "validate", "name": "Run validator", "role": "side-effect" },
+        { "id": "summary", "name": "Report change summary", "role": "output" },
+        { "id": "fail-validate", "name": "Fix validation failure", "role": "error" }
+      ],
+      "flow": [
+        { "from": "scene-judge", "to": "read-current", "kind": "next" },
+        { "from": "read-current", "to": "read-diff", "kind": "next" },
+        { "from": "read-diff", "to": "infer-target", "kind": "next" },
+        { "from": "infer-target", "to": "respect-locked", "kind": "next" },
+        { "from": "respect-locked", "to": "patch", "kind": "next" },
+        { "from": "patch", "to": "validate", "kind": "next" },
+        { "from": "validate", "to": "summary", "kind": "conditional", "condition": "exit code 0" },
+        { "from": "validate", "to": "fail-validate", "kind": "error", "condition": "exit code 1" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-sync-checkpoint",
+      "name": "Checkpoint Protocol",
+      "summary": "Break large tasks into logical closures, sync after each",
+      "epicId": "sync",
+      "triggers": [{ "kind": "manual", "detail": "User task spans multiple files" }],
+      "tags": ["prompt", "process"],
+      "steps": [
+        { "id": "split", "name": "Split into closures", "role": "compute", "note": "User-perceivable + independently verifiable = one closure", "refs": [{ "file": "prompts/sync.md" }] },
+        { "id": "implement", "name": "Implement one closure", "role": "side-effect" },
+        { "id": "checkpoint-sync", "name": "Sync immediately", "role": "data-write" },
+        { "id": "next-loop", "name": "Move to next closure", "role": "other" },
+        { "id": "final-audit", "name": "Final consistency audit", "role": "validation", "note": "Coverage / relations / main line / refs / validator" },
+        { "id": "report", "name": "Report checkpoints", "role": "output" },
+        { "id": "fail-audit", "name": "Fix audit failure", "role": "error" }
+      ],
+      "flow": [
+        { "from": "split", "to": "implement", "kind": "next" },
+        { "from": "implement", "to": "checkpoint-sync", "kind": "next" },
+        { "from": "checkpoint-sync", "to": "next-loop", "kind": "loop", "condition": "closures remain" },
+        { "from": "next-loop", "to": "implement", "kind": "next" },
+        { "from": "checkpoint-sync", "to": "final-audit", "kind": "conditional", "condition": "all closures done" },
+        { "from": "final-audit", "to": "report", "kind": "next" },
+        { "from": "final-audit", "to": "fail-audit", "kind": "error", "condition": "coverage gap or validator fails" }
+      ],
+      "confidence": 0.85,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-sync-planned-upgrade",
+      "name": "Planned → Implemented",
+      "summary": "Promote planned features to implemented (only those touched this round)",
+      "epicId": "sync",
+      "triggers": [{ "kind": "manual", "detail": "Planned feature exists and this task touched its refs" }],
+      "tags": ["prompt"],
+      "steps": [
+        { "id": "find-planned", "name": "Find planned features", "role": "data-read", "refs": [{ "file": "prompts/sync.md" }] },
+        { "id": "match-mine", "name": "Match my changes", "role": "compute", "note": "Multi-agent safe: refs file existing != already implemented" },
+        { "id": "remove-tag", "name": "Remove planned tag", "role": "transform" },
+        { "id": "fill-refs", "name": "Fill real refs", "role": "transform" },
+        { "id": "raise-conf", "name": "Raise confidence", "role": "transform" },
+        { "id": "refine-steps", "name": "Refine steps", "role": "compute" },
+        { "id": "add-error", "name": "Add error branches", "role": "compute" },
+        { "id": "save-file", "name": "Write features.json", "role": "data-write" },
+        { "id": "skip-others", "name": "Skip others' planned", "role": "other", "note": "Someone else may be implementing it" },
+        { "id": "fail-mismatch", "name": "Skip if no match", "role": "error" }
+      ],
+      "flow": [
+        { "from": "find-planned", "to": "match-mine", "kind": "next" },
+        { "from": "match-mine", "to": "remove-tag", "kind": "conditional", "condition": "really touched this round" },
+        { "from": "match-mine", "to": "skip-others", "kind": "conditional", "condition": "not touched" },
+        { "from": "match-mine", "to": "fail-mismatch", "kind": "error", "condition": "no match at all" },
+        { "from": "remove-tag", "to": "fill-refs", "kind": "next" },
+        { "from": "fill-refs", "to": "raise-conf", "kind": "next" },
+        { "from": "raise-conf", "to": "refine-steps", "kind": "next" },
+        { "from": "refine-steps", "to": "add-error", "kind": "next" },
+        { "from": "add-error", "to": "save-file", "kind": "next" }
+      ],
+      "confidence": 0.8,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-validate-structure",
+      "name": "Structural Validation",
+      "summary": "Validate enums, required fields, referential integrity",
+      "epicId": "validate",
+      "triggers": [
+        { "kind": "cli", "detail": "node .codesee/scripts/validate-features.mjs" },
+        { "kind": "cli", "detail": "Add --strict to treat warnings as errors" }
+      ],
+      "tags": ["cli"],
+      "steps": [
+        { "id": "read-file", "name": "Read features.json", "role": "data-read", "refs": [{ "file": "scripts/validate-features.mjs" }] },
+        { "id": "parse-json", "name": "Parse JSON", "role": "transform" },
+        { "id": "check-version", "name": "Check top-level fields", "role": "validation" },
+        { "id": "check-epics", "name": "Check epic uniqueness", "role": "validation" },
+        { "id": "check-features", "name": "Check feature requireds", "role": "validation", "note": "epicId references, provenance, confidence range" },
+        { "id": "check-steps", "name": "Check step roles", "role": "validation" },
+        { "id": "check-flow", "name": "Check flow endpoints", "role": "validation", "note": "kind required, no self-loops" },
+        { "id": "check-cross", "name": "Check cross-feature and main line", "role": "validation" },
+        { "id": "report", "name": "Print error list", "role": "output" },
+        { "id": "exit-1", "name": "Exit non-zero on error", "role": "error" }
+      ],
+      "flow": [
+        { "from": "read-file", "to": "parse-json", "kind": "next" },
+        { "from": "parse-json", "to": "check-version", "kind": "next" },
+        { "from": "check-version", "to": "check-epics", "kind": "next" },
+        { "from": "check-epics", "to": "check-features", "kind": "next" },
+        { "from": "check-features", "to": "check-steps", "kind": "next" },
+        { "from": "check-steps", "to": "check-flow", "kind": "next" },
+        { "from": "check-flow", "to": "check-cross", "kind": "next" },
+        { "from": "check-cross", "to": "report", "kind": "next" },
+        { "from": "report", "to": "exit-1", "kind": "error", "condition": "errors present" }
+      ],
+      "confidence": 0.95,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    },
+    {
+      "id": "f-validate-heuristic",
+      "name": "Heuristic Quality Warnings",
+      "summary": "Catch naming anti-patterns and unbalanced relation ratios",
+      "epicId": "validate",
+      "triggers": [{ "kind": "cli", "detail": "Run automatically after structural validation" }],
+      "tags": ["cli"],
+      "steps": [
+        { "id": "step-name", "name": "Scan name anti-patterns", "role": "compute", "note": "No English identifiers / function-call form / 'call X' followed by code", "refs": [{ "file": "scripts/validate-features.mjs" }] },
+        { "id": "ratio-check", "name": "Check relation ratios", "role": "compute", "note": "Warn if triggers >> 80% with zero pub/sub" },
+        { "id": "async-check", "name": "Check async edge ratio", "role": "compute", "note": "Warn if many side-effects but few async edges" },
+        { "id": "conf-uniform", "name": "Check confidence uniformity", "role": "compute" },
+        { "id": "report-warn", "name": "Print suggestion warnings", "role": "output" }
+      ],
+      "flow": [
+        { "from": "step-name", "to": "ratio-check", "kind": "next" },
+        { "from": "ratio-check", "to": "async-check", "kind": "next" },
+        { "from": "async-check", "to": "conf-uniform", "kind": "next" },
+        { "from": "conf-uniform", "to": "report-warn", "kind": "next" }
+      ],
+      "confidence": 0.8,
+      "provenance": "ai",
+      "updated_at": "2026-05-17T00:00:00.000Z"
+    }
+  ],
+  "cross_feature": [
+    { "from": "f-install", "to": "f-scan-entry", "kind": "triggers", "note": "Install completion triggers the first scan" },
+    { "from": "f-scan-entry", "to": "f-scan-light", "kind": "triggers", "note": "Light projects route to light scan" },
+    { "from": "f-scan-entry", "to": "f-scan-heavy", "kind": "triggers", "note": "Heavy projects route to heavy scan" },
+    { "from": "f-scan-entry", "to": "f-scan-sdd", "kind": "triggers", "note": "SDD projects consume spec docs directly" },
+    { "from": "f-scan-entry", "to": "f-scan-planning", "kind": "triggers", "note": "Doc-only projects route to planning scan" },
+    { "from": "f-scan-light", "to": "f-validate-structure", "kind": "depends_on", "note": "Validator must pass after every scan" },
+    { "from": "f-scan-heavy", "to": "f-validate-structure", "kind": "depends_on", "note": "Validator must pass after every scan" },
+    { "from": "f-scan-sdd", "to": "f-validate-structure", "kind": "depends_on", "note": "Validator must pass after every scan" },
+    { "from": "f-scan-planning", "to": "f-validate-structure", "kind": "depends_on", "note": "Validator must pass after every scan" },
+    { "from": "f-scan-light", "to": "f-load-features", "kind": "flow", "note": "Scan output feeds the viewer" },
+    { "from": "f-scan-heavy", "to": "f-load-features", "kind": "flow", "note": "Scan output feeds the viewer" },
+    { "from": "f-load-features", "to": "f-render-graph", "kind": "triggers", "note": "Render after load" },
+    { "from": "f-render-graph", "to": "f-view-switch", "kind": "depends_on", "note": "View switching depends on a rendered graph" },
+    { "from": "f-render-graph", "to": "f-details-panel", "kind": "depends_on", "note": "Panel depends on existing nodes" },
+    { "from": "f-render-graph", "to": "f-edit-layout", "kind": "depends_on", "note": "Drag depends on rendered nodes" },
+    { "from": "f-edit-layout", "to": "f-save-layout", "kind": "triggers", "note": "User clicks save after dragging" },
+    { "from": "f-edit-layout", "to": "f-autosave", "kind": "triggers", "note": "Autosave silently flushes" },
+    { "from": "f-edit-layout", "to": "f-undo-redo", "kind": "triggers", "note": "Drag end pushes to history stack" },
+    { "from": "f-save-layout", "to": "f-load-features", "kind": "flow", "mode": "async", "note": "Layout restored on next start" },
+    { "from": "f-autosave", "to": "f-load-features", "kind": "flow", "mode": "async", "note": "Layout restored on next start" },
+    { "from": "f-sync-incremental", "to": "f-live-reload", "kind": "flow", "mode": "async", "note": "Canvas live-reloads after AI writes" },
+    { "from": "f-sync-incremental", "to": "f-validate-structure", "kind": "depends_on", "note": "Validator must pass after every sync" },
+    { "from": "f-sync-checkpoint", "to": "f-sync-incremental", "kind": "triggers", "note": "Each checkpoint triggers a sync" },
+    { "from": "f-sync-planned-upgrade", "to": "f-sync-incremental", "kind": "depends_on", "note": "Planned upgrade is a sync sub-scenario" },
+    { "from": "f-validate-structure", "to": "f-validate-heuristic", "kind": "triggers", "note": "Heuristics run after structural pass" },
+    { "from": "f-load-features", "to": "f-error-fallback", "kind": "flow", "mode": "async", "note": "Fallback listens for load failure" },
+    { "from": "f-render-graph", "to": "f-error-fallback", "kind": "flow", "mode": "async", "note": "Fallback listens for render exception" }
+  ],
+  "epic_flow": [
+    { "from": "install", "to": "scan", "kind": "next", "note": "AI starts the first scan after install" },
+    { "from": "scan", "to": "viewer", "kind": "next", "note": "Scan output feeds the visualizer" },
+    { "from": "viewer", "to": "layout", "kind": "next", "note": "Edit the layout once you can see the graph" },
+    { "from": "sync", "to": "layout", "kind": "depends_on", "note": "A saved layout makes sync refreshes smoother" },
+    { "from": "sync", "to": "viewer", "kind": "next", "note": "Canvas live-reloads after sync" },
+    { "from": "scan", "to": "validate", "kind": "depends_on", "note": "Scan output must pass validation" },
+    { "from": "sync", "to": "validate", "kind": "depends_on", "note": "Every sync must pass validation" }
+  ]
+}

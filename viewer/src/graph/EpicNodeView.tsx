@@ -7,22 +7,24 @@ import type { FcgViewNode } from './fcgView'
 export type EpicNodeData = {
   view: Extract<FcgViewNode, { kind: 'epic' }>
   isNew?: boolean
+  dimmed?: boolean
 }
 
 function EpicNodeViewImpl({ data, selected }: NodeProps) {
-  const { view, isNew } = data as unknown as EpicNodeData
+  const { view, isNew, dimmed } = data as unknown as EpicNodeData
   const importance = view.epic.importance ?? 'normal'
   return (
     <div
       className={cn(
         'group relative flex min-w-[220px] max-w-[300px] items-center gap-3 rounded-2xl border bg-[var(--color-bg-1)]',
-        'px-4 py-3 transition-shadow duration-150',
+        'px-4 py-3 transition-all duration-200',
         'shadow-[0_1px_2px_oklch(0_0_0/0.04)]',
         'hover:shadow-[0_2px_8px_oklch(0_0_0/0.06)]',
         selected ? 'border-[var(--color-accent)]' : 'border-[var(--color-border)]',
         isNew && 'is-new-node',
         importance === 'core' && !selected && 'border-[var(--color-accent)]/50 shadow-[0_0_0_1px_var(--color-accent-soft)]',
         importance === 'auxiliary' && 'opacity-70',
+        dimmed && 'opacity-25 saturate-50',
       )}
     >
       <Handle type="target" position={Position.Left} className="!h-1.5 !w-1.5 !border-[var(--color-border-strong)] !bg-[var(--color-bg-1)]" />

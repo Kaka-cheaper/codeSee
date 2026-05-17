@@ -6,6 +6,7 @@ export type EpicGroupBgData = {
   width: number
   height: number
   colorIndex?: number
+  dimmed?: boolean
 }
 
 /**
@@ -24,13 +25,13 @@ const PALETTE = [
 ]
 
 function EpicGroupBgImpl({ data }: NodeProps) {
-  const { label, width, height, colorIndex } = data as unknown as EpicGroupBgData
+  const { label, width, height, colorIndex, dimmed } = data as unknown as EpicGroupBgData
   const palette = PALETTE[(colorIndex ?? 0) % PALETTE.length]
 
   return (
     <div
-      style={{ width, height, background: palette.bg }}
-      className="rounded-2xl border border-[var(--color-border)] shadow-[0_1px_3px_oklch(0_0_0/0.04)]"
+      style={{ width, height, background: palette.bg, opacity: dimmed ? 0.25 : 1 }}
+      className="rounded-2xl border border-[var(--color-border)] shadow-[0_1px_3px_oklch(0_0_0/0.04)] transition-opacity duration-200"
     >
       {/* 顶部色条 */}
       <div

@@ -113,3 +113,47 @@ export const FLOW_META: Record<
     animated: false,
   },
 }
+
+/**
+ * 跨功能关系的视觉语言。
+ * 设计思路：用颜色 + 虚实区分 4 种语义，让用户一眼分清主线与辅线。
+ *   - triggers (用户旅程主线)  → 暖橘实线，最显眼
+ *   - depends_on (架构依赖)    → 灰虚线，安静
+ *   - publishes  (发布事件)    → 蓝实线粗
+ *   - subscribes (订阅事件)    → 蓝虚线
+ */
+export type CrossKind = 'triggers' | 'depends_on' | 'publishes' | 'subscribes'
+
+export const CROSS_META: Record<
+  CrossKind,
+  { label: string; stroke: string; dashed: boolean; strokeWidth: number; opacity: number }
+> = {
+  triggers: {
+    label: '触发',
+    stroke: 'oklch(0.62 0.135 45)', // 与 accent 同色相，作主线
+    dashed: false,
+    strokeWidth: 1.6,
+    opacity: 0.95,
+  },
+  depends_on: {
+    label: '依赖',
+    stroke: 'oklch(0.65 0.018 70)', // 暖灰，安静
+    dashed: true,
+    strokeWidth: 1.1,
+    opacity: 0.7,
+  },
+  publishes: {
+    label: '发布',
+    stroke: 'oklch(0.55 0.09 240)', // 蓝
+    dashed: false,
+    strokeWidth: 1.6,
+    opacity: 0.9,
+  },
+  subscribes: {
+    label: '订阅',
+    stroke: 'oklch(0.55 0.09 240)', // 蓝同色
+    dashed: true,
+    strokeWidth: 1.2,
+    opacity: 0.85,
+  },
+}

@@ -34,7 +34,13 @@ export interface FcgViewEdge {
   id: string
   source: string
   target: string
-  kind: FlowKind | 'epic-link' | 'feature-link'
+  kind:
+    | FlowKind
+    | 'epic-link'
+    | 'cross-triggers'
+    | 'cross-depends_on'
+    | 'cross-publishes'
+    | 'cross-subscribes'
   label?: string
   /** 跨功能 / 流程内 */
   scope: 'epic' | 'feature' | 'step'
@@ -123,9 +129,10 @@ function buildFeaturesView(file: FeaturesFile): FcgViewResult {
     id: `feature-link:${i}`,
     source: `feature:${link.from}`,
     target: `feature:${link.to}`,
-    kind: 'feature-link',
+    kind: `cross-${link.kind}` as FcgViewEdge['kind'],
     scope: 'feature',
-    label: link.kind,
+    // note 是语义级中文短句，比技术词 'triggers' 可读得多
+    label: link.note,
   }))
   return { nodes, edges }
 }

@@ -37,7 +37,7 @@ import {
 import { EpicNodeView, type EpicNodeData } from './EpicNodeView'
 import { FeatureNodeView, type FeatureNodeData } from './FeatureNodeView'
 import { StepNodeView, type StepNodeData } from './StepNodeView'
-import { FLOW_META, ROLE_META } from './roleMeta'
+import { CROSS_META, FLOW_META, ROLE_META, type CrossKind } from './roleMeta'
 import { DetailsPanel } from './DetailsPanel'
 import { EpicGroupBg, type EpicGroupBgData } from './EpicGroupBg'
 import { useI18n } from '@/lib/i18n'
@@ -70,6 +70,8 @@ export function GraphCanvas({ file }: Props) {
 function GraphInner({ file }: Props) {
   const [state, setState] = useState<FcgViewState>({ mode: 'overview' })
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  /** hover 节点 id：用于实时降噪——hover 时其他节点和边淡出，相关边加亮 */
+  const [hoverId, setHoverId] = useState<string | null>(null)
   const reactFlow = useReactFlow()
 
   const view = useMemo(() => buildView(file, state), [file, state])
@@ -545,6 +547,13 @@ function GraphInner({ file }: Props) {
     setSelectedId(node.id)
   }, [])
 
+  const onNodeMouseEnter: NodeMouseHandler = useCallback((_, node) => {
+    setHoverId(node.id)
+  }, [])
+  const onNodeMouseLeave: NodeMouseHandler = useCallback(() => {
+    setHoverId(null)
+  }, [])
+
   // Undo/Redo
   const { record, undo, redo, canUndo, canRedo } = useUndoRedo()
 
@@ -594,6 +603,88 @@ function GraphInner({ file }: Props) {
     const next = redo(viewKey, current)
     if (next) applySnapshot(next)
   }, [reactFlow, viewKey, redo, applySnapshot])
+
+  /**
+   * Hover 降噪：hover 任意节点时，
+   *   - 与该节点直接相连的边 → 加粗 + 完全不透明
+   *   - 不相关的边 → 淡出到 18%
+   *   - 相关节点（hover 节点 + 其邻居 + 同 Epic 容器内节点） → 不变
+   *   - 不相关节点 → dimmed=true，由节点视图自己加灰
+   * hoverId=null 时全部复位。
+   */
+  useEffect(() => {
+    // 计算相关节点集合
+    const relatedNodes = new Set<string>()
+    if (hoverId) {
+      relatedNodes.add(hoverId)
+      // 直接相连的节点
+      for (const e of rfEdges) {
+        if (e.source === hoverId) relatedNodes.add(e.target)
+        if (e.target === hoverId) relatedNodes.add(e.source)
+      }
+      // 同容器加成（仅功能视图）：hover 一个 feature 时，把它所属 Epic 的整个容器节点也算"相关"
+      const hovered = rfNodes.find((n) => n.id === hoverId)
+      if (hovered?.type === 'feature') {
+        const epicId = (hovered.data as { view?: { feature?: { epicId?: string } } } | undefined)
+          ?.view?.feature?.epicId ?? '__none__'
+        const groupId = `group:${epicId}`
+        relatedNodes.add(groupId)
+      }
+      // 如果 hover 的就是容器，把容器内全部节点都算相关
+      if (hovered?.type === 'epicGroup') {
+        const epicId = hoverId.replace(/^group:/, '')
+        for (const n of rfNodes) {
+          if (n.type === 'epicGroup') continue
+          const nEpicId = (n.data as { view?: { feature?: { epicId?: string } } } | undefined)
+            ?.view?.feature?.epicId ?? null
+          if (nEpicId === epicId) relatedNodes.add(n.id)
+        }
+      }
+    }
+
+    // patch 边 style
+    setRfEdges((eds) =>
+      eds.map((edge) => {
+        const visual = (edge.data as { visual?: EdgeVisual } | undefined)?.visual
+        if (!visual) return edge // 不应发生但兜底
+        if (!hoverId) {
+          // 复位
+          return {
+            ...edge,
+            style: {
+              ...edge.style,
+              stroke: visual.stroke,
+              strokeWidth: visual.strokeWidth,
+              strokeDasharray: visual.dashed ? '4 4' : undefined,
+              opacity: visual.baseOpacity,
+            },
+          }
+        }
+        const isRelated = edge.source === hoverId || edge.target === hoverId
+        return {
+          ...edge,
+          style: {
+            ...edge.style,
+            stroke: visual.stroke,
+            strokeWidth: isRelated ? visual.strokeWidth + 0.8 : visual.strokeWidth,
+            strokeDasharray: visual.dashed ? '4 4' : undefined,
+            opacity: isRelated ? 1 : 0.18,
+          },
+        }
+      }),
+    )
+
+    // patch 节点 data.dimmed（节点视图自己处理灰度）
+    setRfNodes((nds) =>
+      nds.map((n) => {
+        const dimmed = hoverId !== null && !relatedNodes.has(n.id)
+        const oldData = n.data as Record<string, unknown> | undefined
+        const oldDimmed = (oldData?.dimmed as boolean | undefined) ?? false
+        if (oldDimmed === dimmed) return n
+        return { ...n, data: { ...(oldData ?? {}), dimmed } }
+      }),
+    )
+  }, [hoverId, rfEdges.length, rfNodes.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 键盘快捷键
   useEffect(() => {
@@ -645,6 +736,8 @@ function GraphInner({ file }: Props) {
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeDragStop={recordSnapshot}
+        onNodeMouseEnter={onNodeMouseEnter}
+        onNodeMouseLeave={onNodeMouseLeave}
         onPaneClick={onPaneClick}
       >
         <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="oklch(0.8 0.018 70)" />
@@ -891,38 +984,85 @@ function toRfNodes(
   return [...groupNodes, ...featureNodes] as Node[]
 }
 
-function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
-  let stroke = 'var(--color-edge-call)'
-  let dashed = false
-  let animated = false
+/**
+ * 边视觉的基础样式（不含 hover 派生）。
+ * 4 种 cross_feature kind 各有独立颜色与虚实，避免画面"全是同色虚线乱麻"。
+ */
+interface EdgeVisual {
+  stroke: string
+  strokeWidth: number
+  dashed: boolean
+  animated: boolean
+  baseOpacity: number
+}
+
+function edgeVisualOf(e: FcgViewEdge): EdgeVisual {
   if (e.scope === 'step') {
     const m = (e.kind && FLOW_META[e.kind as keyof typeof FLOW_META]) ?? FLOW_META.next
-    stroke = m.stroke
-    dashed = m.dashed
-    animated = m.animated
-  } else if (e.kind === 'epic-link' || e.kind === 'feature-link') {
-    stroke = 'var(--color-edge-import)'
-    dashed = true
+    return {
+      stroke: m.stroke,
+      strokeWidth: 1.4,
+      dashed: m.dashed,
+      animated: m.animated,
+      baseOpacity: 0.9,
+    }
   }
+  if (e.kind === 'epic-link') {
+    return {
+      stroke: 'var(--color-edge-import)',
+      strokeWidth: 1.4,
+      dashed: true,
+      animated: false,
+      baseOpacity: 0.9,
+    }
+  }
+  // 4 种 cross_feature kind
+  if (e.kind.startsWith('cross-')) {
+    const cross = e.kind.slice('cross-'.length) as CrossKind
+    const meta = CROSS_META[cross]
+    if (meta) {
+      return {
+        stroke: meta.stroke,
+        strokeWidth: meta.strokeWidth,
+        dashed: meta.dashed,
+        animated: false,
+        baseOpacity: meta.opacity,
+      }
+    }
+  }
+  // 兜底
+  return {
+    stroke: 'var(--color-edge-call)',
+    strokeWidth: 1.4,
+    dashed: false,
+    animated: false,
+    baseOpacity: 0.9,
+  }
+}
+
+function buildEdge(e: FcgViewEdge, newNodeIds: Set<string>): Edge {
+  const v = edgeVisualOf(e)
   const involvesNew = newNodeIds.has(e.source) || newNodeIds.has(e.target)
   return {
     id: e.id,
     source: e.source,
     target: e.target,
-    animated,
+    animated: v.animated,
     label: e.label || undefined,
     labelStyle: { fill: 'var(--color-fg-subtle)', fontSize: 10, fontFamily: 'var(--font-mono)' },
     labelBgStyle: { fill: 'var(--color-bg-1)', fillOpacity: 0.85 },
     labelBgPadding: [4, 2] as [number, number],
     labelBgBorderRadius: 4,
+    // 基础 style 用于 hover 离开时复位
+    data: { visual: v },
     style: {
-      stroke,
-      strokeWidth: 1.4,
-      strokeDasharray: dashed ? '4 4' : undefined,
-      opacity: 0.9,
+      stroke: v.stroke,
+      strokeWidth: v.strokeWidth,
+      strokeDasharray: v.dashed ? '4 4' : undefined,
+      opacity: v.baseOpacity,
       animation: involvesNew ? 'edge-fade-in 360ms ease-out both' : undefined,
     },
-    markerEnd: { type: MarkerType.ArrowClosed, width: 13, height: 13, color: stroke },
+    markerEnd: { type: MarkerType.ArrowClosed, width: 13, height: 13, color: v.stroke },
   }
 }
 

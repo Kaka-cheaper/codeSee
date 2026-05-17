@@ -9,7 +9,7 @@
 Stop reading every line of AI-generated code. See a semantic flow graph of your project — auto-updated as AI works, never stale.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Demo](https://img.shields.io/badge/Live_Demo-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/)
+[![Demo](https://img.shields.io/badge/Live_Demo-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/?example=codesee-en)
 [![Version](https://img.shields.io/github/package-json/v/Kaka-cheaper/codeSee?filename=viewer%2Fpackage.json&label=viewer)](./viewer/package.json)
 [![Last commit](https://img.shields.io/github/last-commit/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/commits/main)
 [![Issues](https://img.shields.io/github/issues/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/issues)
@@ -35,14 +35,14 @@ Not call graphs. Not import maps. A human-readable story of what your project do
 
 <div align="center">
 
-### ▶ [Try it in 30 seconds — no install](https://Kaka-cheaper.github.io/codeSee/)
+### ▶ [Try it in 30 seconds — no install](https://Kaka-cheaper.github.io/codeSee/?example=codesee-en)
 
 <sub>Open the live demo · explore CodeSee modeling itself · drop your own <code>features.json</code></sub>
 
 </div>
 
 <div align="center">
-<img src="./docs/assets/overview.png" alt="Overview View" width="80%" />
+<img src="./docs/assets/overview_en.png" alt="Overview View" width="80%" />
 <p><em>Overview — Epics arranged by user journey order, connected by semantic flow arrows</em></p>
 </div>
 
@@ -50,12 +50,12 @@ Not call graphs. Not import maps. A human-readable story of what your project do
 <summary><strong>▶ More views (Features / Steps)</strong></summary>
 
 <div align="center">
-<img src="./docs/assets/features.png" alt="Features View" width="80%" />
+<img src="./docs/assets/features_en.png" alt="Features View" width="80%" />
 <p><em>Features — grouped in Epic containers, drag to rearrange</em></p>
 </div>
 
 <div align="center">
-<img src="./docs/assets/steps.png" alt="Steps View" width="80%" />
+<img src="./docs/assets/steps_en.png" alt="Steps View" width="80%" />
 <p><em>Steps — directed flow within a single feature (async, conditional, error branches)</em></p>
 </div>
 
@@ -160,7 +160,7 @@ If your project uses a Spec-Driven Development framework (`.specify/`, `.trellis
 
 ### 4. View the graph (in your browser, no install)
 
-Open **[https://Kaka-cheaper.github.io/codeSee/](https://Kaka-cheaper.github.io/codeSee/)** — the live web viewer.
+Open **[https://Kaka-cheaper.github.io/codeSee/](https://Kaka-cheaper.github.io/codeSee/?example=codesee-en)** — the live web viewer.
 
 By default you'll see CodeSee's own feature graph. To switch to your project:
 

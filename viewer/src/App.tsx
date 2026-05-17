@@ -36,22 +36,31 @@ const ACTIVE_REPO_KEY = 'codesee.activeRepoId.v1'
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>(() => {
-    try {
-      const stored = localStorage.getItem('codesee.locale')
-      if (stored === 'en' || stored === 'zh-CN') return stored
-    } catch { /* noop */ }
-    // 首启无偏好：跟 URL ?example=codesee-en 或浏览器语言走
+    // 1. URL ?example=codesee-en → 强制 en（覆盖 localStorage）
+    //    URL ?example=codesee     → 强制 zh-CN
+    //    这是为了"中文用户从英文 README 进入"的体验：URL 显式表达语言意图，UI 必须跟上
     try {
       const params = new URLSearchParams(window.location.search)
       const slug = params.get('example')
       if (slug === 'codesee-en' || slug === 'blog-system') return 'en'
       if (slug === 'codesee') return 'zh-CN'
     } catch { /* noop */ }
+    // 2. 没显式 URL 参数 → 走 localStorage
+    try {
+      const stored = localStorage.getItem('codesee.locale')
+      if (stored === 'en' || stored === 'zh-CN') return stored
+    } catch { /* noop */ }
+    // 3. 兜底：浏览器语言
     if (typeof navigator !== 'undefined' && !navigator.language?.toLowerCase().startsWith('zh')) {
       return 'en'
     }
     return 'zh-CN'
   })
+  // ref 用于让 effect 在切语言时读到最新的 switchProject 实现，
+  // 但又不让 i18n context 因依赖变化而重建（避免大量子组件重渲染）
+  const activeRepoIdRef = useRef<string | null>(null)
+  const switchProjectRef = useRef<((repoId: string) => Promise<void>) | null>(null)
+
   const handleSetLocale = useCallback((l: Locale) => {
     setLocale(l)
     try { localStorage.setItem('codesee.locale', l) } catch { /* noop */ }
@@ -74,6 +83,31 @@ export default function App() {
   const [projects, setProjects] = useState<ProjectEntry[]>([])
   /** 上次激活的 FSA 项目，但启动时权限已丢 → 画布暂时显示兜底内容，等用户点击重新授权 */
   const [pendingAuthProject, setPendingAuthProject] = useState<ProjectEntry | null>(null)
+
+  // 把最新 activeRepoId 同步到 ref，供 handleSetLocale 使用
+  useEffect(() => {
+    activeRepoIdRef.current = activeRepoId
+  }, [activeRepoId])
+
+  // 联动：切语言时，如果当前 active 是某个 bundled codesee 项目，
+  // 就同步切到对应语言版。用户自己的项目（FSA / upload）不动，避免清掉用户上下文。
+  // useRef 防止首次挂载时（locale 由 URL 强制设置）触发不必要的切换
+  const isFirstLocaleEffectRef = useRef(true)
+  useEffect(() => {
+    if (isFirstLocaleEffectRef.current) {
+      isFirstLocaleEffectRef.current = false
+      return
+    }
+    const currentId = activeRepoIdRef.current
+    const switchFn = switchProjectRef.current
+    if (!currentId || !switchFn) return
+    const codeseeZh = makeRepoId('bundled', 'codesee')
+    const codeseeEn = makeRepoId('bundled', 'codesee-en')
+    const target = locale === 'en' ? codeseeEn : codeseeZh
+    if ((currentId === codeseeZh || currentId === codeseeEn) && currentId !== target) {
+      void switchFn(target)
+    }
+  }, [locale])
 
   // 实时刷新相关
   const [watchSource, setWatchSource] = useState<WatchSource | null>(null)
@@ -205,9 +239,22 @@ export default function App() {
     setActiveRepoId(repoId)
     setPendingAuthProject(null) // 用户成功切到任意项目，清掉权限提示
     try { localStorage.setItem(ACTIVE_REPO_KEY, repoId) } catch { /* noop */ }
+    // 切到 bundled 项目时同步 URL ?example= 参数（让"复制链接给朋友"能正确跳到对应版本）
+    try {
+      const slug = repoId.startsWith('bundled:') ? repoId.slice('bundled:'.length) : null
+      const url = new URL(window.location.href)
+      if (slug) url.searchParams.set('example', slug)
+      else url.searchParams.delete('example')
+      window.history.replaceState({}, '', url.toString())
+    } catch { /* noop */ }
     await touchProject(repoId)
     await refreshProjects()
   }, [loadProject, refreshProjects])
+
+  // 把最新 switchProject 同步到 ref，供 handleSetLocale 使用
+  useEffect(() => {
+    switchProjectRef.current = switchProject
+  }, [switchProject])
 
   /** 启动初始化：迁移老数据 → 加载项目列表 → 选定首个可用项目 */
   useEffect(() => {

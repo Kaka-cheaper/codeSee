@@ -9,7 +9,7 @@
 不用再逐行读 AI 写的代码——看一张随 AI 工作实时更新、永远不过期的语义流程图。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Demo](https://img.shields.io/badge/在线演示-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/)
+[![Demo](https://img.shields.io/badge/在线演示-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/?example=codesee)
 [![Version](https://img.shields.io/github/package-json/v/Kaka-cheaper/codeSee?filename=viewer%2Fpackage.json&label=viewer)](./viewer/package.json)
 [![Last commit](https://img.shields.io/github/last-commit/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/commits/main)
 [![Issues](https://img.shields.io/github/issues/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/issues)
@@ -35,7 +35,7 @@
 
 <div align="center">
 
-### ▶ [30 秒试用 · 无需安装](https://Kaka-cheaper.github.io/codeSee/)
+### ▶ [30 秒试用 · 无需安装](https://Kaka-cheaper.github.io/codeSee/?example=codesee)
 
 <sub>打开在线演示 · 体验 CodeSee 给自己建模的画布 · 把你的 <code>features.json</code> 拖进去看效果</sub>
 
@@ -159,7 +159,7 @@ AI 读取 `AGENTS.md`（或 SKILL.md 兼容 IDE 读取 `.agents/skills/codesee/S
 
 ### 4. 在浏览器里看图（无需安装）
 
-直接打开 **[https://Kaka-cheaper.github.io/codeSee/](https://Kaka-cheaper.github.io/codeSee/)**——这就是 CodeSee 的 web viewer。
+直接打开 **[https://Kaka-cheaper.github.io/codeSee/](https://Kaka-cheaper.github.io/codeSee/?example=codesee)**——这就是 CodeSee 的 web viewer。
 
 默认显示 CodeSee 自己的功能图。切到你的项目：
 

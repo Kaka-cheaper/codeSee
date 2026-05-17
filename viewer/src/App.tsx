@@ -62,6 +62,8 @@ export default function App() {
   // 多项目状态
   const [activeRepoId, setActiveRepoId] = useState<string | null>(null)
   const [projects, setProjects] = useState<ProjectEntry[]>([])
+  /** 上次激活的 FSA 项目，但启动时权限已丢 → 画布暂时显示兜底内容，等用户点击重新授权 */
+  const [pendingAuthProject, setPendingAuthProject] = useState<ProjectEntry | null>(null)
 
   // 实时刷新相关
   const [watchSource, setWatchSource] = useState<WatchSource | null>(null)
@@ -191,6 +193,7 @@ export default function App() {
     const ok = await loadProject(repoId, true)
     if (!ok) return
     setActiveRepoId(repoId)
+    setPendingAuthProject(null) // 用户成功切到任意项目，清掉权限提示
     try { localStorage.setItem(ACTIVE_REPO_KEY, repoId) } catch { /* noop */ }
     await touchProject(repoId)
     await refreshProjects()
@@ -221,11 +224,11 @@ export default function App() {
         candidateId = lastUser?.repoId ?? getDefaultBundledRepoId()
       }
 
-      const ok = await loadProject(candidateId)
+      // 启动场景禁止弹权限框（无用户手势会报 SecurityError）
+      const ok = await loadProject(candidateId, false)
       if (cancelled) return
       if (ok) {
         setActiveRepoId(candidateId)
-        // 仅用户项目更新 lastOpenedAt（内置 default 不算"打开"）
         const isUserProject = merged.some(
           (p) => p.repoId === candidateId && p.kind !== 'bundled',
         )
@@ -233,17 +236,35 @@ export default function App() {
           await touchProject(candidateId)
           await refreshProjects()
         }
-      } else {
-        // 备选项也失败 → 落到默认内置
+        return
+      }
+
+      // 加载失败：判断是不是 FSA 项目的"权限丢失"场景
+      const candidate = merged.find((p) => p.repoId === candidateId)
+      if (candidate && candidate.kind === 'fsa') {
+        // 保留 active 指向用户的 FSA 项目，加载默认内置作为兜底内容
+        // 顶栏会显示"需要重新授权"提示条
         const defId = getDefaultBundledRepoId()
-        if (candidateId !== defId) {
-          const okDef = await loadProject(defId)
-          if (cancelled) return
-          if (okDef) setActiveRepoId(defId)
-          else setStatus('missing')
+        const okDef = await loadProject(defId, false)
+        if (cancelled) return
+        if (okDef) {
+          setActiveRepoId(candidateId) // active 保持原 FSA 项目
+          setPendingAuthProject(candidate)
         } else {
           setStatus('missing')
         }
+        return
+      }
+
+      // 其他失败（比如 upload 内容丢了）：兜底到默认内置
+      const defId = getDefaultBundledRepoId()
+      if (candidateId !== defId) {
+        const okDef = await loadProject(defId, false)
+        if (cancelled) return
+        if (okDef) setActiveRepoId(defId)
+        else setStatus('missing')
+      } else {
+        setStatus('missing')
       }
     })()
     return () => {
@@ -490,6 +511,17 @@ export default function App() {
           onToggleLiveReload={toggleLiveReload}
           reloadHint={reloadHint}
           liveAvailable={watchSource !== null}
+          pendingAuthProject={pendingAuthProject}
+          onReauthorize={() => {
+            if (pendingAuthProject) switchProject(pendingAuthProject.repoId)
+          }}
+          onDismissReauth={() => {
+            setPendingAuthProject(null)
+            // 顺便把 active 切到默认内置，避免下次刷新又来一遍
+            const defId = getDefaultBundledRepoId()
+            try { localStorage.setItem(ACTIVE_REPO_KEY, defId) } catch { /* noop */ }
+            setActiveRepoId(defId)
+          }}
         />
         <div className="relative flex-1">
           {file ? (

@@ -4,10 +4,12 @@ import {
   FolderOpen,
   GitBranch,
   Globe,
+  Lock,
   RefreshCw,
   RotateCcw,
   Sparkles,
   Trash2,
+  X,
   FolderPlus,
   Sparkle,
   Upload as UploadIcon,
@@ -31,6 +33,10 @@ interface Props {
   onToggleLiveReload: () => void
   reloadHint: 'idle' | 'updated'
   liveAvailable: boolean
+  /** 上次激活的 FSA 项目权限丢失时显示提示条 */
+  pendingAuthProject?: ProjectEntry | null
+  onReauthorize?: () => void
+  onDismissReauth?: () => void
 }
 
 export function TopBar({
@@ -38,6 +44,7 @@ export function TopBar({
   activeRepoId, projects, onSwitchProject, onAddProject, onRemoveProject,
   onClear,
   liveReload, onToggleLiveReload, reloadHint, liveAvailable,
+  pendingAuthProject, onReauthorize, onDismissReauth,
 }: Props) {
   const { t, locale, setLocale } = useI18n()
 
@@ -46,6 +53,7 @@ export function TopBar({
     : null
 
   return (
+    <>
     <header className="flex h-12 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-bg-1)] px-5">
       <div className="flex items-center gap-2.5">
         <span
@@ -150,6 +158,14 @@ export function TopBar({
         )}
       </div>
     </header>
+    {pendingAuthProject && (
+      <ReauthBanner
+        project={pendingAuthProject}
+        onReauthorize={onReauthorize}
+        onDismiss={onDismissReauth}
+      />
+    )}
+    </>
   )
 }
 
@@ -350,4 +366,47 @@ function formatRelative(ts: number): string {
   if (diff < day) return `${Math.floor(diff / hour)}小时前`
   if (diff < 30 * day) return `${Math.floor(diff / day)}天前`
   return new Date(ts).toLocaleDateString()
+}
+
+/**
+ * 授权丢失提示条：上次激活的 FSA 项目浏览器重启后权限回退到 prompt 时显示。
+ * 画布暂时显示默认内置作为兜底，提示用户点一下重新授权。
+ */
+function ReauthBanner({
+  project,
+  onReauthorize,
+  onDismiss,
+}: {
+  project: ProjectEntry
+  onReauthorize?: () => void
+  onDismiss?: () => void
+}) {
+  const { t } = useI18n()
+  return (
+    <div
+      className="flex items-center gap-2.5 border-b px-5 py-2"
+      style={{
+        background: 'var(--color-accent-soft)',
+        borderColor: 'var(--color-accent)',
+      }}
+    >
+      <Lock size={13} className="text-[var(--color-accent-strong)]" />
+      <span className="flex-1 text-[12px] text-[var(--color-fg)]">
+        {t('reauth.message', { name: project.displayName })}
+      </span>
+      <button
+        onClick={onReauthorize}
+        className="inline-flex items-center gap-1 rounded-md border border-[var(--color-accent)] bg-[var(--color-bg-1)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-accent-strong)] transition-colors hover:bg-[var(--color-bg-2)]"
+      >
+        {t('reauth.action')}
+      </button>
+      <button
+        onClick={onDismiss}
+        title={t('reauth.dismiss')}
+        className="inline-flex h-[24px] w-[24px] items-center justify-center rounded-md text-[var(--color-fg-subtle)] transition-colors hover:bg-[var(--color-bg-2)] hover:text-[var(--color-fg)]"
+      >
+        <X size={12} />
+      </button>
+    </div>
+  )
 }

@@ -55,6 +55,11 @@ const dict = {
     'projects.add': '添加项目（选目录或文件）',
     'projects.remove': '从列表中移除',
     'projects.confirmRemove': '确认从项目列表移除「{name}」吗？目录授权和缓存都会被清除。',
+
+    // Reauthorize banner
+    'reauth.message': '「{name}」需要重新授权才能访问目录（当前显示的是默认示例）',
+    'reauth.action': '重新授权',
+    'reauth.dismiss': '关闭提示',
   },
   en: {
     // TopBar
@@ -108,6 +113,11 @@ const dict = {
     'projects.add': 'Add project (folder or file)',
     'projects.remove': 'Remove from list',
     'projects.confirmRemove': 'Remove "{name}" from project list? Directory access and cache will be cleared.',
+
+    // Reauthorize banner
+    'reauth.message': '"{name}" needs re-authorization to access the directory (showing default example for now)',
+    'reauth.action': 'Reauthorize',
+    'reauth.dismiss': 'Dismiss',
   },
 } as const
 

@@ -605,34 +605,39 @@ function GraphInner({ file }: Props) {
   }, [reactFlow, viewKey, redo, applySnapshot])
 
   /**
-   * Hover 降噪：hover 任意节点时，
-   *   - 与该节点直接相连的边 → 加粗 + 完全不透明
+   * Hover/锁定降噪：
+   *   - hover 任意节点 → 临时聚焦
+   *   - 鼠标离开但有 selected → 保持锁定聚焦（鼠标移到详情面板 / 滚动画布都不会失焦）
+   *   - hover 优先于锁定（实时预览另一个节点的关系）
+   * 行为：
+   *   - 与焦点节点直接相连的边 → 加粗 + 完全不透明
    *   - 不相关的边 → 淡出到 18%
-   *   - 相关节点（hover 节点 + 其邻居 + 同 Epic 容器内节点） → 不变
-   *   - 不相关节点 → dimmed=true，由节点视图自己加灰
-   * hoverId=null 时全部复位。
+   *   - 相关节点（焦点 + 邻居 + 同 Epic 容器） → 不变
+   *   - 不相关节点 → dimmed=true，由节点视图加灰
+   * focusId=null 时全部复位。
    */
+  const focusId = hoverId ?? selectedId
   useEffect(() => {
     // 计算相关节点集合
     const relatedNodes = new Set<string>()
-    if (hoverId) {
-      relatedNodes.add(hoverId)
+    if (focusId) {
+      relatedNodes.add(focusId)
       // 直接相连的节点
       for (const e of rfEdges) {
-        if (e.source === hoverId) relatedNodes.add(e.target)
-        if (e.target === hoverId) relatedNodes.add(e.source)
+        if (e.source === focusId) relatedNodes.add(e.target)
+        if (e.target === focusId) relatedNodes.add(e.source)
       }
       // 同容器加成（仅功能视图）：hover 一个 feature 时，把它所属 Epic 的整个容器节点也算"相关"
-      const hovered = rfNodes.find((n) => n.id === hoverId)
-      if (hovered?.type === 'feature') {
-        const epicId = (hovered.data as { view?: { feature?: { epicId?: string } } } | undefined)
+      const focused = rfNodes.find((n) => n.id === focusId)
+      if (focused?.type === 'feature') {
+        const epicId = (focused.data as { view?: { feature?: { epicId?: string } } } | undefined)
           ?.view?.feature?.epicId ?? '__none__'
         const groupId = `group:${epicId}`
         relatedNodes.add(groupId)
       }
-      // 如果 hover 的就是容器，把容器内全部节点都算相关
-      if (hovered?.type === 'epicGroup') {
-        const epicId = hoverId.replace(/^group:/, '')
+      // 如果焦点是容器，把容器内全部节点都算相关
+      if (focused?.type === 'epicGroup') {
+        const epicId = focusId.replace(/^group:/, '')
         for (const n of rfNodes) {
           if (n.type === 'epicGroup') continue
           const nEpicId = (n.data as { view?: { feature?: { epicId?: string } } } | undefined)
@@ -646,9 +651,8 @@ function GraphInner({ file }: Props) {
     setRfEdges((eds) =>
       eds.map((edge) => {
         const visual = (edge.data as { visual?: EdgeVisual } | undefined)?.visual
-        if (!visual) return edge // 不应发生但兜底
-        if (!hoverId) {
-          // 复位
+        if (!visual) return edge
+        if (!focusId) {
           return {
             ...edge,
             style: {
@@ -660,7 +664,7 @@ function GraphInner({ file }: Props) {
             },
           }
         }
-        const isRelated = edge.source === hoverId || edge.target === hoverId
+        const isRelated = edge.source === focusId || edge.target === focusId
         return {
           ...edge,
           style: {
@@ -674,17 +678,17 @@ function GraphInner({ file }: Props) {
       }),
     )
 
-    // patch 节点 data.dimmed（节点视图自己处理灰度）
+    // patch 节点 data.dimmed
     setRfNodes((nds) =>
       nds.map((n) => {
-        const dimmed = hoverId !== null && !relatedNodes.has(n.id)
+        const dimmed = focusId !== null && !relatedNodes.has(n.id)
         const oldData = n.data as Record<string, unknown> | undefined
         const oldDimmed = (oldData?.dimmed as boolean | undefined) ?? false
         if (oldDimmed === dimmed) return n
         return { ...n, data: { ...(oldData ?? {}), dimmed } }
       }),
     )
-  }, [hoverId, rfEdges.length, rfNodes.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [focusId, rfEdges.length, rfNodes.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 键盘快捷键
   useEffect(() => {
@@ -695,6 +699,9 @@ function GraphInner({ file }: Props) {
       } else if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey) || e.key === 'y')) {
         e.preventDefault()
         handleRedo()
+      } else if (e.key === 'Escape') {
+        // 清掉焦点锁定（hover 不受影响——离开鼠标自然清）
+        setSelectedId(null)
       }
     }
     window.addEventListener('keydown', handler)

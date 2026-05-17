@@ -11,16 +11,20 @@ export interface BundledProjectDef {
   slug: string
   displayName: string
   sourceLabel: string
-  /** 相对 BASE_URL 的路径 */
+  /** features.json 相对 BASE_URL 的路径 */
   path: string
+  /** 可选的精挑布局 layout.json 路径——优先于 fallback。
+   *  让首屏看到的 codesee/blog-system 等是"作者人挑过的"布局，而不是 ELK 默认输出。 */
+  layoutPath?: string
 }
 
 const BUNDLED_DEFS: BundledProjectDef[] = [
   {
     slug: 'codesee',
-    displayName: 'CodeSee 自身',
+    displayName: 'CodeSee',
     sourceLabel: '内置示例',
     path: 'features.json',
+    layoutPath: 'examples/codesee-layout.json',
   },
   {
     slug: 'blog-system',
@@ -30,12 +34,13 @@ const BUNDLED_DEFS: BundledProjectDef[] = [
   },
 ]
 
-export function getBundledProjects(): (BundledProjectDef & { repoId: string; url: string })[] {
+export function getBundledProjects(): (BundledProjectDef & { repoId: string; url: string; layoutUrl?: string })[] {
   const base = import.meta.env.BASE_URL ?? '/'
   return BUNDLED_DEFS.map((d) => ({
     ...d,
     repoId: makeRepoId('bundled', d.slug),
     url: `${base}${d.path}`,
+    layoutUrl: d.layoutPath ? `${base}${d.layoutPath}` : undefined,
   }))
 }
 
@@ -58,6 +63,6 @@ export function getDefaultBundledRepoId(): string {
   return makeRepoId('bundled', 'codesee')
 }
 
-export function findBundledByRepoId(repoId: string): (BundledProjectDef & { repoId: string; url: string }) | null {
+export function findBundledByRepoId(repoId: string): (BundledProjectDef & { repoId: string; url: string; layoutUrl?: string }) | null {
   return getBundledProjects().find((b) => b.repoId === repoId) ?? null
 }

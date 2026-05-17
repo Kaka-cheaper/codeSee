@@ -525,7 +525,7 @@ export default function App() {
         />
         <div className="relative flex-1">
           {file ? (
-            <ReactFlowProvider>
+            <ReactFlowProvider key={activeRepoId ?? 'default'}>
               <GraphCanvas file={file} />
             </ReactFlowProvider>
           ) : (

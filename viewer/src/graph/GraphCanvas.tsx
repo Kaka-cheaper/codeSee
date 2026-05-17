@@ -34,6 +34,7 @@ import {
   ensurePermission,
   type LayoutFile,
 } from '@/fcg/fileSystem'
+import { findBundledByRepoId } from '@/fcg/bundledProjects'
 import { EpicNodeView, type EpicNodeData } from './EpicNodeView'
 import { FeatureNodeView, type FeatureNodeData } from './FeatureNodeView'
 import { StepNodeView, type StepNodeData } from './StepNodeView'
@@ -99,13 +100,37 @@ function GraphInner({ file }: Props) {
   const measuredSizesRef = useRef<Map<string, { width: number; height: number }>>(new Map())
   const [layoutVersion, setLayoutVersion] = useState(0) // 用于重置布局
 
-  // 启动时尝试加载布局：先从 FSA（用户授权的目录），再从 /layout.json（内置示例）
+  // 启动时尝试加载布局，优先级：
+  //   1. 用户已拖动过的位置（localStorage 已经在 positionsRef 初始化时加载）
+  //      → 任意视图有非空缓存就跳过 fetch，让用户拖动结果延续
+  //   2. FSA 已授权目录里的 layout.json
+  //   3. 内置项目精挑布局（bundled.layoutUrl）
+  //   4. 通用兜底 /layout.json
   useEffect(() => {
     let cancelled = false
     async function loadLayout() {
-      // 1. 尝试 FSA
-      let layout = await loadLayoutFile(repoId)
-      // 2. 兜底：fetch layout.json（内置示例用）
+      // 1. localStorage 已有任一视图的拖动位置 → 用户拖过，不再用 fetch 覆盖
+      const hasUserPositions = [...positionsRef.current.values()].some((m) => m.size > 0)
+      if (hasUserPositions) return
+
+      // 2. FSA 授权目录
+      let layout: LayoutFile | null = await loadLayoutFile(repoId)
+
+      // 3. 内置项目精挑布局
+      if (!layout) {
+        const bundled = findBundledByRepoId(repoId)
+        if (bundled?.layoutUrl) {
+          try {
+            const res = await fetch(bundled.layoutUrl, { cache: 'no-cache' })
+            if (res.ok) {
+              const data = await res.json()
+              if (data?.version === '0' && data?.views) layout = data
+            }
+          } catch { /* noop */ }
+        }
+      }
+
+      // 4. 通用兜底
       if (!layout) {
         try {
           const base = import.meta.env.BASE_URL ?? '/'
@@ -116,6 +141,7 @@ function GraphInner({ file }: Props) {
           }
         } catch { /* noop */ }
       }
+
       if (cancelled || !layout) return
       const restored = new Map<string, Map<string, { x: number; y: number }>>()
       for (const [vk, positions] of Object.entries(layout.views)) {
@@ -159,6 +185,130 @@ function GraphInner({ file }: Props) {
       generated_at: new Date().toISOString(),
     }
   }, [])
+
+  // 开发者用：在 DevTools 控制台调 codeseeExportLayout() 把当前布局保存为 <slug>-layout.json。
+  //
+  // 仅 dev 模式注册，生产构建里不存在。
+  // 自动过滤掉与当前 file 节点无关的 viewKey（旧示例残留）。
+  //
+  // 使用流程（首次）：
+  //   1. 在画布拖到满意位置
+  //   2. 控制台输入 codeseeExportLayout()
+  //   3. 弹目录选择器 → 选 viewer/public/examples/ → 允许 readwrite
+  //   4. 直接写入 codesee-layout.json，无需手动复制粘贴
+  //   首次授权后浏览器记住目录句柄，后续每次调用直接写。
+  //
+  // 备用：codeseeExportLayout({ download: true }) 强制走浏览器下载。
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const w = window as unknown as { codeseeExportLayout?: (opts?: { download?: boolean }) => Promise<void> }
+    const EXPORT_HANDLE_KEY = 'codesee-layout-export-dir'
+
+    w.codeseeExportLayout = async (opts = {}) => {
+      // 收集当前 file 中所有合法的 epic / feature / step id
+      const validIds = new Set<string>()
+      for (const e of file.epics) validIds.add(`epic:${e.id}`)
+      for (const f of file.features) {
+        validIds.add(`feature:${f.id}`)
+        for (const s of f.steps) validIds.add(`step:${f.id}:${s.id}`)
+      }
+      const validStepsViews = new Set<string>(file.features.map((f) => `steps:${f.id}`))
+
+      const cleanedViews: Record<string, Record<string, { x: number; y: number }>> = {}
+      const layout = serializeLayout()
+      for (const [vk, positions] of Object.entries(layout.views)) {
+        if (vk.startsWith('steps:') && !validStepsViews.has(vk)) continue
+        const cleaned: Record<string, { x: number; y: number }> = {}
+        for (const [nodeId, pos] of Object.entries(positions)) {
+          if (nodeId.startsWith('group:')) {
+            const epicId = nodeId.slice(6)
+            if (file.epics.some((e) => e.id === epicId)) cleaned[nodeId] = pos
+            continue
+          }
+          if (validIds.has(nodeId)) cleaned[nodeId] = pos
+        }
+        if (Object.keys(cleaned).length > 0) cleanedViews[vk] = cleaned
+      }
+
+      const cleaned: LayoutFile = {
+        version: '0',
+        views: cleanedViews,
+        generated_at: new Date().toISOString(),
+      }
+      const json = JSON.stringify(cleaned, null, 2)
+      const fileName = `${repoId}-layout.json`
+
+      if (opts.download || !isFSASupported()) {
+        // 强制下载或浏览器不支持 FSA → 走 download 路径
+        const blob = new Blob([json], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+        console.log(`[CodeSee] 已下载 ${fileName}`)
+        return
+      }
+
+      // FSA 路径：尝试复用已授权的目录；否则弹 picker 让用户选 viewer/public/examples/
+      try {
+        let dirHandle = await getStoredHandle(EXPORT_HANDLE_KEY)
+        if (!dirHandle) {
+          // 直接调 showDirectoryPicker（不走 pickDirectory 包装），
+          // 因为后者会吞掉所有错误，无法区分"用户取消"和"无用户手势"
+          try {
+            // @ts-expect-error showDirectoryPicker 不在标准 typings
+            dirHandle = await window.showDirectoryPicker({
+              id: 'codesee-layout-export',
+              mode: 'readwrite',
+              startIn: 'documents',
+            })
+            // 持久化到 IDB（与 fileSystem.ts 共用 store）
+            await (await import('@/fcg/fileSystem')).getStoredHandle // noop import to avoid unused warning
+            // 直接复用 fileSystem.ts 的 setStoredHandle 流程
+            const db = await new Promise<IDBDatabase>((resolve, reject) => {
+              const req = indexedDB.open('codesee-fs-handles', 3)
+              req.onsuccess = () => resolve(req.result)
+              req.onerror = () => reject(req.error)
+            })
+            await new Promise<void>((res) => {
+              const tx = db.transaction('directories', 'readwrite')
+              tx.objectStore('directories').put(dirHandle, EXPORT_HANDLE_KEY)
+              tx.oncomplete = () => res()
+              tx.onerror = () => res()
+            })
+          } catch (err) {
+            const e = err as Error
+            if (e?.name === 'AbortError') {
+              console.warn('[CodeSee] 用户取消了目录选择，未保存。')
+            } else if (e?.name === 'SecurityError') {
+              console.warn('[CodeSee] 控制台调用 showDirectoryPicker 需要用户手势——请在选目录前先点一下页面（如点画布空白处）再调 codeseeExportLayout()。\n或用备用方案：codeseeExportLayout({ download: true })')
+            } else {
+              console.error('[CodeSee] 选择目录失败：', err)
+            }
+            return
+          }
+        }
+        const ok = await ensurePermission(dirHandle!)
+        if (!ok) {
+          console.warn('[CodeSee] 权限被拒，未保存。')
+          return
+        }
+        const fileHandle = await dirHandle!.getFileHandle(fileName, { create: true })
+        const writable = await fileHandle.createWritable()
+        await writable.write(json)
+        await writable.close()
+        console.log(`[CodeSee] 已写入 ${dirHandle!.name}/${fileName}（${json.length} 字符）。下次直接调 codeseeExportLayout() 即可，无需重新授权。`)
+      } catch (err) {
+        console.error('[CodeSee] 写入失败：', err)
+        console.log('[CodeSee] 备用方案：codeseeExportLayout({ download: true })')
+      }
+    }
+    return () => { delete w.codeseeExportLayout }
+  }, [serializeLayout, repoId, file])
 
   // toggleAutoSave 智能化：
   // - 当前 ON → 关闭

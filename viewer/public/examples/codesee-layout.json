@@ -1,0 +1,464 @@
+{
+  "version": "0",
+  "views": {
+    "overview": {
+      "epic:install": {
+        "x": -631.725453700496,
+        "y": 165.88150328646157
+      },
+      "epic:scan": {
+        "x": -150,
+        "y": 164
+      },
+      "epic:viewer": {
+        "x": 518.0101557577614,
+        "y": 162.3392526438421
+      },
+      "epic:layout": {
+        "x": 869.1759230588617,
+        "y": 444.1287467705306
+      },
+      "epic:sync": {
+        "x": 60.43999142585426,
+        "y": 444.3192067379083
+      },
+      "epic:validate": {
+        "x": 395.20832684269067,
+        "y": -205.89495820103963
+      }
+    },
+    "features-base": {
+      "feature:f-install": {
+        "x": -1759.31363425124,
+        "y": 318.7037582161539
+      },
+      "feature:f-scan-entry": {
+        "x": -915,
+        "y": 218
+      },
+      "feature:f-scan-light": {
+        "x": -555,
+        "y": 218
+      },
+      "feature:f-scan-heavy": {
+        "x": -195,
+        "y": 218
+      },
+      "feature:f-scan-sdd": {
+        "x": -915,
+        "y": 410
+      },
+      "feature:f-scan-planning": {
+        "x": -555,
+        "y": 410
+      },
+      "feature:f-load-features": {
+        "x": 755.0253893944034,
+        "y": 213.84813160960522
+      },
+      "feature:f-render-graph": {
+        "x": 1115.0253893944034,
+        "y": 213.84813160960522
+      },
+      "feature:f-view-switch": {
+        "x": 1475.0253893944034,
+        "y": 213.84813160960522
+      },
+      "feature:f-details-panel": {
+        "x": 755.0253893944034,
+        "y": 405.8481316096052
+      },
+      "feature:f-i18n": {
+        "x": 1115.0253893944034,
+        "y": 405.8481316096052
+      },
+      "feature:f-error-fallback": {
+        "x": 1475.0253893944034,
+        "y": 405.8481316096052
+      },
+      "feature:f-edit-layout": {
+        "x": 1628.643764286564,
+        "y": 866.7693465992456
+      },
+      "feature:f-save-layout": {
+        "x": 1988.643764286564,
+        "y": 866.7693465992456
+      },
+      "feature:f-autosave": {
+        "x": 2348.643764286564,
+        "y": 866.7693465992456
+      },
+      "feature:f-undo-redo": {
+        "x": 1628.643764286564,
+        "y": 1058.7693465992456
+      },
+      "feature:f-live-reload": {
+        "x": 1988.643764286564,
+        "y": 1058.7693465992456
+      },
+      "feature:f-sync-incremental": {
+        "x": -388.90002143536435,
+        "y": 1014.7980168447707
+      },
+      "feature:f-sync-checkpoint": {
+        "x": -28.90002143536435,
+        "y": 1014.7980168447707
+      },
+      "feature:f-sync-planned-upgrade": {
+        "x": 331.09997856463565,
+        "y": 1014.7980168447707
+      },
+      "feature:f-validate-structure": {
+        "x": 628.0208171067267,
+        "y": -610.737395502599
+      },
+      "feature:f-validate-heuristic": {
+        "x": 988.0208171067267,
+        "y": -610.737395502599
+      }
+    },
+    "features": {
+      "feature:f-install": {
+        "x": -1797.9368532934975,
+        "y": 218.81612276203958
+      },
+      "feature:f-scan-entry": {
+        "x": -915,
+        "y": 218
+      },
+      "feature:f-scan-light": {
+        "x": -624.2554272481858,
+        "y": 58.179783273417286
+      },
+      "feature:f-scan-heavy": {
+        "x": -195,
+        "y": 218
+      },
+      "feature:f-scan-sdd": {
+        "x": -622.3236098921511,
+        "y": 573.8157221447474
+      },
+      "feature:f-scan-planning": {
+        "x": -468.4307159397677,
+        "y": 376.70412151529524
+      },
+      "feature:f-load-features": {
+        "x": 776.3347516246143,
+        "y": 100.03294839526754
+      },
+      "feature:f-render-graph": {
+        "x": 1115.0253893944034,
+        "y": 246.53481372796836
+      },
+      "feature:f-view-switch": {
+        "x": 1716.0875496236658,
+        "y": 245.20297858858015
+      },
+      "feature:f-details-panel": {
+        "x": 1556.7901433060933,
+        "y": 407.90260552204
+      },
+      "feature:f-i18n": {
+        "x": 794.0531208018499,
+        "y": 354.6291999465125
+      },
+      "feature:f-error-fallback": {
+        "x": 1557.5991680364712,
+        "y": 100.2486883233683
+      },
+      "feature:f-edit-layout": {
+        "x": 1590.0205452443065,
+        "y": 788.1910733753425
+      },
+      "feature:f-save-layout": {
+        "x": 1960.6752263594121,
+        "y": 788.1910733753425
+      },
+      "feature:f-autosave": {
+        "x": 2326.002566916964,
+        "y": 788.1910733753425
+      },
+      "feature:f-undo-redo": {
+        "x": 2009.5486141515862,
+        "y": 968.2045571208491
+      },
+      "feature:f-live-reload": {
+        "x": 1591.7568927488835,
+        "y": 976.1955679571782
+      },
+      "feature:f-sync-incremental": {
+        "x": -18.394845811186997,
+        "y": 1021.5664271234657
+      },
+      "feature:f-sync-checkpoint": {
+        "x": -531.8802945991475,
+        "y": 1022.7258569542776
+      },
+      "feature:f-sync-planned-upgrade": {
+        "x": -544.6369852051926,
+        "y": 1196.6403315760717
+      },
+      "feature:f-validate-structure": {
+        "x": 775.7828934849573,
+        "y": -193.9670516047325
+      },
+      "feature:f-validate-heuristic": {
+        "x": 1221.0203424058018,
+        "y": -196.6307218835089
+      }
+    },
+    "features-offset": {
+      "feature:f-install": {
+        "x": 38.62321904225746,
+        "y": 99.88763545411405
+      },
+      "feature:f-scan-entry": {
+        "x": 0,
+        "y": 0
+      },
+      "feature:f-scan-light": {
+        "x": -69.25542724818581,
+        "y": -159.82021672658271
+      },
+      "feature:f-scan-heavy": {
+        "x": 0,
+        "y": 0
+      },
+      "feature:f-scan-sdd": {
+        "x": 292.6763901078489,
+        "y": 163.81572214474738
+      },
+      "feature:f-scan-planning": {
+        "x": 86.56928406023229,
+        "y": -33.29587848470476
+      },
+      "feature:f-load-features": {
+        "x": 21.309362230210922,
+        "y": -146.50186533270082
+      },
+      "feature:f-render-graph": {
+        "x": 0,
+        "y": 0
+      },
+      "feature:f-view-switch": {
+        "x": 241.06216022926242,
+        "y": -1.331835139388204
+      },
+      "feature:f-details-panel": {
+        "x": 801.7647539116899,
+        "y": -30.63220820592835
+      },
+      "feature:f-i18n": {
+        "x": -320.9722685925535,
+        "y": -83.90561378145588
+      },
+      "feature:f-error-fallback": {
+        "x": 82.57377864206774,
+        "y": -338.28612540460006
+      },
+      "feature:f-edit-layout": {
+        "x": 38.62321904225746,
+        "y": 78.57827322390312
+      },
+      "feature:f-save-layout": {
+        "x": 49.27790015736309,
+        "y": 78.57827322390312
+      },
+      "feature:f-autosave": {
+        "x": 54.605240714915,
+        "y": 78.57827322390312
+      },
+      "feature:f-undo-redo": {
+        "x": 458.15128794953716,
+        "y": 66.59175696940974
+      },
+      "feature:f-live-reload": {
+        "x": -319.64043345316554,
+        "y": 74.58276780573885
+      },
+      "feature:f-sync-incremental": {
+        "x": 0,
+        "y": 0
+      },
+      "feature:f-sync-checkpoint": {
+        "x": -873.4854487879605,
+        "y": 1.1594298308118596
+      },
+      "feature:f-sync-planned-upgrade": {
+        "x": -1246.2421393940056,
+        "y": 175.07390445260603
+      },
+      "feature:f-validate-structure": {
+        "x": -307.58229310481363,
+        "y": -439.46826247082714
+      },
+      "feature:f-validate-heuristic": {
+        "x": -222.34484418396903,
+        "y": -442.13193274960355
+      }
+    },
+    "steps:f-install": {
+      "step:f-install:verify-target": {
+        "x": 16,
+        "y": 25.166666666666664
+      },
+      "step:f-install:detect-sdd": {
+        "x": 276,
+        "y": 107
+      },
+      "step:f-install:copy-prompts": {
+        "x": 596,
+        "y": 129
+      },
+      "step:f-install:merge-agents": {
+        "x": 856,
+        "y": 107
+      },
+      "step:f-install:copy-skill": {
+        "x": 1176,
+        "y": 116
+      },
+      "step:f-install:copy-validator": {
+        "x": 1436,
+        "y": 129
+      },
+      "step:f-install:write-gitignore": {
+        "x": 1696,
+        "y": 129
+      },
+      "step:f-install:ok": {
+        "x": 1956,
+        "y": 129
+      },
+      "step:f-install:fail-target": {
+        "x": 276,
+        "y": 16
+      }
+    },
+    "steps:f-scan-entry": {
+      "step:f-scan-entry:ask-lang": {
+        "x": 16,
+        "y": 25.166666666666664
+      },
+      "step:f-scan-entry:detect-sdd": {
+        "x": 276,
+        "y": 38.166666666666664
+      },
+      "step:f-scan-entry:scale-check": {
+        "x": 536.8505434782609,
+        "y": -76.70923913043478
+      },
+      "step:f-scan-entry:route": {
+        "x": 828,
+        "y": 38.166666666666664
+      },
+      "step:f-scan-entry:report": {
+        "x": 1088,
+        "y": 38.166666666666664
+      }
+    },
+    "steps:f-scan-light": {
+      "step:f-scan-light:read-all": {
+        "x": 16,
+        "y": 29
+      },
+      "step:f-scan-light:draw-epics": {
+        "x": 276,
+        "y": 16
+      },
+      "step:f-scan-light:extract-features": {
+        "x": 536,
+        "y": 16
+      },
+      "step:f-scan-light:write-steps": {
+        "x": 855,
+        "y": 16
+      },
+      "step:f-scan-light:attach-refs": {
+        "x": 1115,
+        "y": 29
+      },
+      "step:f-scan-light:write-cross": {
+        "x": 1375,
+        "y": 29
+      },
+      "step:f-scan-light:write-epic-flow": {
+        "x": 1635,
+        "y": 29
+      },
+      "step:f-scan-light:calibrate-conf": {
+        "x": 1895,
+        "y": 29
+      },
+      "step:f-scan-light:save-file": {
+        "x": 2155,
+        "y": 29
+      },
+      "step:f-scan-light:validate": {
+        "x": 2415,
+        "y": 29
+      },
+      "step:f-scan-light:fail-validate": {
+        "x": 2675,
+        "y": 29
+      }
+    },
+    "steps:f-scan-planning": {
+      "step:f-scan-planning:read-docs": {
+        "x": 16,
+        "y": 29
+      },
+      "step:f-scan-planning:tag-planned": {
+        "x": 276,
+        "y": 29
+      },
+      "step:f-scan-planning:low-conf": {
+        "x": 536,
+        "y": 16
+      },
+      "step:f-scan-planning:save-file": {
+        "x": 796,
+        "y": 29
+      },
+      "step:f-scan-planning:validate": {
+        "x": 1056,
+        "y": 29
+      },
+      "step:f-scan-planning:fail-validate": {
+        "x": 1316,
+        "y": 29
+      }
+    },
+    "steps:f-scan-sdd": {
+      "step:f-scan-sdd:locate-spec": {
+        "x": 16,
+        "y": 16
+      },
+      "step:f-scan-sdd:read-prd": {
+        "x": 276,
+        "y": 16
+      },
+      "step:f-scan-sdd:extract-epics": {
+        "x": 536,
+        "y": 16
+      },
+      "step:f-scan-sdd:mark-status": {
+        "x": 796,
+        "y": 16
+      },
+      "step:f-scan-sdd:save-file": {
+        "x": 1056,
+        "y": 16
+      },
+      "step:f-scan-sdd:validate": {
+        "x": 1316,
+        "y": 16
+      },
+      "step:f-scan-sdd:fail-validate": {
+        "x": 1576,
+        "y": 16
+      }
+    }
+  },
+  "generated_at": "2026-05-17T13:13:14.823Z"
+}

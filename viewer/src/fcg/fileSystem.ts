@@ -279,8 +279,10 @@ export async function autoLoadFeaturesFromStoredDir(
 export async function saveLayoutFile(
   repoId: string,
   layout: LayoutFile,
+  options: { fileName?: string } = {},
 ): Promise<'wrote' | 'downloaded' | 'no-handle'> {
   const text = JSON.stringify(layout, null, 2)
+  const fileName = options.fileName ?? 'layout.json'
 
   if (isFSASupported()) {
     const handle = await getStoredHandle(repoId)
@@ -288,8 +290,11 @@ export async function saveLayoutFile(
       const ok = await checkPermission(handle)
       if (!ok) return 'no-handle'
       try {
-        const target = await resolveLayoutWriteTarget(handle)
-        const fileHandle = await target.dirHandle.getFileHandle('layout.json', { create: true })
+        // 自定义文件名时直接写在用户授权的根目录；否则按"与 features.json 同目录"规则
+        const target = options.fileName
+          ? { dirHandle: handle, path: fileName }
+          : await resolveLayoutWriteTarget(handle)
+        const fileHandle = await target.dirHandle.getFileHandle(fileName, { create: true })
         const writable = await fileHandle.createWritable()
         await writable.write(text)
         await writable.close()
@@ -300,7 +305,7 @@ export async function saveLayoutFile(
     }
     return 'no-handle'
   }
-  return downloadAsFile(text)
+  return downloadAsFile(text, fileName)
 }
 
 async function resolveLayoutWriteTarget(
@@ -444,12 +449,12 @@ export async function migrateLegacyDefault(): Promise<void> {
 
 /* ------------------------- 浏览器下载兜底 ------------------------- */
 
-function downloadAsFile(text: string): 'downloaded' {
+function downloadAsFile(text: string, fileName: string = 'layout.json'): 'downloaded' {
   const blob = new Blob([text], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'layout.json'
+  a.download = fileName
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)

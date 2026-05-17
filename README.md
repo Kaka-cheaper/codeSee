@@ -70,6 +70,7 @@ CodeSee solves this: AI writes the code AND writes the feature map. You see the 
 | **Semantic flow graph** | Three-level drill-down: Epics → Features → Steps. See the "what" and "why", not the "how". |
 | **AI-maintained** | AI writes `features.json` after every code change. No manual diagramming. Works with any AI IDE. |
 | **Interactive canvas** | Drag, zoom, undo/redo, auto-save layout. Warm-ivory theme designed for long review sessions. |
+| **Multi-project switcher** | Top-bar dropdown to switch between projects (FSA folders / uploaded files / bundled examples) — no re-dragging. Authorized folders auto-restore across refreshes. |
 | **Live reload** | Toggle the Live button — viewer polls `features.json` every 3s and auto-refreshes the canvas with smooth fade-in for new nodes. Watch the graph grow as AI works. |
 | **Zero lock-in** | Plain JSON file. Human-readable, git-diffable, lockable. Switch AI providers anytime. |
 | **Incremental sync** | Each code change updates only affected features. The graph grows with your project. |
@@ -109,7 +110,13 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173/`, drag in your `.codesee/features.json`.
+Open `http://localhost:5173/` — by default you'll see CodeSee's own feature graph (a live example of the tool modeling itself). Click **Open ▼** in the top-right to switch:
+
+- **+ Add project** → pick a folder containing `features.json` (one-time auth, remembered forever — no repeated folder pickers)
+- **Drop a file** → drag any `features.json` onto the canvas
+- **Bundled examples** → switch to the blog-system example or CodeSee itself
+
+All your previous projects stay in the dropdown. Next time you open the viewer, just click to switch.
 
 ---
 
@@ -123,8 +130,8 @@ Your Project/                              CodeSee Viewer/
 ├── .codesee/                              viewer/
 │   ├── prompts/*.md           ←────────── prompts/*.md  (scan / scan-sdd / sync / ...)
 │   ├── scripts/               ←────────── scripts/validate-features.mjs
-│   ├── features.json          ──────────→ Drag into viewer
-│   └── layout.json            ←────────── Saved from viewer (FSA)
+│   ├── features.json          ──────────→ Loaded by viewer (add project / drag)
+│   └── layout.json            ←────────── Saved from viewer (FSA, same folder as features.json)
 └── your code  (or .specify / .trellis / .bmad-core / ... for SDD projects)
 ```
 
@@ -216,7 +223,11 @@ Full details: [`docs/principles.md`](./docs/principles.md)
 codeSee/
 ├── viewer/                  Canvas frontend (Vite + React + React Flow + Tailwind v4 + ELK)
 │   ├── src/{fcg,graph,app,lib}
-│   └── public/{features,layout}.json   Example data
+│   └── public/
+│       ├── features.json    Default example: CodeSee modeling itself (live demo)
+│       ├── examples/        Other bundled examples
+│       │   └── blog-system.json
+│       └── layout.json      Default canvas layout
 ├── prompts/                 AI prompt templates (copied to target projects)
 │   ├── scan.md              Entry point (auto-routes: sdd / planning / light / heavy)
 │   ├── scan-sdd.md          SDD projects (spec-kit / Trellis / BMAD / Agent Skills)
@@ -253,13 +264,29 @@ The viewer has fallback handling for unknown enums, but severely malformed JSON 
 </details>
 
 <details>
-<summary><strong>Browser doesn't show the directory picker when I click 💾</strong></summary>
+<summary><strong>Save button doesn't work / no directory picker shows up</strong></summary>
 
-The File System Access API only works in Chromium-based browsers (Chrome, Edge, Arc). Firefox and Safari don't support it.
+CodeSee uses the File System Access API for local read/write. Only available in Chromium browsers (Chrome, Edge, Arc).
 
-- Use Chrome or Edge
-- Make sure you're on `localhost` or HTTPS (FSA is blocked on `file://`)
-- If it still doesn't work, the viewer falls back to localStorage (your layout is still saved, just not to a file)
+- Use Chrome or Edge to open the viewer
+- Must access via `localhost` or HTTPS (FSA is blocked on `file://`)
+- **Before your first save, click "+ Add project" in the top-bar dropdown and pick a folder containing `features.json`** — that's the unified auth entry. After authorization, the save button, autosave, and live reload all work directly without re-prompting for the folder
+- Without authorization, save only writes localStorage drafts (still survives refresh, but not to disk)
+- Browser restart may reset FSA permission to `prompt` — the canvas will show a re-authorization banner; one click on **Reauthorize** is enough
+- Firefox/Safari users: the viewer falls back to localStorage and your layout is still saved
+</details>
+
+<details>
+<summary><strong>How do I switch between multiple projects?</strong></summary>
+
+The **Open ▼** dropdown in the top-bar has two sections:
+
+- **Your projects** — folders or uploaded files you've added before, sorted by last opened, hover to remove
+- **Examples** — CodeSee itself, blog-system example
+
+Click any row to switch instantly. FSA projects auto-restore across page refreshes and browser restarts — once authorized, you never need to re-pick the folder.
+
+The active project is remembered in localStorage; next time you open the viewer it loads where you left off.
 </details>
 
 <details>

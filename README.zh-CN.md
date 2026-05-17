@@ -70,6 +70,7 @@ CodeSee 解决这个问题：AI 写代码的同时也写功能地图。你看到
 | **语义流程图** | 三层下钻：Epic → Feature → Step。看到的是"做什么"和"为什么"，不是"怎么实现"。 |
 | **AI 自动维护** | 每次代码改动后 AI 更新 `features.json`。无需手动画图。兼容任何 AI IDE。 |
 | **交互式画布** | 拖动、缩放、撤销/重做、自动保存布局。暖白主题，适合长时间审查。 |
+| **多项目面板** | 顶栏下拉一键切换多个项目（FSA 目录 / 上传文件 / 内置示例），无需重新拖文件。授权过的目录跨刷新自动恢复。 |
 | **实时刷新** | 打开 Live 开关 — viewer 每 3 秒轮询 `features.json`，自动刷新画布并对新节点做淡入动画。看着图随 AI 工作生长。 |
 | **零锁定** | 纯 JSON 文件。人类可读、可 git diff、可锁定。随时切换 AI 供应商。 |
 | **增量同步** | 每次改动只更新受影响的 feature。图随项目生长。 |
@@ -109,7 +110,13 @@ npm install
 npm run dev
 ```
 
-打开 `http://localhost:5173/`，把 `.codesee/features.json` 拖进去。
+打开 `http://localhost:5173/` —— 默认会显示 CodeSee 自己的功能图（用来给项目自身建模的活样例）。点击右上角 **打开 ▼** 切换：
+
+- **+ 添加项目** → 选择包含 `features.json` 的目录（一次授权，永久记住，不再反复弹文件夹选择器）
+- **拖入文件** → 把任意 `features.json` 拖到画布上
+- **内置示例** → 切到博客系统示例或 CodeSee 自身
+
+切换过的项目都在下拉里，下次打开直接点就行。
 
 ---
 
@@ -123,8 +130,8 @@ npm run dev
 ├── .codesee/                              viewer/
 │   ├── prompts/*.md           ←────────── prompts/*.md（scan / scan-sdd / sync / ...）
 │   ├── scripts/               ←────────── scripts/validate-features.mjs
-│   ├── features.json          ──────────→ 拖入 viewer
-│   └── layout.json            ←────────── viewer 保存（File System Access API）
+│   ├── features.json          ──────────→ viewer 加载（添加项目 / 拖入）
+│   └── layout.json            ←────────── viewer 保存（File System Access API，与 features.json 同目录）
 └── 你的代码（或 .specify / .trellis / .bmad-core / ... SDD 项目）
 ```
 
@@ -216,7 +223,11 @@ npm run dev
 codeSee/
 ├── viewer/                  画布前端（Vite + React + React Flow + Tailwind v4 + ELK）
 │   ├── src/{fcg,graph,app,lib}
-│   └── public/{features,layout}.json   示例数据
+│   └── public/
+│       ├── features.json    默认示例：CodeSee 自身的功能图（自我建模）
+│       ├── examples/        其他内置示例
+│       │   └── blog-system.json
+│       └── layout.json      画布默认布局
 ├── prompts/                 AI prompt 模板（通过 install 脚本拷贝到目标项目）
 │   ├── scan.md              入口（自动路由：sdd / planning / light / heavy）
 │   ├── scan-sdd.md          SDD 项目（spec-kit / Trellis / BMAD / Agent Skills）
@@ -253,13 +264,29 @@ viewer 对未知枚举有容错处理，但严重畸形的 JSON 仍可能导致�
 </details>
 
 <details>
-<summary><strong>点击 💾 没有弹出目录选择器</strong></summary>
+<summary><strong>保存按钮不工作 / 没有弹出目录选择器</strong></summary>
 
-File System Access API 仅在 Chromium 内核浏览器（Chrome、Edge、Arc）中可用，Firefox 和 Safari 不支持。
+CodeSee 用 File System Access API 读写本地文件，仅在 Chromium 内核浏览器（Chrome、Edge、Arc）中可用。
 
-- 使用 Chrome 或 Edge
-- 确保在 `localhost` 或 HTTPS 下访问（`file://` 协议下 FSA 被禁用）
-- 如果仍不弹出，viewer 会回退到 localStorage（布局仍然保存，只是不写文件）
+- 使用 Chrome 或 Edge 访问 viewer
+- 必须在 `localhost` 或 HTTPS 下访问（`file://` 协议下 FSA 被禁用）
+- **首次保存前请先用顶栏「+ 添加项目」选择包含 `features.json` 的目录** — 这是统一授权入口，授权后保存按钮、自动保存、实时刷新全部直接生效，不再弹文件夹选择器
+- 没授权时点保存只会写 localStorage 草稿（刷新仍能恢复，但不写到磁盘）
+- 浏览器重启可能让 FSA 权限回退到 prompt 状态——此时画布会显示授权提示条，点 **重新授权** 弹一次小权限框即可
+- Firefox/Safari 用户：viewer 会回退到 localStorage，布局仍然保存
+</details>
+
+<details>
+<summary><strong>如何在多个项目之间切换？</strong></summary>
+
+顶栏 **打开 ▼** 下拉菜单分两段：
+
+- **你的项目** — 之前授权过的目录或上传的文件，按最近打开时间排序，hover 能删除
+- **内置示例** — CodeSee 自身、博客系统示例
+
+点任意一行直接切换。FSA 项目跨刷新、跨浏览器重启都自动恢复——只要授权过就再也不用重新选目录。
+
+切换状态记在 localStorage，下次打开直接显示上次的项目。
 </details>
 
 <details>

@@ -26,21 +26,21 @@ export interface BundledProjectDef {
 const BUNDLED_DEFS: BundledProjectDef[] = [
   {
     slug: 'codesee',
-    displayName: 'CodeSee（中文）',
+    displayName: 'CodeSee · 中文',
     sourceLabel: '内置示例',
     path: 'features.json',
     layoutPath: 'examples/codesee-layout.json',
   },
   {
     slug: 'codesee-en',
-    displayName: 'CodeSee (English)',
+    displayName: 'CodeSee · English',
     sourceLabel: 'Bundled example',
     path: 'examples/codesee-en.json',
     layoutPath: 'examples/codesee-layout.json',
   },
   {
     slug: 'blog-system',
-    displayName: '博客系统示例',
+    displayName: 'Blog System · 博客系统',
     sourceLabel: '内置示例',
     path: 'examples/blog-system.json',
   },

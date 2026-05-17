@@ -4,6 +4,7 @@ import type { FeaturesFile } from '@/fcg/types'
 import type { FcgViewNode } from './fcgView'
 import { ROLE_META } from './roleMeta'
 import { cn } from '@/lib/cn'
+import { useI18n } from '@/lib/i18n'
 
 interface Props {
   view: FcgViewNode | null
@@ -41,6 +42,7 @@ export function DetailsPanel({ view, file, onClose }: Props) {
 }
 
 function PanelHeader({ view, onClose }: { view: FcgViewNode; onClose: () => void }) {
+  const { t } = useI18n()
   let label: string
   let title: string
   let badge: React.ReactNode = null
@@ -91,7 +93,7 @@ function PanelHeader({ view, onClose }: { view: FcgViewNode; onClose: () => void
       <button
         onClick={onClose}
         className="-mr-1 rounded-md p-1.5 text-[var(--color-fg-subtle)] transition-colors hover:bg-[var(--color-bg-2)] hover:text-[var(--color-fg)]"
-        aria-label="关闭"
+        aria-label={t('panel.close')}
       >
         <X size={15} />
       </button>
@@ -106,6 +108,7 @@ function EpicBody({
   view: Extract<FcgViewNode, { kind: 'epic' }>
   file: FeaturesFile
 }) {
+  const { t } = useI18n()
   const features = useMemo(
     () => file.features.filter((f) => (f.epicId ?? '__none__') === view.epic.id),
     [file.features, view.epic.id],
@@ -113,13 +116,13 @@ function EpicBody({
   return (
     <>
       {view.epic.summary && (
-        <Section title="说明">
+        <Section title={t('panel.summary')}>
           <p className="text-[12px] leading-relaxed text-[var(--color-fg-muted)]">
             {view.epic.summary}
           </p>
         </Section>
       )}
-      <Section title={`包含的功能 (${features.length})`}>
+      <Section title={t('panel.containedFeatures', { count: features.length })}>
         <ul className="space-y-1.5">
           {features.map((f) => (
             <li
@@ -130,7 +133,7 @@ function EpicBody({
                 {f.name}
               </span>
               <span className="font-mono text-[10px] text-[var(--color-fg-subtle)]">
-                {f.steps.length}步
+                {t('panel.stepCount', { count: f.steps.length })}
               </span>
             </li>
           ))}
@@ -147,6 +150,7 @@ function FeatureBody({
   view: Extract<FcgViewNode, { kind: 'feature' }>
   file: FeaturesFile
 }) {
+  const { t } = useI18n()
   const f = view.feature
   const links = useMemo(
     () =>
@@ -156,30 +160,30 @@ function FeatureBody({
   return (
     <>
       {f.summary && (
-        <Section title="说明">
+        <Section title={t('panel.summary')}>
           <p className="text-[12px] leading-relaxed text-[var(--color-fg-muted)]">
             {f.summary}
           </p>
         </Section>
       )}
       {f.triggers && f.triggers.length > 0 && (
-        <Section title="触发">
+        <Section title={t('panel.triggers')}>
           <ul className="space-y-1">
-            {f.triggers.map((t, i) => (
+            {f.triggers.map((tt, i) => (
               <li
                 key={i}
                 className="flex items-center gap-2 text-[11.5px] text-[var(--color-fg-muted)]"
               >
                 <span className="font-mono uppercase text-[var(--color-fg-subtle)]">
-                  {t.kind}
+                  {tt.kind}
                 </span>
-                <span className="font-mono">{t.detail}</span>
+                <span className="font-mono">{tt.detail}</span>
               </li>
             ))}
           </ul>
         </Section>
       )}
-      <Section title={`步骤 (${f.steps.length})`}>
+      <Section title={t('panel.steps', { count: f.steps.length })}>
         <ol className="space-y-1">
           {f.steps.map((s, idx) => {
             const meta = ROLE_META[s.role] ?? ROLE_META.other
@@ -206,7 +210,7 @@ function FeatureBody({
         </ol>
       </Section>
       {links.length > 0 && (
-        <Section title="关联功能">
+        <Section title={t('panel.relatedFeatures')}>
           <ul className="space-y-1">
             {links.map((l, i) => {
               const isFrom = l.from === f.id
@@ -230,14 +234,14 @@ function FeatureBody({
         </Section>
       )}
       {f.tags && f.tags.length > 0 && (
-        <Section title="标签">
+        <Section title={t('panel.tags')}>
           <div className="flex flex-wrap gap-1">
-            {f.tags.map((t) => (
+            {f.tags.map((tag) => (
               <span
-                key={t}
+                key={tag}
                 className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-2)] px-1.5 py-0.5 font-mono text-[9.5px] text-[var(--color-fg-muted)]"
               >
-                #{t}
+                #{tag}
               </span>
             ))}
           </div>
@@ -254,6 +258,7 @@ function StepBody({
   view: Extract<FcgViewNode, { kind: 'step' }>
   file: FeaturesFile
 }) {
+  const { t } = useI18n()
   const s = view.step
   const owner = useMemo(
     () => file.features.find((f) => f.id === view.featureId),
@@ -261,16 +266,16 @@ function StepBody({
   )
   return (
     <>
-      <Section title="所属功能">
+      <Section title={t('panel.ownerFeature')}>
         <p className="text-[12.5px] text-[var(--color-fg)]">{owner?.name ?? view.featureId}</p>
       </Section>
       {s.note && (
-        <Section title="说明">
+        <Section title={t('panel.summary')}>
           <p className="text-[12px] leading-relaxed text-[var(--color-fg-muted)]">{s.note}</p>
         </Section>
       )}
       {s.refs && s.refs.length > 0 && (
-        <Section title="源码位置">
+        <Section title={t('panel.sourceRefs')}>
           <ul className="space-y-1">
             {s.refs.map((r, i) => (
               <li

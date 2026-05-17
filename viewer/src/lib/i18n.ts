@@ -60,6 +60,24 @@ const dict = {
     'reauth.message': '「{name}」需要重新授权才能访问目录（当前显示的是默认示例）',
     'reauth.action': '重新授权',
     'reauth.dismiss': '关闭提示',
+
+    // Node views (graph)
+    'node.featureCount': '{count} 个功能',
+    'node.stepCount': '{count} 步',
+    'node.lowConfidence': '低置信度',
+    'node.lowConfidenceTooltip': 'AI 推测，置信度 {value}',
+
+    // Details panel
+    'panel.close': '关闭',
+    'panel.summary': '说明',
+    'panel.triggers': '触发',
+    'panel.steps': '步骤 ({count})',
+    'panel.containedFeatures': '包含的功能 ({count})',
+    'panel.relatedFeatures': '关联功能',
+    'panel.tags': '标签',
+    'panel.ownerFeature': '所属功能',
+    'panel.sourceRefs': '源码位置',
+    'panel.stepCount': '{count} 步',
   },
   en: {
     // TopBar
@@ -118,6 +136,24 @@ const dict = {
     'reauth.message': '"{name}" needs re-authorization to access the directory (showing default example for now)',
     'reauth.action': 'Reauthorize',
     'reauth.dismiss': 'Dismiss',
+
+    // Node views (graph)
+    'node.featureCount': '{count} features',
+    'node.stepCount': '{count} steps',
+    'node.lowConfidence': 'low confidence',
+    'node.lowConfidenceTooltip': 'AI estimate, confidence {value}',
+
+    // Details panel
+    'panel.close': 'Close',
+    'panel.summary': 'Summary',
+    'panel.triggers': 'Triggers',
+    'panel.steps': 'Steps ({count})',
+    'panel.containedFeatures': 'Contained features ({count})',
+    'panel.relatedFeatures': 'Related features',
+    'panel.tags': 'Tags',
+    'panel.ownerFeature': 'Owner feature',
+    'panel.sourceRefs': 'Source refs',
+    'panel.stepCount': '{count} steps',
   },
 } as const
 

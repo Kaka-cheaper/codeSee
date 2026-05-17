@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Layers } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { useI18n } from '@/lib/i18n'
 import type { FcgViewNode } from './fcgView'
 
 export type EpicNodeData = {
@@ -12,6 +13,7 @@ export type EpicNodeData = {
 
 function EpicNodeViewImpl({ data, selected }: NodeProps) {
   const { view, isNew, dimmed } = data as unknown as EpicNodeData
+  const { t } = useI18n()
   const importance = view.epic.importance ?? 'normal'
   return (
     <div
@@ -44,7 +46,7 @@ function EpicNodeViewImpl({ data, selected }: NodeProps) {
           {view.epic.name}
         </div>
         <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--color-fg-muted)]">
-          <span className="font-mono">{view.featureCount} 个功能</span>
+          <span className="font-mono">{t('node.featureCount', { count: view.featureCount })}</span>
           {view.epic.tags && view.epic.tags.length > 0 && (
             <span className="truncate text-[var(--color-fg-subtle)]">
               {view.epic.tags.slice(0, 3).join(' · ')}

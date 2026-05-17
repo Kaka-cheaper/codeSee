@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { useI18n } from '@/lib/i18n'
 import type { FcgViewNode } from './fcgView'
 import type { Trigger, TriggerKind } from '@/fcg/types'
 
@@ -35,6 +36,7 @@ const TRIGGER_ICON: Record<TriggerKind, LucideIcon> = {
 
 function FeatureNodeViewImpl({ data, selected }: NodeProps) {
   const { view, isNew, dimmed } = data as unknown as FeatureNodeData
+  const { t } = useI18n()
   const f = view.feature
   const isAi = f.provenance === 'ai'
   const isLocked = f.locked === true
@@ -94,7 +96,7 @@ function FeatureNodeViewImpl({ data, selected }: NodeProps) {
 
       <div className="mt-2.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-[10.5px] text-[var(--color-fg-subtle)]">
-          <span className="font-mono">{f.steps.length} 步</span>
+          <span className="font-mono">{t('node.stepCount', { count: f.steps.length })}</span>
           {f.tags && f.tags.length > 0 && (
             <>
               <span aria-hidden>·</span>
@@ -106,7 +108,7 @@ function FeatureNodeViewImpl({ data, selected }: NodeProps) {
         </div>
         {lowConfidence && (
           <span
-            title={'AI 推测，置信度 ' + f.confidence.toFixed(2)}
+            title={t('node.lowConfidenceTooltip', { value: f.confidence.toFixed(2) })}
             className="rounded-md px-1 font-mono text-[9.5px]"
             style={{ background: 'var(--color-bg-sunken)', color: 'var(--color-fg-subtle)' }}
           >

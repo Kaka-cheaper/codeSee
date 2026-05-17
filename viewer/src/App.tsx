@@ -536,7 +536,7 @@ export default function App() {
         <div className="relative flex-1">
           {file ? (
             <ReactFlowProvider key={activeRepoId ?? 'default'}>
-              <GraphCanvas file={file} />
+              <GraphCanvas file={file} activeRepoId={activeRepoId} />
             </ReactFlowProvider>
           ) : (
             <EmptyState

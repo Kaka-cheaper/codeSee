@@ -47,6 +47,9 @@ import type { LaidOutNode, LayoutGroup } from './layout'
 
 interface Props {
   file: FeaturesFile
+  /** 上层传入的项目 id（用于 bundled 项目识别 + localStorage 分桶）。
+   *  没有时退化为 file.manifest.repo。 */
+  activeRepoId?: string | null
 }
 
 const nodeTypes = {
@@ -64,11 +67,11 @@ function viewKeyOf(state: FcgViewState): string {
     : state.mode
 }
 
-export function GraphCanvas({ file }: Props) {
-  return <GraphInner file={file} />
+export function GraphCanvas({ file, activeRepoId }: Props) {
+  return <GraphInner file={file} activeRepoId={activeRepoId} />
 }
 
-function GraphInner({ file }: Props) {
+function GraphInner({ file, activeRepoId }: Props) {
   const [state, setState] = useState<FcgViewState>({ mode: 'overview' })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   /** hover 节点 id：用于实时降噪——hover 时其他节点和边淡出，相关边加亮 */
@@ -78,10 +81,10 @@ function GraphInner({ file }: Props) {
   const view = useMemo(() => buildView(file, state), [file, state])
   const viewKey = viewKeyOf(state)
 
-  // 项目标识：用于 localStorage 分桶
+  // 项目标识：上层传入优先（bundled 项目用 bundled:slug 作识别），回退到 manifest.repo
   const repoId = useMemo(
-    () => file.manifest.repo ?? 'default',
-    [file.manifest.repo],
+    () => activeRepoId ?? file.manifest.repo ?? 'default',
+    [activeRepoId, file.manifest.repo],
   )
 
   // 节点位置缓存（按 viewKey 分桶）：启动时从 localStorage 加载（草稿）

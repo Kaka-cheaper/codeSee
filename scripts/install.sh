@@ -135,7 +135,8 @@ cat <<EOF
 Next steps:
   1. Open the target project in your AI IDE; ask it to read AGENTS.md.
   2. Let the AI run the scan (first time) or sync (after each change).
-  3. In the CodeSee viewer, drop or open .codesee/features.json to render.
+  3. View the graph in your browser: https://Kaka-cheaper.github.io/codeSee/
+     -> click "+ Add project" and select this directory.
 
-Viewer:  cd "$SELF_DIR/viewer" && npm run dev
+Run viewer locally (contributors):  cd "$SELF_DIR/viewer" && npm run dev
 EOF

@@ -4,12 +4,15 @@
 
 # CodeSee
 
-**AI writes the code. You see the story.**
+**The feature graph your AI auto-maintains.**
 
-The feature-level canvas for AI-collaborative development. AI maintains a semantic flow graph of your project — you stay in control without reading every line.
+Stop reading every line of AI-generated code. See a semantic flow graph of your project — auto-updated as AI works, never stale.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Demo](https://img.shields.io/badge/Live_Demo-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/)
+[![Version](https://img.shields.io/github/package-json/v/Kaka-cheaper/codeSee?filename=viewer%2Fpackage.json&label=viewer)](./viewer/package.json)
+[![Last commit](https://img.shields.io/github/last-commit/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/commits/main)
+[![Issues](https://img.shields.io/github/issues/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/issues)
 [![中文](https://img.shields.io/badge/Lang-中文-red.svg)](./README.zh-CN.md)
 [![LINUX DO](https://img.shields.io/badge/LINUX-DO-FFB003.svg?logo=data:image/svg%2bxml;base64,DQo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiPjxwYXRoIGQ9Ik00Ni44Mi0uMDU1aDYuMjVxMjMuOTY5IDIuMDYyIDM4IDIxLjQyNmM1LjI1OCA3LjY3NiA4LjIxNSAxNi4xNTYgOC44NzUgMjUuNDV2Ni4yNXEtMi4wNjQgMjMuOTY4LTIxLjQzIDM4LTExLjUxMiA3Ljg4NS0yNS40NDUgOC44NzRoLTYuMjVxLTIzLjk3LTIuMDY0LTM4LjAwNC0yMS40M1EuOTcxIDY3LjA1Ni0uMDU0IDUzLjE4di02LjQ3M0MxLjM2MiAzMC43ODEgOC41MDMgMTguMTQ4IDIxLjM3IDguODE3IDI5LjA0NyAzLjU2MiAzNy41MjcuNjA0IDQ2LjgyMS0uMDU2IiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZWNlY2VjO2ZpbGwtb3BhY2l0eToxIi8+PHBhdGggZD0iTTQ3LjI2NiAyLjk1N3EyMi41My0uNjUgMzcuNzc3IDE1LjczOGE0OS43IDQ5LjcgMCAwIDEgNi44NjcgMTAuMTU3cS00MS45NjQuMjIyLTgzLjkzIDAgOS43NS0xOC42MTYgMzAuMDI0LTI0LjM4N2E2MSA2MSAwIDAgMSA5LjI2Mi0xLjUwOCIgc3R5bGU9InN0cm9rZTpub25lO2ZpbGwtcnVsZTpldmVub2RkO2ZpbGw6IzE5MTkxOTtmaWxsLW9wYWNpdHk6MSIvPjxwYXRoIGQ9Ik03Ljk4IDcwLjkyNmMyNy45NzctLjAzNSA1NS45NTQgMCA4My45My4xMTNRODMuNDI2IDg3LjQ3MyA2Ni4xMyA5NC4wODZxLTE4LjgxIDYuNTQ0LTM2LjgzMi0xLjg5OC0xNC4yMDMtNy4wOS0yMS4zMTctMjEuMjYyIiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZjlhZjAwO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+)](https://linux.do/)
 
@@ -20,6 +23,8 @@ The feature-level canvas for AI-collaborative development. AI maintains a semant
 
 </div>
 
+> ⚠ **Active development.** Schema may change between minor versions. Track [CHANGELOG](./CHANGELOG.md) for breaking changes. Currently the most accurate way to follow progress is the [commit history](https://github.com/Kaka-cheaper/codeSee/commits/main).
+
 ---
 
 > Think of it like this: if a feature is "making scrambled eggs with tomatoes",
@@ -27,6 +32,14 @@ The feature-level canvas for AI-collaborative development. AI maintains a semant
 > not "`prepare()` calls `slice()` then `whisk()`".
 
 Not call graphs. Not import maps. A human-readable story of what your project does.
+
+<div align="center">
+
+### ▶ [Try it in 30 seconds — no install](https://Kaka-cheaper.github.io/codeSee/)
+
+<sub>Open the live demo · explore CodeSee modeling itself · drop your own <code>features.json</code></sub>
+
+</div>
 
 <div align="center">
 <img src="./docs/assets/overview.png" alt="Overview View" width="80%" />
@@ -63,6 +76,28 @@ CodeSee solves this: AI writes the code AND writes the feature map. You see the 
 
 ---
 
+## Why I built this
+
+I'm an independent developer who got tired of AI writing 5000 lines in 5 minutes
+while I spent hours figuring out what changed.
+
+I tried call graphs, import maps, AST tools — all wrong layer. They show *how* code
+calls itself, not *what* the project does for the user.
+
+CodeSee is the tool I wished I had when working with Cursor / Claude Code on real
+projects. After iterating on **Polisim** (40+ features simulation engine) and a
+**美团 AI Hackathon** project to validate the schema and prompts, I'm sharing it.
+
+The three rules that emerged from real use:
+
+1. **Semantic control belongs to AI / `features.json`** — naming, ordering, grouping
+2. **Visual & interaction belongs to the frontend** — drag, zoom, theme, layout
+3. **When uncertain, let AI write it down explicitly** — no frontend heuristics
+
+— [@Kaka-cheaper](https://github.com/Kaka-cheaper) · [LinuxDo](https://linux.do/)
+
+---
+
 ## Core Capabilities
 
 | Capability | Description |
@@ -81,9 +116,30 @@ CodeSee solves this: AI writes the code AND writes the feature map. You see the 
 
 ---
 
+## When NOT to use
+
+- ❌ **Single-file scripts or tiny prototypes** — overkill, just read the code
+- ❌ **Pure documentation projects with no code** — you can use planning mode, but a wiki/Notion may serve better
+- ❌ **Codebases without AI collaboration** — manual maintenance defeats the point; the value is "AI writes it for you"
+- ❌ **Real-time low-latency monitoring** — `features.json` is sync-on-change, not millisecond-live
+- ❌ **Dependency / call graph analysis** — that's the wrong layer; use [Madge](https://github.com/pahen/madge), [dependency-cruiser](https://github.com/sverweij/dependency-cruiser), or your IDE's built-in analyzer
+
+If you're an independent dev / small team using Cursor / Claude Code / Kiro / Copilot to ship features and you keep losing track of what your codebase actually does — that's the sweet spot.
+
+---
+
 ## Quick Start
 
-### 1. Install into your project
+### 1. Clone this repo
+
+```bash
+git clone https://github.com/Kaka-cheaper/codeSee.git
+cd codeSee
+```
+
+The install scripts, prompts, validator, and templates live here. The viewer is hosted on GitHub Pages so you don't need to run it locally.
+
+### 2. Install CodeSee into your project
 
 ```powershell
 # Windows
@@ -93,30 +149,30 @@ CodeSee solves this: AI writes the code AND writes the feature map. You see the 
 ./scripts/install.sh /path/to/your/project
 ```
 
-This injects `AGENTS.md` + `.codesee/` (prompts, validator) into your project.
+This injects `AGENTS.md` + `.codesee/` (prompts, validator) into your project. Roughly 6 small files. Doesn't touch your code.
 
-### 2. Let AI scan
+### 3. Let AI scan
 
 Open your project in any AI IDE (Cursor / Claude Code / Kiro / Copilot / Codex / Gemini CLI / ...).
 The AI reads `AGENTS.md` (or `.agents/skills/codesee/SKILL.md` for SKILL.md-compatible IDEs) and automatically generates `.codesee/features.json`.
 
 If your project uses a Spec-Driven Development framework (`.specify/`, `.trellis/`, `.bmad-core/`, ...), CodeSee will detect it and consume the spec/PRD docs directly — no source code scan needed.
 
-### 3. View the graph
+### 4. View the graph (in your browser, no install)
 
-```bash
-cd codeSee/viewer
-npm install
-npm run dev
-```
+Open **[https://Kaka-cheaper.github.io/codeSee/](https://Kaka-cheaper.github.io/codeSee/)** — the live web viewer.
 
-Open `http://localhost:5173/` — by default you'll see CodeSee's own feature graph (a live example of the tool modeling itself). Click **Open ▼** in the top-right to switch:
+By default you'll see CodeSee's own feature graph. To switch to your project:
 
-- **+ Add project** → pick a folder containing `features.json` (one-time auth, remembered forever — no repeated folder pickers)
-- **Drop a file** → drag any `features.json` onto the canvas
-- **Bundled examples** → switch to the blog-system example or CodeSee itself
+1. Click **+ Add project** in the top-right dropdown
+2. Pick the folder containing `.codesee/features.json` — you'll get a one-time browser permission prompt
+3. Done. The browser reads your local files directly via the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API) — never uploads anything.
 
-All your previous projects stay in the dropdown. Next time you open the viewer, just click to switch.
+All your previous projects stay in the dropdown — next time you open the viewer, just click to switch.
+
+> **Browser support**: Chrome / Edge / Arc / Brave (Chromium-based). Firefox/Safari users can drag a `features.json` file in instead — layout still saves to localStorage.
+
+> **Want to run viewer locally?** See [Development setup](./CONTRIBUTING.md#development-setup) — `cd viewer && npm run dev`.
 
 ---
 
@@ -252,6 +308,18 @@ codeSee/
 ## FAQ / Troubleshooting
 
 <details>
+<summary><strong>How can the browser read files from my disk? Is that safe?</strong></summary>
+
+CodeSee uses the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API), a modern web standard. Three things make it safe:
+
+1. **You explicitly choose the folder.** The browser shows a folder picker — nothing happens unless you click "Allow". Same UX as opening a file in any web app.
+2. **The browser sandboxes access.** Only that one folder you picked is readable, and only by `https://Kaka-cheaper.github.io/`. Refresh the page → permission resets to `prompt` until you re-grant.
+3. **Nothing leaves your machine.** The viewer is a static site (HTML/JS/CSS only) — there's no backend, no upload, no analytics. All file reads happen in your browser. You can verify by checking the Network tab — only the viewer assets load, nothing else.
+
+Even if you don't trust me: clone the repo, read [`viewer/src/fcg/fileSystem.ts`](./viewer/src/fcg/fileSystem.ts) (the only file that touches FSA), and see for yourself. Or just run viewer locally — see [Development setup](./CONTRIBUTING.md#development-setup).
+</details>
+
+<details>
 <summary><strong>Viewer shows a blank white screen after loading features.json</strong></summary>
 
 The AI likely used enum values outside the schema (e.g. `role: "logic"` instead of `role: "compute"`).
@@ -371,6 +439,7 @@ The install script writes both — your AI IDE will pick whichever it understand
 
 - [ ] **CI integration** — validate `features.json` in GitHub Actions / GitLab CI
 - [ ] **Plugin system** — custom node renderers, custom layout algorithms
+- [ ] **Zero-clone install** — `curl ... | bash` one-liner that fetches scripts/prompts/templates from GitHub raw, no `git clone` needed
 
 ### Long-term (optional)
 
@@ -401,3 +470,15 @@ Quick start:
 ## License
 
 [MIT](./LICENSE)
+
+---
+
+<div align="center">
+
+Built with ❤️ by **[@Kaka-cheaper](https://github.com/Kaka-cheaper)** — independent dev exploring AI-collaborative workflows.
+
+Found this useful? **[Star ⭐ on GitHub](https://github.com/Kaka-cheaper/codeSee)** · **[Say hi on LinuxDo](https://linux.do/)**
+
+If you ship something with CodeSee, [open an issue](https://github.com/Kaka-cheaper/codeSee/issues/new) — I'd love to feature it.
+
+</div>

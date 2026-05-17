@@ -151,6 +151,7 @@ Write-Host ''
 Write-Host 'Next steps:' -ForegroundColor Cyan
 Write-Host '  1. Open the target project in your AI IDE; ask it to read AGENTS.md.'
 Write-Host '  2. Let the AI run the scan (first time) or sync (after each change).'
-Write-Host '  3. In the CodeSee viewer, drop or open .codesee/features.json to render.'
+Write-Host '  3. View the graph in your browser: https://Kaka-cheaper.github.io/codeSee/'
+Write-Host '     -> click "+ Add project" and select this directory.'
 Write-Host ''
-Write-Host "Viewer:  cd `"$Self/viewer`"; npm run dev" -ForegroundColor DarkGray
+Write-Host "Run viewer locally (contributors):  cd `"$Self/viewer`"; npm run dev" -ForegroundColor DarkGray

@@ -4,12 +4,15 @@
 
 # CodeSee
 
-**AI 写代码，你看故事。**
+**AI 自动维护的功能流程图。**
 
-面向 AI 协作开发的功能级画布。AI 维护项目的语义流程图——你不用逐行读代码就能掌控全局。
+不用再逐行读 AI 写的代码——看一张随 AI 工作实时更新、永远不过期的语义流程图。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Demo](https://img.shields.io/badge/在线演示-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/)
+[![Version](https://img.shields.io/github/package-json/v/Kaka-cheaper/codeSee?filename=viewer%2Fpackage.json&label=viewer)](./viewer/package.json)
+[![Last commit](https://img.shields.io/github/last-commit/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/commits/main)
+[![Issues](https://img.shields.io/github/issues/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/issues)
 [![English](https://img.shields.io/badge/Lang-English-red.svg)](./README.md)
 [![LINUX DO](https://img.shields.io/badge/LINUX-DO-FFB003.svg?logo=data:image/svg%2bxml;base64,DQo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiPjxwYXRoIGQ9Ik00Ni44Mi0uMDU1aDYuMjVxMjMuOTY5IDIuMDYyIDM4IDIxLjQyNmM1LjI1OCA3LjY3NiA4LjIxNSAxNi4xNTYgOC44NzUgMjUuNDV2Ni4yNXEtMi4wNjQgMjMuOTY4LTIxLjQzIDM4LTExLjUxMiA3Ljg4NS0yNS40NDUgOC44NzRoLTYuMjVxLTIzLjk3LTIuMDY0LTM4LjAwNC0yMS40M1EuOTcxIDY3LjA1Ni0uMDU0IDUzLjE4di02LjQ3M0MxLjM2MiAzMC43ODEgOC41MDMgMTguMTQ4IDIxLjM3IDguODE3IDI5LjA0NyAzLjU2MiAzNy41MjcuNjA0IDQ2LjgyMS0uMDU2IiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZWNlY2VjO2ZpbGwtb3BhY2l0eToxIi8+PHBhdGggZD0iTTQ3LjI2NiAyLjk1N3EyMi41My0uNjUgMzcuNzc3IDE1LjczOGE0OS43IDQ5LjcgMCAwIDEgNi44NjcgMTAuMTU3cS00MS45NjQuMjIyLTgzLjkzIDAgOS43NS0xOC42MTYgMzAuMDI0LTI0LjM4N2E2MSA2MSAwIDAgMSA5LjI2Mi0xLjUwOCIgc3R5bGU9InN0cm9rZTpub25lO2ZpbGwtcnVsZTpldmVub2RkO2ZpbGw6IzE5MTkxOTtmaWxsLW9wYWNpdHk6MSIvPjxwYXRoIGQ9Ik03Ljk4IDcwLjkyNmMyNy45NzctLjAzNSA1NS45NTQgMCA4My45My4xMTNRODMuNDI2IDg3LjQ3MyA2Ni4xMyA5NC4wODZxLTE4LjgxIDYuNTQ0LTM2LjgzMi0xLjg5OC0xNC4yMDMtNy4wOS0yMS4zMTctMjEuMjYyIiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZjlhZjAwO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+)](https://linux.do/)
 
@@ -20,6 +23,8 @@
 
 </div>
 
+> ⚠ **早期活跃开发中。** 小版本之间 schema 可能变动，重大变更见 [CHANGELOG](./CHANGELOG.md)。最准的进展跟踪是 [commit 历史](https://github.com/Kaka-cheaper/codeSee/commits/main)。
+
 ---
 
 > 类比：如果一个功能是"西红柿炒鸡蛋"，
@@ -27,6 +32,14 @@
 > 而不是"`prepare()` 调用 `slice()` 再调用 `whisk()`"。
 
 不是调用图，不是 import 图——是人类可读的"这个项目在做什么"的故事。
+
+<div align="center">
+
+### ▶ [30 秒试用 · 无需安装](https://Kaka-cheaper.github.io/codeSee/)
+
+<sub>打开在线演示 · 体验 CodeSee 给自己建模的画布 · 把你的 <code>features.json</code> 拖进去看效果</sub>
+
+</div>
 
 <div align="center">
 <img src="./docs/assets/overview.png" alt="概览视图" width="80%" />
@@ -63,6 +76,27 @@ CodeSee 解决这个问题：AI 写代码的同时也写功能地图。你看到
 
 ---
 
+## 我为什么做这个
+
+我是一个独立开发者。受够了 AI 五分钟写 5000 行，而我花几小时才能搞清楚改了什么。
+
+我试过调用图、import 图、AST 工具——全在错的抽象层。它们展示的是"代码怎么调自己"，
+不是"项目对用户做了什么"。
+
+CodeSee 是我用 Cursor / Claude Code 做真实项目时希望已经有的工具。
+基于 **Polisim**（40+ 功能的仿真引擎）和**美团 AI Hackathon**项目反复验证 schema 和 prompt 之后，
+现在分享出来。
+
+真实使用中沉淀出三条原则：
+
+1. **语义控制权归 AI / `features.json`** — 命名、顺序、分组
+2. **视觉与交互归前端** — 拖动、缩放、主题、布局
+3. **不确定就让 AI 显式写出来** — 前端不做启发式推断
+
+— [@Kaka-cheaper](https://github.com/Kaka-cheaper) · [LinuxDo](https://linux.do/)
+
+---
+
 ## 核心能力
 
 | 能力 | 描述 |
@@ -81,9 +115,30 @@ CodeSee 解决这个问题：AI 写代码的同时也写功能地图。你看到
 
 ---
 
+## 这些场景不要用
+
+- ❌ **单文件脚本 / 小原型** — 杀鸡用牛刀，直接读代码就行
+- ❌ **纯文档项目（无代码）** — 可以用 planning 模式，但 wiki / Notion 可能更合适
+- ❌ **不和 AI 协作的项目** — 全靠人工维护就违背了核心价值（AI 帮你写）
+- ❌ **实时低延迟监控** — `features.json` 是改动时同步，不是毫秒级实时
+- ❌ **依赖图 / 调用图分析** — 抽象层不对，请用 [Madge](https://github.com/pahen/madge)、[dependency-cruiser](https://github.com/sverweij/dependency-cruiser) 或 IDE 自带的分析器
+
+如果你是独立开发者 / 小团队，用 Cursor / Claude Code / Kiro / Copilot 写功能，又总是搞不清自己的代码库现在到底在做什么——那这个工具就是为你做的。
+
+---
+
 ## 快速开始
 
-### 1. 安装到你的项目
+### 1. 克隆本仓库
+
+```bash
+git clone https://github.com/Kaka-cheaper/codeSee.git
+cd codeSee
+```
+
+仓库里有 install 脚本、prompts、校验器、模板。viewer 部署在 GitHub Pages，不用本地跑。
+
+### 2. 把 CodeSee 装到你的项目
 
 ```powershell
 # Windows
@@ -93,30 +148,30 @@ CodeSee 解决这个问题：AI 写代码的同时也写功能地图。你看到
 ./scripts/install.sh /path/to/your/project
 ```
 
-这会把 `AGENTS.md` + `.codesee/`（prompts、校验器）注入到你的项目。
+这会把 `AGENTS.md` + `.codesee/`（prompts、校验器）注入到你的项目。一共 6 个小文件，不动你的代码。
 
-### 2. 让 AI 扫描
+### 3. 让 AI 扫描
 
 在你的项目里打开任意 AI IDE（Cursor / Claude Code / Kiro / Copilot / Codex / Gemini CLI / ...）。
 AI 读取 `AGENTS.md`（或 SKILL.md 兼容 IDE 读取 `.agents/skills/codesee/SKILL.md`）后自动生成 `.codesee/features.json`。
 
 如果你的项目使用 SDD 框架（`.specify/`、`.trellis/`、`.bmad-core/` 等），CodeSee 会自动检测并直接消费 spec/PRD 文档——不需要扫描源码。
 
-### 3. 查看画布
+### 4. 在浏览器里看图（无需安装）
 
-```bash
-cd codeSee/viewer
-npm install
-npm run dev
-```
+直接打开 **[https://Kaka-cheaper.github.io/codeSee/](https://Kaka-cheaper.github.io/codeSee/)**——这就是 CodeSee 的 web viewer。
 
-打开 `http://localhost:5173/` —— 默认会显示 CodeSee 自己的功能图（用来给项目自身建模的活样例）。点击右上角 **打开 ▼** 切换：
+默认显示 CodeSee 自己的功能图。切到你的项目：
 
-- **+ 添加项目** → 选择包含 `features.json` 的目录（一次授权，永久记住，不再反复弹文件夹选择器）
-- **拖入文件** → 把任意 `features.json` 拖到画布上
-- **内置示例** → 切到博客系统示例或 CodeSee 自身
+1. 点右上角 **+ 添加项目**
+2. 选包含 `.codesee/features.json` 的目录——浏览器会弹一次性的权限授权框
+3. 完成。浏览器通过 [File System Access API](https://developer.mozilla.org/zh-CN/docs/Web/API/File_System_Access_API) 直接读你本地文件——**全程不上传**。
 
 切换过的项目都在下拉里，下次打开直接点就行。
+
+> **浏览器要求**：Chrome / Edge / Arc / Brave（Chromium 系）。Firefox / Safari 用户可以拖入 `features.json` 文件代替——布局仍然存 localStorage。
+
+> **想本地跑 viewer？** 见 [开发环境配置](./CONTRIBUTING.md#development-setup)——`cd viewer && npm run dev`。
 
 ---
 
@@ -252,6 +307,18 @@ codeSee/
 ## 常见问题
 
 <details>
+<summary><strong>浏览器为什么能读我硬盘？安全吗？</strong></summary>
+
+CodeSee 用的是 [File System Access API](https://developer.mozilla.org/zh-CN/docs/Web/API/File_System_Access_API)，是现代浏览器标准。三件事保证安全：
+
+1. **目录由你主动选择。** 浏览器弹出标准选目录框——你不点"允许"什么都不会发生。和任何 web 应用打开文件一样的体验。
+2. **浏览器隔离访问。** 你只授权了那一个目录，别的地方读不到；而且只对 `https://Kaka-cheaper.github.io/` 这个站点有效。刷新页面后权限会回退到 `prompt`，需要再次确认。
+3. **数据不出本机。** viewer 是纯静态站点（只有 HTML/JS/CSS）——没有后端、没有上传、没有埋点。所有文件读取都在你浏览器里完成。可以打开 DevTools 的 Network 面板验证——只有 viewer 自身的静态资源加载，别的请求一个都没有。
+
+不放心？直接 clone 仓库，看 [`viewer/src/fcg/fileSystem.ts`](./viewer/src/fcg/fileSystem.ts)（唯一接触 FSA 的文件），确认没问题再用。或者本地跑 viewer 自己看——见 [开发环境配置](./CONTRIBUTING.md#development-setup)。
+</details>
+
+<details>
 <summary><strong>加载 features.json 后画布白屏</strong></summary>
 
 AI 大概率使用了 schema 之外的枚举值（比如 `role: "logic"` 而不是 `role: "compute"`）。
@@ -371,6 +438,7 @@ install 脚本会同时写入两个文件——你的 AI IDE 会读它能理解�
 
 - [ ] **CI 集成** — 在 GitHub Actions / GitLab CI 中校验 `features.json`
 - [ ] **插件系统** — 自定义节点渲染器、自定义布局算法
+- [ ] **零 clone 安装** — `curl ... | bash` 一行命令从 GitHub raw 拉取脚本/prompt/模板，无需 `git clone`
 
 ### 长期（可选）
 
@@ -401,3 +469,15 @@ install 脚本会同时写入两个文件——你的 AI IDE 会读它能理解�
 ## 许可证
 
 [MIT](./LICENSE)
+
+---
+
+<div align="center">
+
+由 **[@Kaka-cheaper](https://github.com/Kaka-cheaper)** 用 ❤️ 打造——独立开发者，探索 AI 协作工作流。
+
+觉得有用？**[GitHub 点 ⭐ 支持](https://github.com/Kaka-cheaper/codeSee)** · **[在 LinuxDo 找我](https://linux.do/)**
+
+用 CodeSee 做出来什么的话，[开个 issue](https://github.com/Kaka-cheaper/codeSee/issues/new) 告诉我，我会在 README 里推荐你的项目。
+
+</div>

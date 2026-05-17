@@ -64,20 +64,23 @@
 
 **本阶段需要的规则**：
 - SHOULD #4：cross_feature 不要全是 triggers
-- 有事件机制 → publishes/subscribes 应有存在
+- 有事件机制 / 数据流转 → 必须有 `flow` 关系（异步加 `mode="async"`）
 
 ### cross_feature
 
-四种 kind：triggers / depends_on / publishes / subscribes
-- 用户导航链用 triggers
-- 事件/WebSocket/队列 → publishes + subscribes
-- 基础设施依赖 → depends_on（1-2 条代表性的）
+三种 kind：`triggers` / `flow` / `depends_on`（v0.2 简化）
+- 用户导航链 / 主动调用 → `triggers`
+- 数据/事件流转（A 产出 → B 消费）→ `flow`，异步用 `mode="async"`
+- 基础设施依赖（必须先存在，不一定运行时调用）→ `depends_on`（1-2 条代表性的）
+- 见 `_schema.md` 的 cross_feature 关系判别表
+- ❌ 不要写 `publishes` / `subscribes`——已合并为 `flow`，方向由 `from→to` 表达
 
 ### epic_flow
 
 - 站在用户视角画主线（3-8 条）
-- 优先 `next`（用户旅程下一步）
+- 两种 kind：`next`（用户旅程下一步）/ `depends_on`（A 依赖 B 先存在）
 - note 必填，中文语义短句
+- ❌ 不要写 `enables`——若想表达"A 让 B 成为可能"，改写为 `B depends_on A`
 
 ---
 

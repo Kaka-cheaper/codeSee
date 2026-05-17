@@ -114,15 +114,31 @@ export interface Epic {
 export interface CrossFeatureLink {
   from: string  // feature id
   to: string    // feature id
-  kind: 'depends_on' | 'publishes' | 'subscribes' | 'triggers'
+  /**
+   * 三类语义：
+   *   triggers    — 用户/外部动作触发：UI 点击、HTTP 请求、定时器、CLI 命令
+   *   flow        — 数据/事件流转：A 产出 → B 消费（同步异步由可选 mode 区分）
+   *   depends_on  — 静态依赖：B 必须先存在/可用，A 才能工作
+   *
+   * v0.1 历史值 publishes/subscribes 自动迁移到 flow（loader 兼容）。
+   */
+  kind: 'triggers' | 'flow' | 'depends_on'
+  /** flow 关系的同步/异步性，可选；不写默认按 sync 渲染 */
+  mode?: 'sync' | 'async'
   note?: string
 }
 
-export type EpicFlowKind = 'next' | 'depends_on' | 'enables'
+export type EpicFlowKind = 'next' | 'depends_on'
 
 export interface EpicFlow {
   from: string  // epic id
   to: string    // epic id
+  /**
+   * next       — 用户旅程下一步
+   * depends_on — 架构依赖（A 依赖 B 先存在）
+   *
+   * v0.1 历史值 enables 自动迁移到 depends_on（方向反转：A enables B → B depends_on A）。
+   */
   kind: EpicFlowKind
   note?: string
 }

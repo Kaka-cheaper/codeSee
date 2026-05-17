@@ -94,10 +94,46 @@ export async function fetchFromUrl(url: string): Promise<{ ok: true; raw: string
 
 /* ----------------------------------------------------------------- helpers */
 
+/**
+ * v0.1 → v0.2 schema 兼容映射（仅迁移枚举值，结构保持不变）：
+ *   cross_feature.kind: publishes / subscribes → flow
+ *   epic_flow.kind:     enables → depends_on（同时反转 from/to）
+ * 修改后的对象会被 validate 接受。
+ *
+ * 旧文件无需手动迁移——loader 自动转，AI 下次 sync 才按新枚举写。
+ */
+function migrateLegacyKinds(data: unknown): void {
+  if (!data || typeof data !== 'object') return
+  const f = data as {
+    cross_feature?: Array<{ kind?: string }>
+    epic_flow?: Array<{ kind?: string; from?: string; to?: string }>
+  }
+  if (Array.isArray(f.cross_feature)) {
+    for (const link of f.cross_feature) {
+      if (link.kind === 'publishes' || link.kind === 'subscribes') {
+        link.kind = 'flow'
+      }
+    }
+  }
+  if (Array.isArray(f.epic_flow)) {
+    for (const ef of f.epic_flow) {
+      if (ef.kind === 'enables') {
+        // A enables B 等价于 B depends_on A：方向反转 + 改 kind
+        const oldFrom = ef.from
+        ef.from = ef.to
+        ef.to = oldFrom
+        ef.kind = 'depends_on'
+      }
+    }
+  }
+}
+
 function validate(data: unknown): LoadResult {
   if (!data || typeof data !== 'object') {
     return { ok: false, reason: 'invalid', detail: '不是 JSON 对象' }
   }
+  // 自动迁移老枚举值（影响后续视图渲染但不破坏 schema）
+  migrateLegacyKinds(data)
   const f = data as Partial<FeaturesFile>
   if (f.version !== '0') {
     return { ok: false, reason: 'invalid', detail: 'version 不是 "0"' }

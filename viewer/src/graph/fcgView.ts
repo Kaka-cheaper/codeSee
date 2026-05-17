@@ -38,14 +38,15 @@ export interface FcgViewEdge {
     | FlowKind
     | 'epic-link'
     | 'cross-triggers'
+    | 'cross-flow'
     | 'cross-depends_on'
-    | 'cross-publishes'
-    | 'cross-subscribes'
   label?: string
   /** 跨功能 / 流程内 */
   scope: 'epic' | 'feature' | 'step'
   /** conditional / loop 条件 */
   condition?: string
+  /** cross_feature flow 的同步/异步性（仅 cross-flow 用） */
+  mode?: 'sync' | 'async'
 }
 
 export interface FcgViewState {
@@ -133,6 +134,7 @@ function buildFeaturesView(file: FeaturesFile): FcgViewResult {
     scope: 'feature',
     // note 是语义级中文短句，比技术词 'triggers' 可读得多
     label: link.note,
+    mode: link.mode,
   }))
   return { nodes, edges }
 }

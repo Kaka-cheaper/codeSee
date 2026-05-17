@@ -21,7 +21,7 @@
 1. **每个有外部输入的 feature 至少思考一条 error 分支**。
 2. **异步副作用用 flow.kind=async**：推送/入队/WebSocket/fire-and-forget/mutation。
 3. **条件分支用 conditional + condition 描述**。
-4. **cross_feature 不要全是 triggers**。有事件机制时 publishes/subscribes 应有存在。
+4. **cross_feature 不要全是 triggers**。有事件机制 / 数据流转 / 异步通知时 `kind="flow"` 应当存在；异步加 `mode="async"`。
 5. **confidence 不要全写同一个值**。按把握程度区分。
 6. **epic.order 是阶段编号**。同阶段共享，不要全递增。
 7. **Feature vs Component**：反问"用户一句话能说清吗？"说不清就是组件不是 feature。

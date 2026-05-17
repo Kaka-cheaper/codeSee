@@ -176,12 +176,12 @@
     { "from": "f-login", "to": "f-create-post", "kind": "triggers", "note": "Must login before posting" },
     { "from": "f-login", "to": "f-comment", "kind": "triggers", "note": "Must login before commenting" },
     { "from": "f-create-post", "to": "f-read-post", "kind": "triggers", "note": "Created posts become readable" },
-    { "from": "f-comment", "to": "f-moderate", "kind": "publishes", "note": "Flagged comments enter moderation queue" },
+    { "from": "f-comment", "to": "f-moderate", "kind": "flow", "mode": "async", "note": "Flagged comments enter moderation queue" },
     { "from": "f-register", "to": "f-login", "kind": "triggers", "note": "After registration, user can login" }
   ],
   "epic_flow": [
     { "from": "auth", "to": "content", "kind": "next", "note": "Authenticated users create and read content" },
     { "from": "content", "to": "social", "kind": "next", "note": "Published posts enable social interaction" },
-    { "from": "social", "to": "admin", "kind": "enables", "note": "Flagged content requires admin moderation" }
+    { "from": "admin", "to": "social", "kind": "depends_on", "note": "Moderation depends on social interaction producing flagged content" }
   ]
 }

@@ -37,9 +37,11 @@
 
 ### 6. cross_feature
 
-- triggers / depends_on / publishes / subscribes 四种
-- 有事件机制时 publishes/subscribes 应有存在
-- 用户导航链用 triggers 串起来
+- 三种 kind：`triggers` / `flow` / `depends_on`（v0.2，原 publishes/subscribes 已合并到 flow）
+- 用户导航链用 `triggers` 串起来
+- 数据流转 / 事件通知 / 异步副作用 → `kind="flow"`，异步加 `mode="async"`
+- 静态依赖（必须先存在才能用，但不一定运行时调用）→ `depends_on`
+- 见 `_schema.md` 的 cross_feature 关系判别表
 
 ### 7. epic_flow
 

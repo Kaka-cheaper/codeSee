@@ -32,7 +32,10 @@ const STEP_ROLES = [
   'side-effect', 'output', 'error', 'other',
 ]
 const FLOW_KINDS = ['next', 'async', 'conditional', 'loop', 'error']
-const CROSS_KINDS = ['depends_on', 'publishes', 'subscribes', 'triggers']
+const CROSS_KINDS = ['triggers', 'flow', 'depends_on']
+// v0.1 历史枚举值，校验时会给出迁移提示但不报错（loader 自动转换）
+const CROSS_KINDS_LEGACY = ['publishes', 'subscribes']
+const CROSS_MODES = ['sync', 'async']
 const PROVENANCES = ['ai', 'user']
 
 /* --------------------------------- helpers ------------------------------- */
@@ -149,7 +152,8 @@ function validate(data) {
     if (!isArray(data.epic_flow)) {
       err('$.epic_flow', '必须是数组（如果提供）')
     } else {
-      const EPIC_FLOW_KINDS = ['next', 'depends_on', 'enables']
+      const EPIC_FLOW_KINDS = ['next', 'depends_on']
+      const EPIC_FLOW_KINDS_LEGACY = ['enables']
       data.epic_flow.forEach((ef, i) => {
         const p = `$.epic_flow[${i}]`
         if (!isObject(ef)) { err(p, '必须是对象'); return }
@@ -159,7 +163,12 @@ function validate(data) {
         if (!isString(ef.to) || !epicIds.has(ef.to)) {
           err(`${p}.to`, `指向不存在的 epic: ${JSON.stringify(ef.to)}`)
         }
-        if (!EPIC_FLOW_KINDS.includes(ef.kind)) {
+        if (EPIC_FLOW_KINDS_LEGACY.includes(ef.kind)) {
+          warn(
+            `${p}.kind`,
+            `"${ef.kind}" 是 v0.1 旧枚举，请改为 "depends_on" 并反转 from/to（A enables B 等价于 B depends_on A）。viewer 会自动迁移，但建议把源文件改成新值。`,
+          )
+        } else if (!EPIC_FLOW_KINDS.includes(ef.kind)) {
           err(`${p}.kind`, `必须是 ${EPIC_FLOW_KINDS.join('/')}`)
         }
         if (!isString(ef.note) || !ef.note) {
@@ -422,8 +431,16 @@ function validateCrossFeature(l, i, featureIds) {
   if (l.from && l.to && l.from === l.to) {
     err(p, `cross_feature 自环: ${l.from}`)
   }
-  if (!CROSS_KINDS.includes(l.kind)) {
+  if (CROSS_KINDS_LEGACY.includes(l.kind)) {
+    warn(
+      `${p}.kind`,
+      `"${l.kind}" 是 v0.1 旧枚举，请改为 "flow"（发布订阅统一为数据流，方向由 from→to 表达）。viewer 会自动迁移，但建议把源文件改成新值。`,
+    )
+  } else if (!CROSS_KINDS.includes(l.kind)) {
     err(`${p}.kind`, `必须是 ${CROSS_KINDS.join('/')}`)
+  }
+  if (l.mode !== undefined && !CROSS_MODES.includes(l.mode)) {
+    err(`${p}.mode`, `必须是 ${CROSS_MODES.join('/')}（可选）`)
   }
   if (l.note !== undefined && !isString(l.note)) {
     err(`${p}.note`, '必须是字符串')
@@ -499,21 +516,24 @@ function detectFileLevelSmells(data) {
     )
   }
 
-  /* 3. cross_feature 关系类型多样性 */
+  /* 3. cross_feature 关系类型多样性（v0.2：3 类） */
   if (isArray(data.cross_feature) && data.cross_feature.length >= 5) {
-    const kindCount = { triggers: 0, depends_on: 0, publishes: 0, subscribes: 0 }
+    // 同时数新枚举和旧枚举（旧的会被映射到 flow 等效）
+    const kindCount = { triggers: 0, flow: 0, depends_on: 0 }
     for (const l of data.cross_feature) {
-      if (isObject(l) && l.kind in kindCount) kindCount[l.kind]++
+      if (!isObject(l)) continue
+      let k = l.kind
+      if (k === 'publishes' || k === 'subscribes') k = 'flow' // 兼容旧
+      if (k in kindCount) kindCount[k]++
     }
     const totalLinks = data.cross_feature.length
     const triggersRatio = kindCount.triggers / totalLinks
-    const pubsubCount = kindCount.publishes + kindCount.subscribes
-    if (triggersRatio > 0.8 && pubsubCount === 0) {
+    if (triggersRatio > 0.8 && kindCount.flow === 0) {
       warn(
         '$.cross_feature',
         `${kindCount.triggers}/${totalLinks} (${(triggersRatio * 100).toFixed(
           0,
-        )}%) 都是 triggers，且没有 publishes/subscribes。如果项目有 WebSocket / 事件总线 / 消息队列，发布订阅关系应当占 ≥ 30%。`,
+        )}%) 都是 triggers，且没有任何 "flow"。如果项目有 WebSocket / 事件总线 / 消息队列 / 数据流转，flow 关系应当占 ≥ 30%（用 mode="async" 标记异步）。`,
       )
     }
   }
@@ -558,23 +578,9 @@ function detectFileLevelSmells(data) {
     }
   }
 
-  /* 6. epic_flow next 比例（信息提示，不预设阈值） */
-  if (isArray(data.epic_flow) && data.epic_flow.length >= 3) {
-    const epicFlow = data.epic_flow
-    const counts = { next: 0, depends_on: 0, enables: 0 }
-    for (const ef of epicFlow) {
-      if (isObject(ef) && ef.kind in counts) counts[ef.kind]++
-    }
-    const total = epicFlow.length
-    const enablesRatio = counts.enables / total
-    // 只在 enables 异常多时提示——常见症状是 AI 把"先决条件"全写成 enables
-    if (enablesRatio > 0.5 && counts.enables >= 3) {
-      warn(
-        '$.epic_flow',
-        `epic_flow ${counts.next}/${total} next、${counts.depends_on}/${total} depends_on、${counts.enables}/${total} enables。enables 较多，请确认这些是否其实是"用户旅程下一步"（next）或"运行时依赖"（depends_on）——enables 仅适用于"解锁能力但非用户顺序"的场景。`,
-      )
-    }
-  }
+  /* 6. epic_flow 关系类型分布（v0.2：2 类，删去 enables） */
+  // enables 已移除；如果 AI 仍然写 enables，validateEpicFlow 阶段会发 warn 提示迁移。
+  // 此处不再做额外比例检查——next 和 depends_on 都是合法、常用的关系，不应预设阈值。
 
   /* 7. epic.importance 枚举已在 validateEpic 中校验，不再限制 core 数量 */
 }

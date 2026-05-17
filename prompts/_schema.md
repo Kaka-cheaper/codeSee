@@ -76,13 +76,15 @@ type Flow = {
 
 type CrossFeatureLink = {
   from: string; to: string
-  kind: 'depends_on' | 'publishes' | 'subscribes' | 'triggers'
+  kind: 'triggers' | 'flow' | 'depends_on'
+  /** flow 关系的同步/异步性，可选（不写默认按同步渲染） */
+  mode?: 'sync' | 'async'
   note?: string
 }
 
 type EpicFlow = {
   from: string; to: string
-  kind: 'next' | 'depends_on' | 'enables'
+  kind: 'next' | 'depends_on'
   note: string            // MUST 填，manifest.lang 语言的语义短句
 }
 ```
@@ -93,8 +95,9 @@ type EpicFlow = {
 trigger.kind:   http | cli | cron | event | ui | manual | startup | unknown
 step.role:      input | validation | auth | data-read | data-write | compute | transform | side-effect | output | error | other
 flow.kind:      next | async | conditional | loop | error
-cross.kind:     depends_on | publishes | subscribes | triggers
-epic_flow.kind: next | depends_on | enables
+cross.kind:     triggers | flow | depends_on
+cross.mode:     sync | async   (可选，仅用于 flow)
+epic_flow.kind: next | depends_on
 importance:     core | normal | auxiliary
 provenance:     ai | user
 ```
@@ -110,7 +113,26 @@ provenance:     ai | user
 | 应用启动              | trigger = 'startup'     |
 | 内部触发              | trigger = 'event'       |
 | 不确定                | trigger = 'unknown'     |
+| 发布事件 / 订阅事件   | cross.kind = 'flow'     |
+| WebSocket 推送数据    | cross.kind = 'flow' + mode = 'async' |
+| 解锁 / 让 X 成为可能  | epic_flow A enables B → 改写为 B depends_on A |
 ```
+
+## cross_feature 关系判别（v0.2 三类）
+
+```
+| 关系       | 何时用                                              | 例子                          |
+| ---------- | --------------------------------------------------- | ----------------------------- |
+| triggers   | 用户/外部动作主动触发另一个功能                     | 登录后跳转主页 / 点保存触发同步 |
+| flow       | A 产出数据/事件 → B 消费（同步异步皆可）            | 上架成功 → 列表更新 / 支付回调 → 通知发货 |
+| depends_on | 静态依赖：B 必须先存在/可用，A 才能工作（不一定运行时调用） | 业务功能依赖底座的鉴权 / 缓存中间件 |
+```
+
+**关键规则**：
+- `flow` 用 `from→to` 表达"谁是源谁是消费者"——不再写 publishes / subscribes 两条对称边
+- 异步副作用（消息队列、WebSocket 推送、fire-and-forget）一定要 `kind: 'flow'` + `mode: 'async'`
+- `triggers` 优先用于**用户旅程主线**；其余通通归 `flow` 或 `depends_on`
+- 不再使用 `publishes` / `subscribes` / `enables`（v0.1 历史枚举，loader 自动迁移但请用新值）
 
 ## 完整示例（3 features）
 

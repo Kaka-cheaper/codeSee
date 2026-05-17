@@ -1023,16 +1023,18 @@ function edgeVisualOf(e: FcgViewEdge): EdgeVisual {
       baseOpacity: 0.9,
     }
   }
-  // 4 种 cross_feature kind
+  // 3 类 cross_feature kind
   if (e.kind.startsWith('cross-')) {
     const cross = e.kind.slice('cross-'.length) as CrossKind
     const meta = CROSS_META[cross]
     if (meta) {
+      // flow + mode='async' → 虚线 + 动画，与同步 flow 区分
+      const isAsync = cross === 'flow' && e.mode === 'async'
       return {
         stroke: meta.stroke,
         strokeWidth: meta.strokeWidth,
-        dashed: meta.dashed,
-        animated: false,
+        dashed: meta.dashed || isAsync,
+        animated: isAsync,
         baseOpacity: meta.opacity,
       }
     }

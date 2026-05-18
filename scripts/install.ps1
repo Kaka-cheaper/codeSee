@@ -7,17 +7,38 @@
     - AGENTS.md                    Entry rules (skipped if exists, use -Force to overwrite)
     - .codesee/prompts/*.md        scan / scan-light / scan-heavy / sync
     - .codesee/.gitignore          Allow features.json into git, ignore caches
+    - .codesee/hooks/*             Hook templates (do not auto-enable unless asked)
+    - .codesee/scripts/*           validator + check-staleness
+
+  Hook auto-wiring (Phase 2, opt-in):
+    -EnableClaudeCode    Merge a Stop hook into <target>/.claude/settings.json.
+                         Existing user entries are preserved; our entry is tagged
+                         with "_codesee" so reruns stay idempotent.
+    -EnableKiro          Drop a hook file into <target>/.kiro/hooks/codesee-sync-on-stop.json.
+    -AutoDetect          Equivalent to -EnableClaudeCode / -EnableKiro driven by
+                         which directories exist in the target.
+    -ForceHooks          Replace our existing hook entry even if the user changed it.
+    -UninstallHooks      Remove every entry tagged with _codesee and any
+                         .kiro/hooks/codesee-*.json. Templates stay.
 
 .EXAMPLE
   ./scripts/install.ps1 D:\path\to\project
   ./scripts/install.ps1 D:\path\to\project -Force
+  ./scripts/install.ps1 D:\path\to\project -AutoDetect
+  ./scripts/install.ps1 D:\path\to\project -EnableClaudeCode -ForceHooks
+  ./scripts/install.ps1 D:\path\to\project -UninstallHooks
 #>
 
 param(
   [Parameter(Mandatory=$true, Position=0)]
   [string]$TargetDir,
 
-  [switch]$Force
+  [switch]$Force,
+  [switch]$EnableClaudeCode,
+  [switch]$EnableKiro,
+  [switch]$AutoDetect,
+  [switch]$UninstallHooks,
+  [switch]$ForceHooks
 )
 
 $ErrorActionPreference = 'Stop'
@@ -168,6 +189,58 @@ if (-not (Test-Path $gitignore)) {
   Write-Host "  - wrote .codesee/.gitignore"
 }
 
+# 5. Phase 2 - optional auto-wiring of platform hooks
+$wantClaudeCode = $false
+$wantKiro = $false
+if ($AutoDetect) {
+  if (Test-Path (Join-Path $TargetDir '.claude')) { $wantClaudeCode = $true }
+  if (Test-Path (Join-Path $TargetDir '.kiro'))   { $wantKiro = $true }
+}
+if ($EnableClaudeCode) { $wantClaudeCode = $true }
+if ($EnableKiro)       { $wantKiro = $true }
+
+$mergeScript = Join-Path $Self 'scripts/merge-claude-settings.mjs'
+$ccTemplate  = Join-Path $Self 'hooks/claude-code/settings.json'
+
+if ($UninstallHooks) {
+  Write-Host ''
+  Write-Host '==> Uninstalling CodeSee hooks (templates and validator stay).' -ForegroundColor Cyan
+  if (Test-Path $mergeScript) {
+    & node $mergeScript --target $TargetDir --template $ccTemplate --remove
+  }
+  $kiroDir = Join-Path $TargetDir '.kiro/hooks'
+  if (Test-Path $kiroDir) {
+    Get-ChildItem $kiroDir -Filter 'codesee-*.json' -ErrorAction SilentlyContinue | ForEach-Object {
+      Remove-Item $_.FullName -Force
+      Write-Host ("  - removed " + $_.FullName)
+    }
+  }
+} elseif ($wantClaudeCode -or $wantKiro) {
+  Write-Host ''
+  Write-Host '==> Wiring platform hooks.' -ForegroundColor Cyan
+
+  if ($wantClaudeCode) {
+    if (-not (Test-Path $mergeScript)) {
+      Write-Host '  - merge-claude-settings.mjs not found, skipping Claude Code wiring' -ForegroundColor Yellow
+    } else {
+      $nodeArgs = @('--target', $TargetDir, '--template', $ccTemplate)
+      if ($ForceHooks) { $nodeArgs += '--force' }
+      & node $mergeScript @nodeArgs
+    }
+  }
+
+  if ($wantKiro) {
+    $kiroDst = Join-Path $TargetDir '.kiro/hooks'
+    New-Item -ItemType Directory -Force -Path $kiroDst | Out-Null
+    $kiroSrc = Join-Path $Self 'hooks/kiro/sync-on-stop.json'
+    if (Test-Path $kiroSrc) {
+      $kiroOut = Join-Path $kiroDst 'codesee-sync-on-stop.json'
+      Copy-Item -Force $kiroSrc $kiroOut
+      Write-Host "  - wrote $kiroOut"
+    }
+  }
+}
+
 Write-Host ''
 Write-Host 'Done.' -ForegroundColor Green
 if ($sddDetected.Count -gt 0) {
@@ -179,8 +252,12 @@ Write-Host ''
 Write-Host 'Next steps:' -ForegroundColor Cyan
 Write-Host '  1. Open the target project in your AI IDE; ask it to read AGENTS.md.'
 Write-Host '  2. Let the AI run the scan (first time) or sync (after each change).'
-Write-Host '  3. (Optional) Enable hooks: see .codesee/hooks/README.md to wire'
-Write-Host '     check-staleness into Claude Code / Kiro for auto reminders.'
+if ($wantClaudeCode -or $wantKiro -or $UninstallHooks) {
+  Write-Host '  3. Hooks are now auto-wired. Restart the IDE if it had settings open.'
+} else {
+  Write-Host '  3. (Optional) Auto-wire hooks: rerun with -AutoDetect (or'
+  Write-Host '     -EnableClaudeCode / -EnableKiro). Manual setup: .codesee/hooks/README.md.'
+}
 Write-Host '  4. View the graph in your browser: https://Kaka-cheaper.github.io/codeSee/'
 Write-Host '     -> click "+ Add project" and select this directory.'
 Write-Host ''

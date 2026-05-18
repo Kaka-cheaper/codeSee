@@ -33,6 +33,48 @@
 
 ## 启用方式
 
+> 一键自动写入：`./scripts/install.ps1 <目标项目> -AutoDetect`（或 `--auto-detect` for sh）。
+> 检测到 `.claude/` 或 `.kiro/` 就自动接好对应平台的 hook，不动用户已有 entry。
+> 手动启用读下面对应章节即可。
+
+### 自动启用（推荐）
+
+```pwsh
+# Windows
+.\scripts\install.ps1 D:\my-project -AutoDetect
+
+# 显式选平台
+.\scripts\install.ps1 D:\my-project -EnableClaudeCode -EnableKiro
+
+# 用户手动改过我们的 entry 想强制刷新
+.\scripts\install.ps1 D:\my-project -AutoDetect -ForceHooks
+
+# 卸载（templates 与 validator 保留）
+.\scripts\install.ps1 D:\my-project -UninstallHooks
+```
+
+```bash
+# macOS / Linux
+./scripts/install.sh ~/my-project --auto-detect
+./scripts/install.sh ~/my-project --enable-claude-code --enable-kiro
+./scripts/install.sh ~/my-project --auto-detect --force-hooks
+./scripts/install.sh ~/my-project --uninstall-hooks
+```
+
+**幂等性保证**：
+
+- 每次写入 Claude Code 的 entry 都带 `_codesee` 标记字段（CC 忽略，但我们用来识别）
+- 重跑 install 不会重复 append——找到带标记的 entry 就替换，没找到才追加
+- 用户手动改了我们的 entry → 默认跳过（保留用户改动）；`-ForceHooks` 才覆盖
+- Uninstall 只删带标记的 entry 与 `.kiro/hooks/codesee-*.json`，用户其他 hook 一字不动
+
+**安全边界**：
+
+- 用户的 `.claude/settings.json` 是非法 JSON → merge 脚本退出 2，文件不被改
+- Kiro hook 文件名前缀 `codesee-`，绝不与用户文件撞名
+
+### 手动启用（备用）
+
 ### Claude Code
 
 把 `claude-code/settings.json` 的 `hooks.Stop` 段合并到你项目的 `.claude/settings.json`（如果还没这文件，直接拷过去也行）。

@@ -13,7 +13,8 @@ Versions follow [Semantic Versioning](https://semver.org/) loosely — schema ma
 
 ### Added
 
-- **Hooks Phase 1 — staleness reminder**: install script now ships `.codesee/hooks/{claude-code,kiro}/` templates plus a shared zero-deps `check-staleness.mjs`. After every agent turn the hook checks `git log` against `manifest.updated_at` and prints a reminder if code changed but `features.json` did not. Always exits 0 — never blocks the agent. Manual enablement (copy template → `.claude/settings.json` or `.kiro/hooks/`); auto-detection in install is the next step.
+- **Hooks Phase 2 — auto-wiring**: install gains `--auto-detect` / `--enable-claude-code` / `--enable-kiro` / `--force-hooks` / `--uninstall-hooks` flags. With one command we now write the staleness Stop hook into `.claude/settings.json` (deep-merged so existing user entries are untouched, idempotent across reruns) and drop a `.kiro/hooks/codesee-sync-on-stop.json`. New helper script `scripts/merge-claude-settings.mjs` tags every entry with a `_codesee` marker for safe replace / uninstall. Refuses to touch malformed JSON.
+- **Hooks Phase 1 — staleness reminder**: install script now ships `.codesee/hooks/{claude-code,kiro}/` templates plus a shared zero-deps `check-staleness.mjs`. After every agent turn the hook checks `git log` against `manifest.updated_at` and prints a reminder if code changed but `features.json` did not. Always exits 0 — never blocks the agent. Manual enablement is still supported for the curious; `--auto-detect` is the new default path.
 
 ---
 

@@ -420,7 +420,7 @@ install 脚本会同时写入两个文件——你的 AI IDE 会读它能理解�
 - [ ] **语义感知布局** — 布局应尊重功能逻辑而非仅基于节点位置；探索 AI 驱动的布局（`layout.json` 已解耦，为此做好准备）
 - [ ] **Plan-as-Graph（计划即图）** — AI 的计划/设计直接输出为 `features.json`，在画布上审阅而非读冗长文字。审阅后可确认执行、可修改、可丢弃。让 CodeSee 从"事后文档"扩展为"事前设计审阅工具"。
 - [ ] **Feature Summary（AI 记忆层）** — 启发式脚本从 `features.json` 自动生成精简 markdown 摘要（~2000 tokens vs 原始 JSON 15000+）。AI 新会话开始时读摘要即可恢复项目全貌。解决长任务遗忘和跨会话不一致问题。
-- [ ] **平台 Hooks 适配** — Claude Code hooks / Kiro hooks 自动触发 sync，不再依赖 AI 自觉。✓ Phase 1 已落地：hook 模板 + 共享检查脚本 `check-staleness.mjs`，install 时拷到 `.codesee/hooks/`，用户手动启用；Phase 2（install 自动检测 IDE 并写入 `.claude/settings.json` / `.kiro/hooks/`）待做。
+- [x] **平台 Hooks 适配** — Claude Code hooks / Kiro hooks 自动触发 sync，不再依赖 AI 自觉。Phase 1 已落地：hook 模板 + 共享检查脚本 `check-staleness.mjs`。Phase 2 已落地：install 加 `--auto-detect` / `--enable-claude-code` / `--enable-kiro` 一键自动写入 IDE 配置；用户已有 entry 一字不改，重跑幂等，`--uninstall-hooks` 可清除。
 
 ### 生态与集成
 

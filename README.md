@@ -419,6 +419,7 @@ The install script writes both — your AI IDE will pick whichever it understand
 
 - [ ] **Prompt refinement (community-driven)** — real-world usage produces the best constraints; contributions welcome for edge cases, anti-patterns, and domain-specific rules
 - [ ] **Semantic-aware layout** — layout should respect feature logic, not just node positions; exploring AI-driven layout via `layout.json` (already decoupled from data)
+- [ ] **Plan-as-Graph** — AI outputs its plan/design directly as `features.json` so you review it on the canvas instead of reading walls of text. Approve, edit, or discard before any code is written. Extends CodeSee from "post-hoc documentation" to "pre-implementation design review".
 
 ### Ecosystem & integrations
 

@@ -2,7 +2,7 @@
   "version": "0",
   "manifest": {
     "repo": "codesee",
-    "generated_at": "2026-05-16T00:00:00.000Z",
+    "generated_at": "2026-05-18T10:34:00.000Z",
     "generator": "ai@claude-opus",
     "lang": "zh-CN"
   },
@@ -241,7 +241,7 @@
       "steps": [
         { "id": "build-view", "name": "构建节点与边", "role": "compute", "note": "概览/功能/流程三种视图各有独立节点集合", "refs": [{ "file": "viewer/src/graph/fcgView.ts" }] },
         { "id": "measure", "name": "测量节点尺寸", "role": "compute", "note": "先以透明状态渲染，待测出宽高再跑布局", "refs": [{ "file": "viewer/src/graph/GraphCanvas.tsx" }] },
-        { "id": "elk-layout", "name": "算节点位置", "role": "compute", "refs": [{ "file": "viewer/src/graph/layout.ts" }] },
+        { "id": "elk-layout", "name": "算节点位置", "role": "compute", "note": "ELK Sugiyama 分层 + considerModelOrder 让数组顺序参与，BRANDES_KOEPF 上下游对齐", "refs": [{ "file": "viewer/src/graph/layout.ts" }] },
         { "id": "merge-prev", "name": "合并历史位置", "role": "transform", "note": "已存在节点复用旧位置，新节点用算法位置并触发淡入" },
         { "id": "fade-in", "name": "新节点淡入", "role": "side-effect", "refs": [{ "file": "viewer/src/graph/nodeAnim.ts" }, { "file": "viewer/src/index.css" }] },
         { "id": "render-rf", "name": "提交画布渲染", "role": "output" }
@@ -255,7 +255,7 @@
       ],
       "confidence": 0.85,
       "provenance": "ai",
-      "updated_at": "2026-05-16T00:00:00.000Z"
+      "updated_at": "2026-05-18T10:34:00.000Z"
     },
     {
       "id": "f-view-switch",

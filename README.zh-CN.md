@@ -471,7 +471,7 @@ install 脚本会同时写入两个文件——你的 AI IDE 会读它能理解�
 ### 最高优先级
 
 - [ ] **Prompt 持续优化（社区驱动）** — 真实使用中的痛点和案例才是 prompt 的护城河；欢迎贡献边界情况、反例和领域特定规则
-- [ ] **语义感知布局** — 布局应尊重功能逻辑而非仅基于节点位置；探索 AI 驱动的布局（`layout.json` 已解耦，为此做好准备）
+- [ ] **语义感知布局** — 布局应尊重功能逻辑而非仅基于节点位置。Phase 1 已落地：ELK Sugiyama 调参（`considerModelOrder` 让 features.json 数组顺序参与布局、`BRANDES_KOEPF` 节点放置策略让上下游对齐、加大边节点间距避免标签压字）；后续：Feature.order 下沉、Swimlane 视图、AI 驱动的语义级布局意图。
 - [ ] **Plan-as-Graph（计划即图）** — AI 的计划/设计直接输出为 `features.json`，在画布上审阅而非读冗长文字。审阅后可确认执行、可修改、可丢弃。让 CodeSee 从"事后文档"扩展为"事前设计审阅工具"。
 - [ ] **Feature Summary（AI 记忆层）** — 启发式脚本从 `features.json` 自动生成精简 markdown 摘要（~2000 tokens vs 原始 JSON 15000+）。AI 新会话开始时读摘要即可恢复项目全貌。解决长任务遗忘和跨会话不一致问题。
 - [x] **平台 Hooks 适配** — Claude Code hooks / Kiro hooks 自动触发 sync，不再依赖 AI 自觉。Phase 1 已落地：hook 模板 + 共享检查脚本 `check-staleness.mjs`。Phase 2 已落地：install 加 `--auto-detect` / `--enable-claude-code` / `--enable-kiro` 一键自动写入 IDE 配置；用户已有 entry 一字不改，重跑幂等，`--uninstall-hooks` 可清除。

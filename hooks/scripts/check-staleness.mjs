@@ -5,8 +5,8 @@
 // to detect whether features.json may be stale.
 //
 // Behavior
-//   - Read .codesee/features.json -> manifest.updated_at
-//   - Run `git log --since=<updated_at> --name-only ...` for source files
+//   - Read .codesee/features.json -> manifest.generated_at
+//   - Run `git log --since=<generated_at> --name-only ...` for source files
 //   - If 0 changed files -> exit 0, silent
 //   - If N changed files -> exit 0, print a reminder to stdout
 //   - If features.json missing / not in git repo -> exit 0, silent (no noise)
@@ -69,9 +69,9 @@ try {
   silentExit();
 }
 
-const updatedAt = features?.manifest?.updated_at;
-if (!updatedAt || typeof updatedAt !== 'string') {
-  logVerbose('manifest.updated_at missing or invalid, skipping');
+const generatedAt = features?.manifest?.generated_at ?? features?.manifest?.updated_at;
+if (!generatedAt || typeof generatedAt !== 'string') {
+  logVerbose('manifest.generated_at missing or invalid, skipping');
   silentExit();
 }
 
@@ -86,7 +86,7 @@ try {
   silentExit();
 }
 
-// --- Step 3: list files changed since updated_at ---
+// --- Step 3: list files changed since generated_at ---
 
 const extPathspec = CODE_EXTENSIONS.map((e) => `*.${e}`);
 
@@ -94,7 +94,7 @@ let raw = '';
 try {
   raw = execFileSync(
     'git',
-    ['log', `--since=${updatedAt}`, '--name-only', '--pretty=format:', '--', ...extPathspec],
+    ['log', `--since=${generatedAt}`, '--name-only', '--pretty=format:', '--', ...extPathspec],
     { cwd: CWD, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] },
   );
 } catch (err) {
@@ -132,7 +132,7 @@ const changed = [...changedSet].filter((f) => {
 });
 
 if (changed.length === 0) {
-  logVerbose('no code changes since ' + updatedAt);
+  logVerbose('no code changes since ' + generatedAt);
   silentExit();
 }
 
@@ -144,7 +144,7 @@ const moreNote = changed.length > MAX_LIST ? `\n  ... and ${changed.length - MAX
 
 log('');
 log('[CodeSee] features.json may be stale.');
-log(`  ${changed.length} code file(s) changed since manifest.updated_at = ${updatedAt}:`);
+log(`  ${changed.length} code file(s) changed since manifest.generated_at = ${generatedAt}:`);
 log(list + moreNote);
 log('');
 log('  Recommended: read .codesee/prompts/sync.md and update features.json.');

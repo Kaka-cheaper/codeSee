@@ -8,7 +8,7 @@
 .codesee/
   hooks/
     claude-code/settings.json    # Claude Code 的 hook 配置示例
-    kiro/sync-on-stop.json       # Kiro 的 hook 文件
+    kiro/sync-on-stop.kiro.hook  # Kiro 的 hook 文件（后缀就是 .kiro.hook）
     README.md                    # 本文档
   scripts/
     check-staleness.mjs          # 共用检查脚本（hook 触发的就是这个）
@@ -98,7 +98,9 @@
 
 ### Kiro
 
-直接把 `kiro/sync-on-stop.json` 拷到 `.kiro/hooks/sync-on-stop.json` 即可。Kiro 会自动加载新 hook，不用重启。
+直接把 `kiro/sync-on-stop.kiro.hook` 拷到 `.kiro/hooks/sync-on-stop.kiro.hook` 即可。Kiro 会自动加载新 hook，不用重启。
+
+> ⚠ **后缀必须是 `.kiro.hook`**——这是 Kiro IDE 识别 hook 文件的扩展名约定。普通 `.json` 文件会被忽略，UI 也看不到。
 
 事件类型 `agentStop` = Claude Code 的 Stop。
 
@@ -127,4 +129,4 @@ node .codesee/scripts/check-staleness.mjs --verbose
 
 ## 关掉
 
-删掉对应的 `.claude/settings.json` 中的 hook 段，或删掉 `.kiro/hooks/sync-on-stop.json` 即可。脚本本身保留无副作用。
+删掉对应的 `.claude/settings.json` 中的 hook 段，或删掉 `.kiro/hooks/sync-on-stop.kiro.hook` 即可。脚本本身保留无副作用。

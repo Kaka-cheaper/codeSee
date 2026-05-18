@@ -190,10 +190,16 @@ if [[ -n "$UNINSTALL_HOOKS" ]]; then
     node "$merge_script" --target "$TARGET" --template "$cc_template" --remove || true
   fi
   if [[ -d "$TARGET/.kiro/hooks" ]]; then
-    for f in "$TARGET/.kiro/hooks"/codesee-*.json; do
+    for f in "$TARGET/.kiro/hooks"/codesee-*.kiro.hook; do
       [[ -f "$f" ]] || continue
       rm -f "$f"
       echo "  - removed $f"
+    done
+    # Also clean up legacy .json named hooks from earlier install versions
+    for f in "$TARGET/.kiro/hooks"/codesee-*.json; do
+      [[ -f "$f" ]] || continue
+      rm -f "$f"
+      echo "  - removed $f (legacy)"
     done
   fi
 elif [[ -n "$want_cc" || -n "$want_kiro" ]]; then
@@ -210,9 +216,9 @@ elif [[ -n "$want_cc" || -n "$want_kiro" ]]; then
   fi
   if [[ -n "$want_kiro" ]]; then
     mkdir -p "$TARGET/.kiro/hooks"
-    if [[ -f "$SELF_DIR/hooks/kiro/sync-on-stop.json" ]]; then
-      cp -f "$SELF_DIR/hooks/kiro/sync-on-stop.json" "$TARGET/.kiro/hooks/codesee-sync-on-stop.json"
-      echo "  - wrote $TARGET/.kiro/hooks/codesee-sync-on-stop.json"
+    if [[ -f "$SELF_DIR/hooks/kiro/sync-on-stop.kiro.hook" ]]; then
+      cp -f "$SELF_DIR/hooks/kiro/sync-on-stop.kiro.hook" "$TARGET/.kiro/hooks/codesee-sync-on-stop.kiro.hook"
+      echo "  - wrote $TARGET/.kiro/hooks/codesee-sync-on-stop.kiro.hook"
     fi
   fi
 fi

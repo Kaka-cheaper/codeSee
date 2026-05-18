@@ -14,12 +14,12 @@
     -EnableClaudeCode    Merge a Stop hook into <target>/.claude/settings.json.
                          Existing user entries are preserved; our entry is tagged
                          with "_codesee" so reruns stay idempotent.
-    -EnableKiro          Drop a hook file into <target>/.kiro/hooks/codesee-sync-on-stop.json.
+    -EnableKiro          Drop a hook file into <target>/.kiro/hooks/codesee-sync-on-stop.kiro.hook.
     -AutoDetect          Equivalent to -EnableClaudeCode / -EnableKiro driven by
                          which directories exist in the target.
     -ForceHooks          Replace our existing hook entry even if the user changed it.
     -UninstallHooks      Remove every entry tagged with _codesee and any
-                         .kiro/hooks/codesee-*.json. Templates stay.
+                         .kiro/hooks/codesee-*.kiro.hook. Templates stay.
 
 .EXAMPLE
   ./scripts/install.ps1 D:\path\to\project
@@ -217,9 +217,14 @@ if ($UninstallHooks) {
   }
   $kiroDir = Join-Path $TargetDir '.kiro/hooks'
   if (Test-Path $kiroDir) {
-    Get-ChildItem $kiroDir -Filter 'codesee-*.json' -ErrorAction SilentlyContinue | ForEach-Object {
+    Get-ChildItem $kiroDir -Filter 'codesee-*.kiro.hook' -ErrorAction SilentlyContinue | ForEach-Object {
       Remove-Item $_.FullName -Force
       Write-Host ("  - removed " + $_.FullName)
+    }
+    # Also clean up legacy .json named hooks from earlier install versions
+    Get-ChildItem $kiroDir -Filter 'codesee-*.json' -ErrorAction SilentlyContinue | ForEach-Object {
+      Remove-Item $_.FullName -Force
+      Write-Host ("  - removed " + $_.FullName + " (legacy)")
     }
   }
 } elseif ($wantClaudeCode -or $wantKiro) {
@@ -239,9 +244,9 @@ if ($UninstallHooks) {
   if ($wantKiro) {
     $kiroDst = Join-Path $TargetDir '.kiro/hooks'
     New-Item -ItemType Directory -Force -Path $kiroDst | Out-Null
-    $kiroSrc = Join-Path $Self 'hooks/kiro/sync-on-stop.json'
+    $kiroSrc = Join-Path $Self 'hooks/kiro/sync-on-stop.kiro.hook'
     if (Test-Path $kiroSrc) {
-      $kiroOut = Join-Path $kiroDst 'codesee-sync-on-stop.json'
+      $kiroOut = Join-Path $kiroDst 'codesee-sync-on-stop.kiro.hook'
       Copy-Item -Force $kiroSrc $kiroOut
       Write-Host "  - wrote $kiroOut"
     }

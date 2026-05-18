@@ -1,0 +1,12 @@
+{
+  "name": "CodeSee Staleness Check",
+  "version": "1.0.0",
+  "description": "After the agent finishes a turn, check whether features.json is stale relative to recent code changes.",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "node .codesee/scripts/check-staleness.mjs"
+  }
+}

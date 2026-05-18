@@ -421,7 +421,7 @@ The install script writes both — your AI IDE will pick whichever it understand
 - [ ] **Semantic-aware layout** — layout should respect feature logic, not just node positions; exploring AI-driven layout via `layout.json` (already decoupled from data)
 - [ ] **Plan-as-Graph** — AI outputs its plan/design directly as `features.json` so you review it on the canvas instead of reading walls of text. Approve, edit, or discard before any code is written. Extends CodeSee from "post-hoc documentation" to "pre-implementation design review".
 - [ ] **Feature Summary (AI memory layer)** — a deterministic script auto-generates a compact markdown summary from `features.json` (~2000 tokens vs 15000+ for raw JSON). AI reads the summary at session start to restore project context instantly. Solves long-task forgetting and cross-session inconsistency.
-- [ ] **Platform hooks** — auto-trigger sync via Claude Code hooks / Cursor `.cursorrules` / Kiro hooks / Codex. Install script detects the platform and writes the config. No more relying on AI to remember.
+- [ ] **Platform hooks** — auto-trigger sync via Claude Code hooks / Kiro hooks. ✓ Phase 1 done: hook templates + shared `check-staleness.mjs` are now installed to `.codesee/hooks/` and you enable them manually. Phase 2 (install script auto-detects the IDE and writes `.claude/settings.json` / `.kiro/hooks/`) is still pending.
 
 ### Ecosystem & integrations
 

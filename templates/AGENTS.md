@@ -64,5 +64,6 @@ CodeSee 同时支持四种阶段：
 - 扫描：`.codesee/prompts/scan.md`
 - 同步：`.codesee/prompts/sync.md`
 - 校验：`.codesee/scripts/validate-features.mjs`
+- Hooks（可选自动提醒）：`.codesee/hooks/README.md`
 
 > 执行 scan/sync 前先告诉用户你要做什么。

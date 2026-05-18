@@ -73,10 +73,31 @@ for name in scan.md scan-light.md scan-heavy.md scan-planning.md scan-sdd.md syn
   echo "  - wrote .codesee/prompts/$name"
 done
 
-# 3. .codesee/scripts/* (validator)
+# 3. .codesee/scripts/* (validator + staleness checker)
 mkdir -p "$TARGET/.codesee/scripts"
 cp -f "$SELF_DIR/scripts/validate-features.mjs" "$TARGET/.codesee/scripts/validate-features.mjs"
 echo "  - wrote .codesee/scripts/validate-features.mjs"
+
+if [[ -f "$SELF_DIR/hooks/scripts/check-staleness.mjs" ]]; then
+  cp -f "$SELF_DIR/hooks/scripts/check-staleness.mjs" "$TARGET/.codesee/scripts/check-staleness.mjs"
+  echo "  - wrote .codesee/scripts/check-staleness.mjs"
+fi
+
+# 3a. .codesee/hooks/* (templates only; users enable manually)
+if [[ -d "$SELF_DIR/hooks" ]]; then
+  mkdir -p "$TARGET/.codesee/hooks"
+  for subdir in claude-code kiro; do
+    if [[ -d "$SELF_DIR/hooks/$subdir" ]]; then
+      mkdir -p "$TARGET/.codesee/hooks/$subdir"
+      cp -rf "$SELF_DIR/hooks/$subdir/." "$TARGET/.codesee/hooks/$subdir/"
+      echo "  - wrote .codesee/hooks/$subdir/*"
+    fi
+  done
+  if [[ -f "$SELF_DIR/hooks/README.md" ]]; then
+    cp -f "$SELF_DIR/hooks/README.md" "$TARGET/.codesee/hooks/README.md"
+    echo "  - wrote .codesee/hooks/README.md"
+  fi
+fi
 
 # 3b. SDD framework detection
 sdd_detected=()
@@ -135,7 +156,9 @@ cat <<EOF
 Next steps:
   1. Open the target project in your AI IDE; ask it to read AGENTS.md.
   2. Let the AI run the scan (first time) or sync (after each change).
-  3. View the graph in your browser: https://Kaka-cheaper.github.io/codeSee/
+  3. (Optional) Enable hooks: see .codesee/hooks/README.md to wire
+     check-staleness into Claude Code / Kiro for auto reminders.
+  4. View the graph in your browser: https://Kaka-cheaper.github.io/codeSee/
      -> click "+ Add project" and select this directory.
 
 Run viewer locally (contributors):  cd "$SELF_DIR/viewer" && npm run dev

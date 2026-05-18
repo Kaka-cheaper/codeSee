@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/) loosely — schema ma
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Hooks Phase 1 — staleness reminder**: install script now ships `.codesee/hooks/{claude-code,kiro}/` templates plus a shared zero-deps `check-staleness.mjs`. After every agent turn the hook checks `git log` against `manifest.updated_at` and prints a reminder if code changed but `features.json` did not. Always exits 0 — never blocks the agent. Manual enablement (copy template → `.claude/settings.json` or `.kiro/hooks/`); auto-detection in install is the next step.
+
+---
+
 ## [0.5.0] — 2026-05-17
 
 Six months of iteration on real projects (Polisim, Meituan AI Hackathon) shaped this release. Highlights: schema simplification, multi-project switcher, SDD ecosystem integration, and visual de-noising of the canvas.

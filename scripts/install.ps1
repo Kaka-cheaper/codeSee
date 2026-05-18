@@ -89,13 +89,41 @@ foreach ($name in @('scan.md','scan-light.md','scan-heavy.md','scan-planning.md'
   Write-Host "  - wrote .codesee/prompts/$name"
 }
 
-# 3. .codesee/scripts/* (validator)
+# 3. .codesee/scripts/* (validator + staleness checker)
 $dstScripts = Join-Path $TargetDir '.codesee/scripts'
 New-Item -ItemType Directory -Force -Path $dstScripts | Out-Null
 $validatorSrc = Join-Path $Self 'scripts/validate-features.mjs'
 $validatorDst = Join-Path $dstScripts 'validate-features.mjs'
 Copy-Item -Force $validatorSrc $validatorDst
 Write-Host "  - wrote .codesee/scripts/validate-features.mjs"
+
+$stalenessSrc = Join-Path $Self 'hooks/scripts/check-staleness.mjs'
+if (Test-Path $stalenessSrc) {
+  $stalenessDst = Join-Path $dstScripts 'check-staleness.mjs'
+  Copy-Item -Force $stalenessSrc $stalenessDst
+  Write-Host "  - wrote .codesee/scripts/check-staleness.mjs"
+}
+
+# 3a. .codesee/hooks/* (templates only; users enable manually)
+$hooksSrcDir = Join-Path $Self 'hooks'
+if (Test-Path $hooksSrcDir) {
+  $dstHooks = Join-Path $TargetDir '.codesee/hooks'
+  New-Item -ItemType Directory -Force -Path $dstHooks | Out-Null
+  foreach ($subdir in @('claude-code','kiro')) {
+    $src = Join-Path $hooksSrcDir $subdir
+    $dst = Join-Path $dstHooks $subdir
+    if (Test-Path $src) {
+      New-Item -ItemType Directory -Force -Path $dst | Out-Null
+      Copy-Item -Force -Recurse "$src/*" $dst
+      Write-Host "  - wrote .codesee/hooks/$subdir/*"
+    }
+  }
+  $hookReadmeSrc = Join-Path $hooksSrcDir 'README.md'
+  if (Test-Path $hookReadmeSrc) {
+    Copy-Item -Force $hookReadmeSrc (Join-Path $dstHooks 'README.md')
+    Write-Host "  - wrote .codesee/hooks/README.md"
+  }
+}
 
 # 3b. SDD framework detection
 $sddDetected = @()
@@ -151,7 +179,9 @@ Write-Host ''
 Write-Host 'Next steps:' -ForegroundColor Cyan
 Write-Host '  1. Open the target project in your AI IDE; ask it to read AGENTS.md.'
 Write-Host '  2. Let the AI run the scan (first time) or sync (after each change).'
-Write-Host '  3. View the graph in your browser: https://Kaka-cheaper.github.io/codeSee/'
+Write-Host '  3. (Optional) Enable hooks: see .codesee/hooks/README.md to wire'
+Write-Host '     check-staleness into Claude Code / Kiro for auto reminders.'
+Write-Host '  4. View the graph in your browser: https://Kaka-cheaper.github.io/codeSee/'
 Write-Host '     -> click "+ Add project" and select this directory.'
 Write-Host ''
 Write-Host "Run viewer locally (contributors):  cd `"$Self/viewer`"; npm run dev" -ForegroundColor DarkGray

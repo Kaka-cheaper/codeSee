@@ -1,0 +1,30 @@
+{
+  "_codesee": {
+    "purpose": "CodeSee staleness reminder for Claude Code.",
+    "howToEnable": [
+      "Option A (project-level): copy this file to .claude/settings.json in your project root.",
+      "Option B (merge): if you already have .claude/settings.json, merge the 'hooks' section below into it.",
+      "After enabling, when an agent finishes a turn, Claude Code runs the staleness check.",
+      "If features.json may be stale, the script prints a reminder; the agent reads it from the next message."
+    ],
+    "rationale": [
+      "Stop hook fires once per agent turn, so the check runs at most once per turn.",
+      "The script always exits 0 and never blocks the agent. It is informational only.",
+      "We deliberately avoid PostToolUse: a single user task may run dozens of writes;",
+      "running the check after each write would be noisy and slow."
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .codesee/scripts/check-staleness.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

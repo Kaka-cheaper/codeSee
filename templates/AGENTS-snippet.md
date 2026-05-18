@@ -47,6 +47,7 @@
 - 同步：`.codesee/prompts/sync.md`
 - 校验：`.codesee/scripts/validate-features.mjs`
 - 数据：`.codesee/features.json`
+- Hooks（可选自动提醒）：`.codesee/hooks/README.md`
 
 > 执行 scan/sync 前先告诉用户你要做什么。
 <!-- END: CodeSee integration -->

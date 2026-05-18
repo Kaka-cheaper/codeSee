@@ -112,6 +112,7 @@ CodeSee 是我用 Cursor / Claude Code 做真实项目时希望已经有的工�
 | **多语言** | UI 支持中英文切换。语义文本语言通过 `manifest.lang` 配置。 |
 | **SDD 兼容** | 自动检测 `.specify/`、`.trellis/`、`.bmad-core/`、`.agents/skills/`，直接消费 spec/PRD 文档——不再反向工程源码。 |
 | **SKILL.md 标准** | 遵循 [agentskills.io](https://agentskills.io/) 跨平台 skill 标准——Claude Code / Cursor / Codex / Gemini CLI / Copilot 等 20+ 平台开箱即用。 |
+| **自动接入 hooks** | `install --auto-detect` 一条命令写入 Claude Code / Kiro 的 Stop hook，每轮 agent 结束自动提醒同步 `features.json`。用户已有 hook 一字不动，重跑幂等，`--uninstall-hooks` 干净撤销。 |
 
 ---
 
@@ -148,7 +149,19 @@ cd codeSee
 ./scripts/install.sh /path/to/your/project
 ```
 
-这会把 `AGENTS.md` + `.codesee/`（prompts、校验器）注入到你的项目。一共 6 个小文件，不动你的代码。
+把 `AGENTS.md`（已存在则追加）和 `.codesee/{prompts,scripts,hooks}/` 注入到你的项目，不动你的代码。
+
+### 2.5（可选）一键启用 hooks
+
+```powershell
+# Windows
+.\scripts\install.ps1 D:\path\to\your\project -AutoDetect
+
+# macOS / Linux
+./scripts/install.sh /path/to/your/project --auto-detect
+```
+
+`-AutoDetect` 检测到 `.claude/` 或 `.kiro/` 就自动写入对应平台的 Stop / agentStop hook，让 IDE 在每轮 agent 结束时提醒"代码改了但 features.json 没跟上"。已有 entry 一字不改、重跑幂等、`-UninstallHooks` 可清除。手动启用或单独平台说明见 [`hooks/README.md`](./hooks/README.md)。
 
 ### 3. 让 AI 扫描
 
@@ -185,8 +198,12 @@ AI 读取 `AGENTS.md`（或 SKILL.md 兼容 IDE 读取 `.agents/skills/codesee/S
 ├── .codesee/                              viewer/
 │   ├── prompts/*.md           ←────────── prompts/*.md（scan / scan-sdd / sync / ...）
 │   ├── scripts/               ←────────── scripts/validate-features.mjs
+│   │                                    + hooks/scripts/check-staleness.mjs
+│   ├── hooks/                 ←────────── hooks/{claude-code,kiro,README.md}
 │   ├── features.json          ──────────→ viewer 加载（添加项目 / 拖入）
 │   └── layout.json            ←────────── viewer 保存（File System Access API，与 features.json 同目录）
+├── .claude/settings.json      ←────────── 可选：--auto-detect 合并 Stop hook
+├── .kiro/hooks/codesee-*.json ←────────── 可选：--auto-detect 自动写入
 └── 你的代码（或 .specify / .trellis / .bmad-core / ... SDD 项目）
 ```
 
@@ -296,7 +313,19 @@ codeSee/
 │   ├── AGENTS.md            完整 AGENTS.md
 │   ├── AGENTS-snippet.md    可追加片段（用于已有 AGENTS.md 的项目）
 │   └── SKILL.md             跨平台 skill 入口（agentskills.io 标准）
-├── scripts/                 安装脚本 + 校验器
+├── hooks/                   跨 IDE hooks（拷到目标项目 .codesee/hooks/）
+│   ├── README.md            启用说明
+│   ├── scripts/
+│   │   └── check-staleness.mjs   共用：检查 features.json 是否过期
+│   ├── claude-code/
+│   │   └── settings.json    Stop hook 配置模板（merge 进 .claude/settings.json）
+│   └── kiro/
+│       └── sync-on-stop.json  agentStop hook（拷到 .kiro/hooks/）
+├── scripts/                 安装与工具
+│   ├── install.ps1
+│   ├── install.sh
+│   ├── validate-features.mjs       Schema + 启发式校验器
+│   └── merge-claude-settings.mjs   Phase 2：幂等 merge .claude/settings.json
 ├── docs/                    设计文档
 ├── LICENSE                  MIT
 └── README.md
@@ -372,6 +401,35 @@ AI 给每个 Epic 分配了递增的 `order`（0, 1, 2, ..., N），而不是把
 - 每次 AI 写完/更新 `features.json` 后必须跑校验器
 - 校验器会报告精确的 JSONPath 位置
 - 常见映射：`logic` → `compute`、`init`/`cleanup` → `other`、`websocket` → `http`、`internal` → `event`
+</details>
+
+<details>
+<summary><strong>Hooks 怎么启用 / 关闭？</strong></summary>
+
+启用最简单的方式是带 `--auto-detect` 重跑 install：
+
+```powershell
+.\scripts\install.ps1 D:\my-project -AutoDetect
+```
+
+会做两件事：
+
+1. 把 Claude Code 的 `Stop` hook 合并进 `.claude/settings.json`（仅当目录存在时）
+2. 写入 `.kiro/hooks/codesee-sync-on-stop.json`（仅当目录存在时）
+
+我们写入的 entry 都带 `_codesee` 标记字段，Claude Code 忽略未知字段，但我们用它来识别——重跑 install 不会重复 append，你的其他 hook 一字不动。
+
+启用后：每轮 agent 结束时跑 `node .codesee/scripts/check-staleness.mjs`，对比 `manifest.updated_at` 与 `git log`，发现代码改了但 features.json 没改就提醒 agent 跑一次 sync。脚本永远 exit 0，不阻塞 agent。
+
+关闭：
+
+```powershell
+.\scripts\install.ps1 D:\my-project -UninstallHooks
+```
+
+只删带 marker 的 entry 与 `.kiro/hooks/codesee-*.json`，`.codesee/hooks/` 模板保留可随时再开。
+
+跨平台手动启用或 Git hook 兜底方案见 [`hooks/README.md`](https://github.com/Kaka-cheaper/codeSee/blob/main/hooks/README.md)。
 </details>
 
 <details>

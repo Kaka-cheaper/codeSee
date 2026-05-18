@@ -113,6 +113,7 @@ The three rules that emerged from real use:
 | **Multi-language** | UI supports Chinese/English toggle. Semantic text language configurable via `manifest.lang`. |
 | **SDD compatible** | Auto-detects `.specify/`, `.trellis/`, `.bmad-core/`, `.agents/skills/` and consumes spec/PRD docs directly — no source-code reverse engineering. |
 | **SKILL.md standard** | Cross-platform skill following [agentskills.io](https://agentskills.io/) — works on Claude Code / Cursor / Codex / Gemini CLI / Copilot / 20+ platforms out of the box. |
+| **Auto hook wiring** | One-shot `install --auto-detect` writes a Stop hook into Claude Code / Kiro that reminds AI to sync `features.json` after every agent turn. Existing user hooks untouched, idempotent, `--uninstall-hooks` reverses cleanly. |
 
 ---
 
@@ -149,7 +150,19 @@ The install scripts, prompts, validator, and templates live here. The viewer is 
 ./scripts/install.sh /path/to/your/project
 ```
 
-This injects `AGENTS.md` + `.codesee/` (prompts, validator) into your project. Roughly 6 small files. Doesn't touch your code.
+Drops `AGENTS.md` (or appends to existing) plus `.codesee/{prompts,scripts,hooks}/` into your project. Zero changes to your code.
+
+### 2.5 (Optional) Wire hooks in one shot
+
+```powershell
+# Windows
+.\scripts\install.ps1 D:\path\to\your\project -AutoDetect
+
+# macOS / Linux
+./scripts/install.sh /path/to/your/project --auto-detect
+```
+
+`-AutoDetect` looks for `.claude/` or `.kiro/` and writes the Stop / agentStop hook so the IDE reminds AI to sync `features.json` after every turn. Existing user entries are untouched, reruns are idempotent, and `-UninstallHooks` cleans up. For manual setup or per-platform docs see [`hooks/README.md`](./hooks/README.md).
 
 ### 3. Let AI scan
 
@@ -186,8 +199,12 @@ Your Project/                              CodeSee Viewer/
 ├── .codesee/                              viewer/
 │   ├── prompts/*.md           ←────────── prompts/*.md  (scan / scan-sdd / sync / ...)
 │   ├── scripts/               ←────────── scripts/validate-features.mjs
+│   │                                    + hooks/scripts/check-staleness.mjs
+│   ├── hooks/                 ←────────── hooks/{claude-code,kiro,README.md}
 │   ├── features.json          ──────────→ Loaded by viewer (add project / drag)
 │   └── layout.json            ←────────── Saved from viewer (FSA, same folder as features.json)
+├── .claude/settings.json      ←────────── (optional) merged Stop hook via --auto-detect
+├── .kiro/hooks/codesee-*.json ←────────── (optional) wired via --auto-detect
 └── your code  (or .specify / .trellis / .bmad-core / ... for SDD projects)
 ```
 
@@ -297,7 +314,19 @@ codeSee/
 │   ├── AGENTS.md            Full AGENTS.md
 │   ├── AGENTS-snippet.md    Appendable snippet (for projects with existing AGENTS.md)
 │   └── SKILL.md             Cross-platform skill entry (agentskills.io standard)
-├── scripts/                 Install script + validator
+├── hooks/                   Cross-IDE hooks (copied to target as .codesee/hooks/)
+│   ├── README.md            Enablement guide
+│   ├── scripts/
+│   │   └── check-staleness.mjs   Shared: detects stale features.json after each turn
+│   ├── claude-code/
+│   │   └── settings.json    Stop hook template (merged into .claude/settings.json)
+│   └── kiro/
+│       └── sync-on-stop.json  agentStop hook (dropped into .kiro/hooks/)
+├── scripts/                 Install + tooling
+│   ├── install.ps1
+│   ├── install.sh
+│   ├── validate-features.mjs       Schema + heuristic validator
+│   └── merge-claude-settings.mjs   Phase 2: idempotent JSON merge for .claude/settings.json
 ├── docs/                    Design docs
 ├── LICENSE                  MIT
 └── README.md
@@ -373,6 +402,35 @@ This is the most common issue. The prompts include strict enum tables, but some 
 - Always run the validator after AI writes/updates `features.json`
 - The validator reports exact JSONPath locations of invalid values
 - Common mappings: `logic` → `compute`, `init`/`cleanup` → `other`, `websocket` → `http`, `internal` → `event`
+</details>
+
+<details>
+<summary><strong>How do I enable / disable hooks?</strong></summary>
+
+Easiest way to enable: rerun install with `--auto-detect`.
+
+```powershell
+.\scripts\install.ps1 D:\my-project -AutoDetect
+```
+
+That does two things:
+
+1. Merges the Stop hook into `.claude/settings.json` (only if `.claude/` exists)
+2. Writes `.kiro/hooks/codesee-sync-on-stop.json` (only if `.kiro/` exists)
+
+Every entry we write carries a `_codesee` marker field. Claude Code ignores unknown fields, but we use it to identify our entries on subsequent runs — reruns are idempotent, your other hooks stay untouched.
+
+Once enabled, after every agent turn the IDE runs `node .codesee/scripts/check-staleness.mjs`. The script compares `manifest.updated_at` against `git log` and prints a reminder if code changed but `features.json` did not. Always exits 0 — never blocks the agent.
+
+Disable:
+
+```powershell
+.\scripts\install.ps1 D:\my-project -UninstallHooks
+```
+
+Removes only the marker-tagged entry plus `.kiro/hooks/codesee-*.json`. The `.codesee/hooks/` templates stay so you can re-enable any time.
+
+For per-platform manual setup or Git hook fallback see [`hooks/README.md`](https://github.com/Kaka-cheaper/codeSee/blob/main/hooks/README.md).
 </details>
 
 <details>

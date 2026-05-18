@@ -119,15 +119,71 @@ Epic 增删或主线变化时更新 epic_flow。
 优先 `next`，note 必填，用 manifest.lang 指定的语言写语义短句。
 不要因小改动重写整个 epic_flow。
 
-## 完成
+## 输出协议（增量 patch 优先 / 全量重写兜底）
 
-1. 覆盖写入 `.codesee/features.json`
-2. 跑 `node .codesee/scripts/validate-features.mjs`，退出码 1 必须修
-3. 变更摘要：新增 / 修改 / 删除 / planned → implemented 了什么
+写 features.json 的方式有两种。**默认走模式 A**——token 成本低、错误率低、可回滚。失败再 fallback 到模式 B。
+
+### 模式 A：增量 patch（推荐）
+
+适用：在已有 features.json 上做改动（绝大多数 sync 场景）。
+
+1. 思考差异：你这一轮要新增 / 修改 / 删除哪几条 feature / step / flow / cross_feature？
+2. 写 [RFC 6902 JSON Patch](https://www.rfc-editor.org/rfc/rfc6902) 数组到 `.codesee/cache/sync-patch.json`：
+
+   ```json
+   [
+     { "op": "add", "path": "/features/-", "value": { 完整新 feature } },
+     { "op": "replace", "path": "/features/3/confidence", "value": 0.95 },
+     { "op": "remove", "path": "/features/7" }
+   ]
+   ```
+
+3. 跑 `node .codesee/scripts/apply-patch.mjs`：
+   - stdout 第一行是机器可解析的 JSON 状态
+   - 退出码 0 → patch 成功应用，进入第 4 步
+   - 退出码 1 → 看 stdout 的 `failedOpIndex` / `failedOp` / `error`，决策：修 patch 重试（最多 2 次）→ 还失败就 fallback 到模式 B
+4. 跑 `node .codesee/scripts/validate-features.mjs`：
+   - 退出码 0 → 完成
+   - 退出码 1 → 修问题（直接编辑 features.json 即可，已经在合法 JSON 上）
+
+**JSON Patch 速查**：
+
+```
+| op       | path                              | 用法
+|----------|-----------------------------------|---------------------------------
+| add      | /features/-                        | append 一个 feature
+| add      | /features/3/steps/-                | 给第 4 个 feature append 一个 step
+| add      | /features/3/tags/-                 | 给 feature 加 tag
+| replace  | /features/3/confidence             | 改字段
+| replace  | /features/3/steps/2/name           | 改某个 step 的 name
+| remove   | /features/7                        | 删第 8 个 feature
+| remove   | /epic_flow/2                       | 删第 3 条 epic_flow
+| test     | /features/3/id, value: "f-login"   | 断言（避免 path 算错）
+```
+
+Path 用 `数组下标` 而非 id；`/features/-` 是数组末尾追加的特殊符号。
+
+### 模式 B：全量重写（fallback / 大改动）
+
+适用：
+
+- 模式 A 失败 2+ 次（patch 写错或 schema 改了）
+- 本次 sync 改动 ≥ 50% 现有 feature（重构整个 epic 等）
+- 首次扫描（无旧文件可 patch）
+
+直接覆盖写 `.codesee/features.json`，然后跑 validator。
+
+### 完成判定
+
+无论模式 A 还是 B，回复用户"完成"前**必须**：
+
+1. validator 退出码 0
+2. 给变更摘要：新增 N / 修改 N / 删除 N / planned → implemented N
 
 ## 边界情况
 
 - 纯样式/重构：不改 features.json，说明"非语义改动"
-- 跨多 feature：分别更新
+- 跨多 feature：分别更新（patch 数组里多条 op 即可）
 - 新文件未接入：不追加，只在总结里提
 - 删除功能代码：标 `deprecated`，不直接删
+

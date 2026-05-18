@@ -12,3 +12,7 @@ docs/requirements.md
 
 docs/juejin-article.md
 docs/devto-article.md
+
+# CodeSee runtime caches (apply-patch backups, sync patches)
+.codesee/cache/
+viewer/public/cache/

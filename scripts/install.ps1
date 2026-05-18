@@ -125,6 +125,13 @@ if (Test-Path $stalenessSrc) {
   Write-Host "  - wrote .codesee/scripts/check-staleness.mjs"
 }
 
+$applyPatchSrc = Join-Path $Self 'scripts/apply-patch.mjs'
+if (Test-Path $applyPatchSrc) {
+  $applyPatchDst = Join-Path $dstScripts 'apply-patch.mjs'
+  Copy-Item -Force $applyPatchSrc $applyPatchDst
+  Write-Host "  - wrote .codesee/scripts/apply-patch.mjs"
+}
+
 # 3a. .codesee/hooks/* (templates only; users enable manually)
 $hooksSrcDir = Join-Path $Self 'hooks'
 if (Test-Path $hooksSrcDir) {

@@ -46,6 +46,7 @@
 - 扫描：`.codesee/prompts/scan.md`
 - 同步：`.codesee/prompts/sync.md`
 - 校验：`.codesee/scripts/validate-features.mjs`
+- 增量补丁：`.codesee/scripts/apply-patch.mjs`（sync 优先模式）
 - 数据：`.codesee/features.json`
 - Hooks（可选自动提醒）：`.codesee/hooks/README.md`
 

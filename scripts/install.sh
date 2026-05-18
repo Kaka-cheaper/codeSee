@@ -108,6 +108,11 @@ if [[ -f "$SELF_DIR/hooks/scripts/check-staleness.mjs" ]]; then
   echo "  - wrote .codesee/scripts/check-staleness.mjs"
 fi
 
+if [[ -f "$SELF_DIR/scripts/apply-patch.mjs" ]]; then
+  cp -f "$SELF_DIR/scripts/apply-patch.mjs" "$TARGET/.codesee/scripts/apply-patch.mjs"
+  echo "  - wrote .codesee/scripts/apply-patch.mjs"
+fi
+
 # 3a. .codesee/hooks/* (templates only; users enable manually)
 if [[ -d "$SELF_DIR/hooks" ]]; then
   mkdir -p "$TARGET/.codesee/hooks"

@@ -151,17 +151,13 @@ cd codeSee
 
 把 `AGENTS.md`（已存在则追加）和 `.codesee/{prompts,scripts,hooks}/` 注入到你的项目，不动你的代码。
 
-### 2.5（可选）一键启用 hooks
+**可选——一键启用 hooks。** 用 `-AutoDetect`（PowerShell）/ `--auto-detect`（Bash）重跑一次：
 
 ```powershell
-# Windows
 .\scripts\install.ps1 D:\path\to\your\project -AutoDetect
-
-# macOS / Linux
-./scripts/install.sh /path/to/your/project --auto-detect
 ```
 
-`-AutoDetect` 检测到 `.claude/` 或 `.kiro/` 就自动写入对应平台的 Stop / agentStop hook，让 IDE 在每轮 agent 结束时提醒"代码改了但 features.json 没跟上"。已有 entry 一字不改、重跑幂等、`-UninstallHooks` 可清除。手动启用或单独平台说明见 [`hooks/README.md`](./hooks/README.md)。
+检测到 `.claude/` 或 `.kiro/` 就自动写入对应平台的 Stop / agentStop hook，让 IDE 在每轮 agent 结束时提醒"代码改了但 features.json 没跟上"。已有 entry 一字不改、重跑幂等、`-UninstallHooks` 可清除。手动启用或单独平台说明见 [`hooks/README.md`](./hooks/README.md)。
 
 ### 3. 让 AI 扫描
 

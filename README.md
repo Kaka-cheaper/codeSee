@@ -152,17 +152,13 @@ The install scripts, prompts, validator, and templates live here. The viewer is 
 
 Drops `AGENTS.md` (or appends to existing) plus `.codesee/{prompts,scripts,hooks}/` into your project. Zero changes to your code.
 
-### 2.5 (Optional) Wire hooks in one shot
+**Optional — wire hooks in one shot.** Re-run with `-AutoDetect` (PowerShell) / `--auto-detect` (Bash):
 
 ```powershell
-# Windows
 .\scripts\install.ps1 D:\path\to\your\project -AutoDetect
-
-# macOS / Linux
-./scripts/install.sh /path/to/your/project --auto-detect
 ```
 
-`-AutoDetect` looks for `.claude/` or `.kiro/` and writes the Stop / agentStop hook so the IDE reminds AI to sync `features.json` after every turn. Existing user entries are untouched, reruns are idempotent, and `-UninstallHooks` cleans up. For manual setup or per-platform docs see [`hooks/README.md`](./hooks/README.md).
+Looks for `.claude/` or `.kiro/` and writes the Stop / agentStop hook so the IDE reminds AI to sync `features.json` after every turn. Existing user entries are untouched, reruns are idempotent, and `-UninstallHooks` cleans up. For manual setup or per-platform docs see [`hooks/README.md`](./hooks/README.md).
 
 ### 3. Let AI scan
 

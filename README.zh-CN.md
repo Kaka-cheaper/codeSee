@@ -485,6 +485,7 @@ install 脚本会同时写入两个文件——你的 AI IDE 会读它能理解�
 
 ### 画布与体验
 
+- [ ] **URL 分享（远程 `features.json`）** — 通过 `?features=<URL>`（或 `?repo=<owner>/<repo>` GitHub 简写）加载任意公网可访问的 `features.json`。把链接发到 README / 文档 / 聊天里，对方一打开就看到画布——无需 clone、无需安装。只读模式（布局草稿存 localStorage）。OSS 项目展示与代码评审分享的最佳入口。
 - [ ] **画布编辑** — 直接在画布上编辑功能名称、添加备注、锁定节点
 - [ ] **搜索与筛选** — 按名称搜索功能，按 epic/tag/role 筛选
 - [ ] **Diff 视图** — 高亮两个版本 `features.json` 之间的变化

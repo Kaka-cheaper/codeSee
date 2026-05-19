@@ -486,6 +486,7 @@ The install script writes both — your AI IDE will pick whichever it understand
 
 ### Canvas & UX
 
+- [ ] **Share via URL (remote `features.json`)** — load any URL-accessible `features.json` via `?features=<url>` (or `?repo=<owner>/<repo>` GitHub shorthand). Drop a link in a README / doc / chat and recipients see the live graph instantly — no clone, no install. Read-only mode (layout drafts go to localStorage). Strong fit for OSS project showcasing and code-review sharing.
 - [ ] **Canvas editing** — edit feature names, add notes, lock nodes directly on the canvas
 - [ ] **Search & filter** — find features by name, filter by epic/tag/role
 - [ ] **Diff view** — highlight what changed between two versions of `features.json`

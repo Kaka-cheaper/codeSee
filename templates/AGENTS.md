@@ -8,6 +8,7 @@
 
 先读 `README.md` 了解业务背景。
 
+<!-- BEGIN: CodeSee integration -->
 ## CodeSee 功能图
 
 本项目用 CodeSee 把功能逻辑以语义流程图呈现。
@@ -68,3 +69,5 @@ CodeSee 同时支持四种阶段：
 - Hooks（可选自动提醒）：`.codesee/hooks/README.md`
 
 > 执行 scan/sync 前先告诉用户你要做什么。
+<!-- END: CodeSee integration -->
+

@@ -469,6 +469,8 @@ The install script writes both — your AI IDE will pick whichever it understand
 
 ## Roadmap
 
+> **Want to contribute?** Many of the open items below have matching issues with concrete scope and acceptance criteria. Check the **[`good first issue`](https://github.com/Kaka-cheaper/codeSee/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)** and **[`help wanted`](https://github.com/Kaka-cheaper/codeSee/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)** labels.
+
 ### Top priority
 
 - [ ] **Prompt refinement (community-driven)** — real-world usage produces the best constraints; contributions welcome for edge cases, anti-patterns, and domain-specific rules

@@ -468,6 +468,8 @@ install 脚本会同时写入两个文件——你的 AI IDE 会读它能理解�
 
 ## 路线图
 
+> **想参与贡献？** 下面很多 `[ ]` 条目对应了具体的 GitHub issue（含范围、验收标准）。看 **[`good first issue`](https://github.com/Kaka-cheaper/codeSee/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)** 和 **[`help wanted`](https://github.com/Kaka-cheaper/codeSee/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)** 标签。
+
 ### 最高优先级
 
 - [ ] **Prompt 持续优化（社区驱动）** — 真实使用中的痛点和案例才是 prompt 的护城河；欢迎贡献边界情况、反例和领域特定规则

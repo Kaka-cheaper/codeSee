@@ -2,6 +2,17 @@
 
 Thanks for your interest in contributing! This document covers the development setup, code style, and PR process.
 
+## 🚀 Looking for a starter task?
+
+- **[`good first issue`](https://github.com/Kaka-cheaper/codeSee/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)** — small, well-scoped, no project-wide knowledge required. Average ~2-4 hours.
+- **[`help wanted`](https://github.com/Kaka-cheaper/codeSee/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)** — bigger features, design partly settled, needs an extra pair of hands.
+
+If something interests you, leave a comment on the issue saying "I'd like to take this" — I'll respond within 24h to confirm scope.
+
+Don't see an issue that matches your idea? Open a [Feature Request](https://github.com/Kaka-cheaper/codeSee/issues/new?template=feature_request.md) instead — I'll either green-light it or help you reshape it.
+
+---
+
 ## Development Setup
 
 ```bash

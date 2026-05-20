@@ -1,0 +1,3 @@
+# All PRs are reviewed by the project author by default.
+# CODEOWNERS makes the assignment automatic for every path.
+* @Kaka-cheaper

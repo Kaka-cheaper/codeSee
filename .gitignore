@@ -9,6 +9,7 @@ dist/
 !.env.example
 docs/problem.md
 docs/requirements.md
+docs/issue-strategy.md
 
 docs/juejin-article.md
 docs/devto-article.md

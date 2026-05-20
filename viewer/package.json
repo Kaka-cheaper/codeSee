@@ -4,6 +4,7 @@
   "version": "0.6.0",
   "type": "module",
   "scripts": {
+    "check": "npm run lint && tsc -b --noEmit && node ../scripts/validate-features.mjs public/features.json",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

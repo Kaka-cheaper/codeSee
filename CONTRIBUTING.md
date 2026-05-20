@@ -53,9 +53,13 @@ viewer/src/
 2. Make your changes
 3. Ensure these pass:
    ```bash
+   npm run check
+   ```
+   (This runs lint, type check, and validator in one command. You can also run them individually:
+   ```bash
    npm run lint
    npm run build    # includes tsc + vite build
-   ```
+   ```)
 4. Commit with a clear message: `feat(canvas): add search filter`
 5. Push and open a PR
 

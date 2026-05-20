@@ -9,18 +9,22 @@ Versions follow [Semantic Versioning](https://semver.org/) loosely — schema ma
 
 ---
 
-## [Unreleased]
+## [0.6.0] — 2026-05-20
+
+Three weeks after 0.5.0, with hooks auto-wiring, RFC 6902 patch protocol, and the first round of layout tuning. Focus shifts from "build the basics" to "make sync cheap and the canvas read-better".
 
 ### Added
 
 - **Incremental patch output protocol — Phase 1**: `sync.md` now instructs AI to write a small RFC 6902 JSON Patch to `.codesee/cache/sync-patch.json` and run `node .codesee/scripts/apply-patch.mjs`, instead of rewriting the whole file. The applier (zero-deps, ~280 lines) supports all 6 ops (add/remove/replace/move/copy/test), atomic write via tmp + rename, rolling backups (3 newest kept), and emits a single JSON status line on stdout for AI to parse failures (`failedOpIndex` / `failedOp` / `error`). Falls back to full rewrite on repeated failure or large refactors. Existing full-rewrite path stays for first scans.
 - **Semantic layout — Phase 1 (ELK tuning)**: layered-graph algorithm now reads `considerModelOrder.NODES_AND_EDGES` so the order of features inside `features.json` influences node placement; `BRANDES_KOEPF` node placement with `BALANCED` alignment lines up upstream/downstream nodes; `LAYER_SWEEP` crossing minimization + `thoroughness=7` reduce edge crossings; larger `edgeNode` / `edgeNodeBetweenLayers` spacing prevents labels colliding with node borders. Affects flow view, feature container internals, and the cross-feature root layout.
-- **Hooks Phase 2 — auto-wiring**: install gains `--auto-detect` / `--enable-claude-code` / `--enable-kiro` / `--force-hooks` / `--uninstall-hooks` flags. With one command we now write the staleness Stop hook into `.claude/settings.json` (deep-merged so existing user entries are untouched, idempotent across reruns) and drop a `.kiro/hooks/codesee-sync-on-stop.json`. New helper script `scripts/merge-claude-settings.mjs` tags every entry with a `_codesee` marker for safe replace / uninstall. Refuses to touch malformed JSON.
+- **Hooks Phase 2 — auto-wiring**: install gains `--auto-detect` / `--enable-claude-code` / `--enable-kiro` / `--force-hooks` / `--uninstall-hooks` flags. With one command we now write the staleness Stop hook into `.claude/settings.json` (deep-merged so existing user entries are untouched, idempotent across reruns) and drop a `.kiro/hooks/codesee-sync-on-stop.kiro.hook`. New helper script `scripts/merge-claude-settings.mjs` tags every entry with a `_codesee` marker for safe replace / uninstall. Refuses to touch malformed JSON.
 - **Hooks Phase 1 — staleness reminder**: install script now ships `.codesee/hooks/{claude-code,kiro}/` templates plus a shared zero-deps `check-staleness.mjs`. After every agent turn the hook checks `git log` against `manifest.generated_at` and prints a reminder if code changed but `features.json` did not. Always exits 0 — never blocks the agent. Manual enablement is still supported for the curious; `--auto-detect` is the new default path.
 
 ### Fixed
 
+- **Kiro hook file suffix**: was using `.json`, but Kiro UI only recognizes `.kiro.hook`. Renamed shipped templates and install output. Uninstall cleans up both old and new suffixes.
 - **`check-staleness.mjs` field name mismatch**: script was reading `manifest.updated_at` while the schema defines `manifest.generated_at`. Aligned to schema (with a fallback to the old name for forward compatibility).
+- **Install rerun duplicates the AGENTS.md CodeSee section**: `templates/AGENTS.md` lacked `BEGIN/END` markers, so every rerun appended the snippet again. Added markers; reruns are now truly idempotent.
 
 ---
 

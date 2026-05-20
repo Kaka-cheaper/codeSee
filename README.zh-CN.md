@@ -306,8 +306,7 @@ codeSee/
 │   ├── _schema.md           Schema + 枚举 + 示例（唯一真值源）
 │   └── _rules.md            约束分级（MUST/SHOULD/MAY）
 ├── templates/               入口规则模板
-│   ├── AGENTS.md            完整 AGENTS.md
-│   ├── AGENTS-snippet.md    可追加片段（用于已有 AGENTS.md 的项目）
+│   ├── AGENTS-snippet.md    AGENTS.md 的 CodeSee 段落唯一来源（BEGIN/END marker，可追加可替换）
 │   └── SKILL.md             跨平台 skill 入口（agentskills.io 标准）
 ├── hooks/                   跨 IDE hooks（拷到目标项目 .codesee/hooks/）
 │   ├── README.md            启用说明

@@ -307,8 +307,7 @@ codeSee/
 │   ├── _schema.md           Schema + enums + example (single source of truth)
 │   └── _rules.md            Constraints (MUST/SHOULD/MAY)
 ├── templates/               Entry-rule templates
-│   ├── AGENTS.md            Full AGENTS.md
-│   ├── AGENTS-snippet.md    Appendable snippet (for projects with existing AGENTS.md)
+│   ├── AGENTS-snippet.md    Single source of truth for the AGENTS.md CodeSee section (BEGIN/END marked)
 │   └── SKILL.md             Cross-platform skill entry (agentskills.io standard)
 ├── hooks/                   Cross-IDE hooks (copied to target as .codesee/hooks/)
 │   ├── README.md            Enablement guide

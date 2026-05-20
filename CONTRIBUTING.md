@@ -17,7 +17,7 @@ Don't see an issue that matches your idea? Open a [Feature Request](https://gith
 
 ```bash
 # Clone the repo
-git clone https://github.com/user/codeSee.git
+git clone https://github.com/Kaka-cheaper/codeSee.git
 cd codeSee/viewer
 
 # Install dependencies

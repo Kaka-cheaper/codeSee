@@ -63,15 +63,31 @@ if ($TargetDir -eq $Self) {
 Write-Host "==> Installing CodeSee into: $TargetDir" -ForegroundColor Cyan
 
 # 1. AGENTS.md
-$agentsSrc     = Join-Path $Templates 'AGENTS.md'
 $snippetSrc    = Join-Path $Templates 'AGENTS-snippet.md'
 $agentsDst     = Join-Path $TargetDir 'AGENTS.md'
 $BeginMarker   = '<!-- BEGIN: CodeSee integration -->'
+$EndMarker     = '<!-- END: CodeSee integration -->'
+
+# Wrap the snippet with a minimal AGENTS.md header for first-install scenarios.
+function Build-NewAgentsDoc {
+  param([string]$snippet)
+  $header = @(
+    '# AGENTS.md',
+    '',
+    '> AI collaboration entry rules. Cursor / Claude Code / Kiro / Copilot / Codex auto-read this file.',
+    '',
+    '## About this project',
+    '',
+    'Read `README.md` for the business context.',
+    '',
+    ''
+  ) -join "`n"
+  return $header + $snippet.TrimEnd() + "`n"
+}
 
 if (Test-Path $agentsDst) {
   $existing = Get-Content -Raw -Encoding UTF8 -Path $agentsDst
   $snippet = Get-Content -Raw -Encoding UTF8 -Path $snippetSrc
-  $EndMarker = '<!-- END: CodeSee integration -->'
 
   if ($existing -match [regex]::Escape($BeginMarker)) {
     if ($Force) {
@@ -96,7 +112,9 @@ if (Test-Path $agentsDst) {
     Write-Host "  - AGENTS.md: appended CodeSee section to existing file"
   }
 } else {
-  Copy-Item -Force $agentsSrc $agentsDst
+  $snippet = Get-Content -Raw -Encoding UTF8 -Path $snippetSrc
+  $newDoc = Build-NewAgentsDoc -snippet $snippet
+  [System.IO.File]::WriteAllText($agentsDst, $newDoc, [System.Text.UTF8Encoding]::new($false))
   Write-Host "  - wrote AGENTS.md (new)"
 }
 

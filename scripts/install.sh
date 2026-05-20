@@ -87,7 +87,18 @@ PY
     echo "  - AGENTS.md: appended CodeSee section to existing file"
   fi
 else
-  cp -f "$TEMPLATES/AGENTS.md" "$agents_dst"
+  # New AGENTS.md: minimal header + snippet (the snippet itself contains BEGIN/END markers).
+  {
+    echo '# AGENTS.md'
+    echo ''
+    echo '> AI collaboration entry rules. Cursor / Claude Code / Kiro / Copilot / Codex auto-read this file.'
+    echo ''
+    echo '## About this project'
+    echo ''
+    echo 'Read `README.md` for the business context.'
+    echo ''
+    cat "$snippet_src"
+  } > "$agents_dst"
   echo "  - wrote AGENTS.md (new)"
 fi
 

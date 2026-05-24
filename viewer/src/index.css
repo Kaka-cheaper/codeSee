@@ -59,6 +59,9 @@ body,
 
 body {
   margin: 0;
+  /* SPA 全屏 viewer: 永远不让 body 出现浏览器原生滚动条;
+     任何"内容太长"的诉求一律由内层容器自己 overflow-y-auto. */
+  overflow: hidden;
   background:
     radial-gradient(1100px 560px at 82% -8%, oklch(0.93 0.03 60 / 0.35), transparent 60%),
     radial-gradient(900px 520px at -10% 110%, oklch(0.91 0.022 250 / 0.28), transparent 60%),
@@ -69,6 +72,42 @@ body {
   letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── 滚动条主题化 ──────────────────────────────────────────
+   暖白底 + 暖灰拇指, 跟 minimap / DetailsPanel 一致.
+   语法: WebKit (Chrome/Edge/Safari) 用 ::-webkit-scrollbar,
+        Firefox 用 scrollbar-width / scrollbar-color.
+   作用范围: 整个文档. 想要某局部不变可在该容器再覆盖. */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.78 0.014 65 / 0.6) transparent;
+}
+
+/* WebKit */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.78 0.014 65 / 0.5);
+  border-radius: 999px;
+  /* 用 4px 透明 border 把视觉宽度收到 ~6px, 留出"轨道呼吸感" */
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  transition: background 200ms ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.62 0.135 45 / 0.6); /* hover 时变 accent 暖橘 */
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* React Flow — 暖白主题 */
@@ -128,21 +167,55 @@ body {
   fill: currentColor;
 }
 
+/* MiniMap：浮卡风格 ——半透明玻璃感 + 软阴影 + 与画布留白 */
 .react-flow__minimap {
-  background: var(--color-bg-1);
+  /* 半透明暖白底, 让画布的 dot 背景透出来 */
+  background: oklch(0.96 0.008 70 / 0.78);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
+  /* 玻璃感模糊（现代浏览器都支持；不支持的浏览器降级为半透） */
+  backdrop-filter: saturate(1.05) blur(8px);
+  -webkit-backdrop-filter: saturate(1.05) blur(8px);
+  /* 软投影：1px 描边 + 弱深阴影, 跟详情面板保持视觉一致 */
   box-shadow:
-    0 1px 2px oklch(0 0 0 / 0.04),
-    0 8px 24px -16px oklch(0 0 0 / 0.1);
+    0 1px 2px oklch(0 0 0 / 0.05),
+    0 12px 32px -16px oklch(0 0 0 / 0.16);
+  /* 让 minimap 不贴角, 跟画布有"呼吸感" */
+  margin: 12px;
+}
+
+/* 左下角统一: minimap 在底, controls 抬到 minimap 上方
+   (controls 默认竖向 ~132px 高 + 12px 间距; minimap 高 150 + 24 (margin) = 174,
+    controls 距底部 = 174 + 12 = 186) */
+.react-flow__panel.bottom.left {
+  margin-left: 12px;
+  margin-bottom: 12px;
+}
+.react-flow__controls.bottom.left {
+  margin-bottom: 186px;
+}
+
+/* MiniMap 内 SVG node 的描边（节点形状由 React Flow 渲染成 rect） */
+.react-flow__minimap-node {
+  rx: 3;
+  ry: 3;
+  stroke: oklch(0.5 0.01 70 / 0.18);
+  stroke-width: 0.6;
+  /* 颜色由 nodeColor prop 控制, 这里只补圆角与边 */
+  transition: fill 200ms ease;
+}
+
+/* MiniMap 视口框（mask）的边缘：用 accent 暖橘软虚线, 而不是默认的硬黑边 */
+.react-flow__minimap-mask {
+  stroke: oklch(0.62 0.135 45 / 0.28);
+  stroke-width: 1;
 }
 
 .react-flow__attribution {
   background: transparent !important;
-  color: var(--color-fg-subtle);
-  font-size: 10px;
-  opacity: 0.6;
+  /* 隐藏 React Flow 水印（库 MIT 协议允许；想保留改为 opacity: 0.4） */
+  display: none;
 }
 
 /* 节点入场微动效 */

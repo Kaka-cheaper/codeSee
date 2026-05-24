@@ -770,25 +770,61 @@ function GraphInner({ file, activeRepoId }: Props) {
    * focusId=null 时全部复位。
    */
   const focusId = hoverId ?? selectedId
+
+  /**
+   * 相关节点集合：选中/hover 一个节点时，所有"应该高亮的节点"。
+   * 给 MiniMap 着色 + DetailsPanel 聚焦按钮使用。
+   *
+   * ⚠ 不要把这个 useMemo 加到下面 patch effect 的依赖里 ——
+   *   useMemo 依赖 rfEdges/rfNodes 引用, 而 effect 又会 setRfEdges/setRfNodes,
+   *   一旦把 relatedNodeIds 当依赖会触发无限循环（"Maximum update depth exceeded"）。
+   *   patch effect 自己用 .length 当依赖, 内部就地重算同样的集合即可。
+   *
+   * useMemo 自身的依赖也用 .length（与 effect 对称），避免每帧 patch 都让
+   * minimap nodeColor 跟着重算（性能噪音）。focusId 不变时，相关集合也不变。
+   */
+  const relatedNodeIds = useMemo(() => {
+    const set = new Set<string>()
+    if (!focusId) return set
+    set.add(focusId)
+    for (const e of rfEdges) {
+      if (e.source === focusId) set.add(e.target)
+      if (e.target === focusId) set.add(e.source)
+    }
+    const focused = rfNodes.find((n) => n.id === focusId)
+    if (focused?.type === 'feature') {
+      const epicId = (focused.data as { view?: { feature?: { epicId?: string } } } | undefined)
+        ?.view?.feature?.epicId ?? '__none__'
+      set.add(`group:${epicId}`)
+    }
+    if (focused?.type === 'epicGroup') {
+      const epicId = focusId.replace(/^group:/, '')
+      for (const n of rfNodes) {
+        if (n.type === 'epicGroup') continue
+        const nEpicId = (n.data as { view?: { feature?: { epicId?: string } } } | undefined)
+          ?.view?.feature?.epicId ?? null
+        if (nEpicId === epicId) set.add(n.id)
+      }
+    }
+    return set
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId, rfEdges.length, rfNodes.length])
+
   useEffect(() => {
-    // 计算相关节点集合
+    // 就地重算相关节点集合（不能依赖 useMemo, 见上面注释）
     const relatedNodes = new Set<string>()
     if (focusId) {
       relatedNodes.add(focusId)
-      // 直接相连的节点
       for (const e of rfEdges) {
         if (e.source === focusId) relatedNodes.add(e.target)
         if (e.target === focusId) relatedNodes.add(e.source)
       }
-      // 同容器加成（仅功能视图）：hover 一个 feature 时，把它所属 Epic 的整个容器节点也算"相关"
       const focused = rfNodes.find((n) => n.id === focusId)
       if (focused?.type === 'feature') {
         const epicId = (focused.data as { view?: { feature?: { epicId?: string } } } | undefined)
           ?.view?.feature?.epicId ?? '__none__'
-        const groupId = `group:${epicId}`
-        relatedNodes.add(groupId)
+        relatedNodes.add(`group:${epicId}`)
       }
-      // 如果焦点是容器，把容器内全部节点都算相关
       if (focused?.type === 'epicGroup') {
         const epicId = focusId.replace(/^group:/, '')
         for (const n of rfNodes) {
@@ -865,6 +901,96 @@ function GraphInner({ file, activeRepoId }: Props) {
     setSelectedId(null)
   }, [])
 
+  /**
+   * "聚焦相关" 行为：把当前焦点 + 所有相关节点 fit 到视口。
+   * 用 reactFlow.fitView 的 nodes 数组形态，自动算 bounding box + 留白。
+   * 节点不存在 / 没焦点时 noop。
+   */
+  const focusRelated = useCallback(() => {
+    if (!focusId || relatedNodeIds.size === 0) return
+    const nodes = reactFlow.getNodes().filter((n) => relatedNodeIds.has(n.id))
+    if (nodes.length === 0) return
+    reactFlow.fitView({ nodes, padding: 0.3, duration: 400 })
+  }, [focusId, relatedNodeIds, reactFlow])
+
+  /**
+   * 浏览历史栈：实现详情面板的"上一个"按钮（浏览器式 back-only stack）。
+   *
+   * 行为：
+   *   - navigateToNode 把"当前 selectedId"压栈, 把目标设为新的当前
+   *   - goBack 弹栈 → 把弹出的设为新的当前 (用 navigateWithoutHistory, 不再 push)
+   *   - 切换视图 (mode 变化) 时栈清空, 因为节点 id 命名空间变了
+   *     ("feature:xxx" 在 overview 视图下根本不存在)
+   *   - 关闭详情面板不清栈 → 用户重新选节点时栈仍可用
+   *
+   * historyRef 用 ref 是为了避免 push 触发 re-render；
+   * canGoBack 单独用 state 是因为它驱动按钮的 disabled, 必须能重渲染。
+   */
+  const historyRef = useRef<string[]>([])
+  const [canGoBack, setCanGoBack] = useState(false)
+
+  /** 视图切换 → 清栈, 因为 id 命名空间变了 */
+  useEffect(() => {
+    historyRef.current = []
+    setCanGoBack(false)
+  }, [state.mode, state.focusedFeatureId])
+
+  /** 内部跳转, 不动历史栈 (goBack 用) */
+  const navigateWithoutHistory = useCallback((nodeId: string) => {
+    setSelectedId(nodeId)
+    window.setTimeout(() => {
+      const target = reactFlow.getNodes().find((n) => n.id === nodeId)
+      if (!target) return
+      reactFlow.fitView({ nodes: [{ id: nodeId }], padding: 0.5, duration: 400 })
+    }, 60)
+  }, [reactFlow])
+
+  /**
+   * 跳转到指定节点：详情面板"上下游 / 关联功能"列表项点击触发。
+   *
+   * 顺序很关键：先 setSelectedId（详情面板切到目标 + 触发高亮 patch effect），
+   * 再在 setTimeout 里 fitView。如果反过来或同步连发，setSelectedId 引发的
+   * setRfNodes / setRfEdges 会让 React Flow 内部状态在 fitView 动画期间重置,
+   * 表现为"按钮按了画布没动"。
+   * 60ms 足够 React 完成本轮 commit + patch effect, 然后 fitView 干净启动。
+   */
+  const navigateToNode = useCallback((nodeId: string) => {
+    // 把当前 selectedId 压栈 (除非要跳的就是当前)
+    if (selectedId && selectedId !== nodeId) {
+      historyRef.current.push(selectedId)
+      // 上限 30: 避免长时间使用导致栈无限增长
+      if (historyRef.current.length > 30) historyRef.current.shift()
+      setCanGoBack(true)
+    }
+    navigateWithoutHistory(nodeId)
+  }, [selectedId, navigateWithoutHistory])
+
+  /** "上一个"按钮：弹栈, 跳到弹出的节点 */
+  const goBack = useCallback(() => {
+    const prev = historyRef.current.pop()
+    if (!prev) return
+    setCanGoBack(historyRef.current.length > 0)
+    // 跳之前确认目标节点还在当前视图里 (理论上视图切换会清栈, 但兜底)
+    const exists = reactFlow.getNodes().some((n) => n.id === prev)
+    if (exists) {
+      navigateWithoutHistory(prev)
+    } else {
+      // 目标已不存在 → 跳过这条, 继续弹下一个
+      goBack()
+    }
+  }, [reactFlow, navigateWithoutHistory])
+
+  /**
+   * 详情面板列表项 hover：让画布上对应节点临时高亮（复用 hoverId）。
+   * 鼠标移开列表项 → 传 null 即可恢复。
+   */
+  const previewNode = useCallback((nodeId: string | null) => {
+    setHoverId(nodeId)
+  }, [])
+
+  /** 当前视图实际渲染的节点 id 集合，给详情面板判断列表项可不可点 */
+  const viewNodeIds = useMemo(() => new Set(view.nodes.map((n) => n.id)), [view.nodes])
+
   const selectedView: FcgViewNode | null = useMemo(() => {
     if (!selectedId) return null
     return view.nodes.find((n) => n.id === selectedId) ?? null
@@ -904,8 +1030,29 @@ function GraphInner({ file, activeRepoId }: Props) {
         <MiniMap
           pannable
           zoomable
-          maskColor="oklch(0.948 0.012 80 / 0.55)"
+          // 左下角: 避开右侧 DetailsPanel; Controls 也在左下, minimap 在 Controls 之上
+          position="bottom-left"
+          // 整体尺寸略宽矮, 信息密度更高 (默认 200x150 在长画布上太方)
+          style={{ width: 220, height: 150 }}
+          // 视口框（当前视野）：用 accent 软色 + 半透明,
+          // 跟暖白底融合, 不再是默认的硬白盒
+          maskColor="oklch(0.948 0.012 80 / 0.5)"
+          maskStrokeColor="oklch(0.62 0.135 45 / 0.4)"
+          maskStrokeWidth={1}
+          // 节点形状: 微圆角 + 极细描边 (描边色由 CSS 控制)
+          nodeBorderRadius={3}
+          nodeStrokeWidth={0.6}
           nodeColor={(n) => {
+            // 焦点态着色：选中/hover 时让 minimap 也参与"哪个是焦点 / 谁相关 / 谁不相关"的视觉
+            // - focus 自身    → 强 accent (暖橘饱和)
+            // - 相关节点      → 弱 accent (暖橘淡)
+            // - 不相关节点    → 极淡灰 (退到背景)
+            // - 没 focus 时   → 按 kind 上色 (维持现状)
+            if (focusId) {
+              if (n.id === focusId) return 'oklch(0.62 0.135 45)'
+              if (relatedNodeIds.has(n.id)) return 'oklch(0.78 0.08 45)'
+              return 'oklch(0.88 0.01 70)'
+            }
             if (n.type === 'step') {
               const data = n.data as unknown as StepNodeData | undefined
               if (data?.view.kind === 'step')
@@ -914,9 +1061,8 @@ function GraphInner({ file, activeRepoId }: Props) {
             if (n.type === 'feature') return 'oklch(0.78 0.04 60)'
             return 'oklch(0.78 0.05 240)'
           }}
-          nodeStrokeWidth={0}
         />
-        <Controls position="bottom-right" />
+        <Controls position="bottom-left" />
       </ReactFlow>
 
       <ViewSwitcher
@@ -942,7 +1088,18 @@ function GraphInner({ file, activeRepoId }: Props) {
         <NewNodeIndicator count={newNodeIds.size} />
       )}
 
-      <DetailsPanel view={selectedView} file={file} onClose={() => setSelectedId(null)} />
+      <DetailsPanel
+        view={selectedView}
+        file={file}
+        onClose={() => setSelectedId(null)}
+        relatedCount={relatedNodeIds.size > 0 ? relatedNodeIds.size : 0}
+        viewNodeIds={viewNodeIds}
+        onFocusRelated={focusRelated}
+        onNavigate={navigateToNode}
+        onPreviewNode={previewNode}
+        canGoBack={canGoBack}
+        onGoBack={goBack}
+      />
     </div>
   )
 }

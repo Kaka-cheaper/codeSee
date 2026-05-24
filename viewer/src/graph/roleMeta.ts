@@ -123,6 +123,17 @@ export const FLOW_META: Record<
  */
 export type CrossKind = 'triggers' | 'flow' | 'depends_on'
 
+/**
+ * cross_feature 边的默认视觉权重。
+ *
+ * 设计原则：默认状态（无 hover / 无 selected）下，画布应该被节点主导，
+ * 边只是隐约可见的背景结构。hover/选中后再升级到 100% opacity（hover 高亮逻辑里处理）。
+ *
+ * 压低 opacity 是治"线太多看不清"的最低成本方案：
+ * - 不动布局算法
+ * - 不改 schema
+ * - 不影响 hover 高亮的相对反差（背景越淡，亮起来越显眼）
+ */
 export const CROSS_META: Record<
   CrossKind,
   { label: string; stroke: string; dashed: boolean; strokeWidth: number; opacity: number }
@@ -132,20 +143,20 @@ export const CROSS_META: Record<
     stroke: 'oklch(0.62 0.135 45)', // 暖橘，与 accent 同色相
     dashed: false,
     strokeWidth: 1.6,
-    opacity: 0.95,
+    opacity: 0.28,
   },
   flow: {
     label: '数据流',
     stroke: 'oklch(0.55 0.09 240)', // 蓝
     dashed: false,
     strokeWidth: 1.5,
-    opacity: 0.9,
+    opacity: 0.26,
   },
   depends_on: {
     label: '依赖',
     stroke: 'oklch(0.65 0.018 70)', // 暖灰，安静
     dashed: true,
     strokeWidth: 1.1,
-    opacity: 0.7,
+    opacity: 0.22,
   },
 }

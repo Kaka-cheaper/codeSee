@@ -78,6 +78,16 @@ const dict = {
     'panel.ownerFeature': '所属功能',
     'panel.sourceRefs': '源码位置',
     'panel.stepCount': '{count} 步',
+    'panel.focusRelated': '聚焦相关 {count}',
+    'panel.focusRelatedTitle': '把焦点和相关的 {count} 个节点放进视口',
+    'panel.back': '上一个',
+    'panel.backTitle': '回到上一个查看的功能',
+    'panel.relatedUpstream': '上游 · 谁触发/影响我（{count}）',
+    'panel.relatedDownstream': '下游 · 我触发/影响谁（{count}）',
+    'panel.crossKind.triggers': '触发',
+    'panel.crossKind.flow': '数据流',
+    'panel.crossKind.depends_on': '依赖',
+    'panel.crossMode.async': '异步',
   },
   en: {
     // TopBar
@@ -154,6 +164,16 @@ const dict = {
     'panel.ownerFeature': 'Owner feature',
     'panel.sourceRefs': 'Source refs',
     'panel.stepCount': '{count} steps',
+    'panel.focusRelated': 'Focus related {count}',
+    'panel.focusRelatedTitle': 'Fit focus + {count} related nodes into view',
+    'panel.back': 'Back',
+    'panel.backTitle': 'Go back to previous feature',
+    'panel.relatedUpstream': 'Upstream · who affects me ({count})',
+    'panel.relatedDownstream': 'Downstream · who I affect ({count})',
+    'panel.crossKind.triggers': 'triggers',
+    'panel.crossKind.flow': 'flow',
+    'panel.crossKind.depends_on': 'depends on',
+    'panel.crossMode.async': 'async',
   },
 } as const
 

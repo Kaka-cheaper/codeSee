@@ -472,6 +472,7 @@ install 脚本会同时写入两个文件——你的 AI IDE 会读它能理解�
 ### 最高优先级
 
 - [ ] **Prompt 持续优化（社区驱动）** — 真实使用中的痛点和案例才是 prompt 的护城河；欢迎贡献边界情况、反例和领域特定规则
+- [ ] **增量 scan + 自纠** — 把一次性 15K token 输出换成 per-epic / per-feature 分段写入 + 自审循环，解决长输出质量衰减。研究设计（Self-Refine / Reflexion 路线）与三档实施方案见 [`docs/improving-scan-quality.md`](docs/improving-scan-quality.md)。尚未开工；档 1（per-epic）是推荐入手位（约 6 小时工时）。
 - [ ] **语义感知布局** — 布局应尊重功能逻辑而非仅基于节点位置。Phase 1 已落地：ELK Sugiyama 调参（`considerModelOrder` 让 features.json 数组顺序参与布局、`BRANDES_KOEPF` 节点放置策略让上下游对齐、加大边节点间距避免标签压字）；后续：Feature.order 下沉、Swimlane 视图、AI 驱动的语义级布局意图。
 - [ ] **Plan-as-Graph（计划即图）** — AI 的计划/设计直接输出为 `features.json`，在画布上审阅而非读冗长文字。审阅后可确认执行、可修改、可丢弃。让 CodeSee 从"事后文档"扩展为"事前设计审阅工具"。
 - [ ] **Feature Summary（AI 记忆层）** — 启发式脚本从 `features.json` 自动生成精简 markdown 摘要（~2000 tokens vs 原始 JSON 15000+）。AI 新会话开始时读摘要即可恢复项目全貌。解决长任务遗忘和跨会话不一致问题。

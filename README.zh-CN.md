@@ -503,6 +503,7 @@ install 脚本会同时写入两个文件——你的 AI IDE 会读它能理解�
 
 ### 长期（可选）
 
+- [ ] **HTML artifact 互补层** — 把 features.json 当项目级合同（不变），同时给 AI 一条 prompt 链让它把"单次任务输出"（设计方案对比 / PR 详解 / 学习报告 / 一次性自定义编辑器）写成 HTML 单文件。背景见 [Thariq Shihipar 的文章](https://thariqs.github.io/html-effectiveness/)。viewer 也可以加"导出当前画布为可分享 HTML"。两层互补：长期演化用 codesee，单次产出用 HTML。
 - [ ] **向量索引** — 语义嵌入支持"查找相似功能"/ 跨项目复用；必须保持可选，且永不替代"JSON 是唯一真相源"的核心原则
 
 ---

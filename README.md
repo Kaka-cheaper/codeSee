@@ -504,6 +504,7 @@ The install script writes both — your AI IDE will pick whichever it understand
 
 ### Long-term (optional)
 
+- [ ] **HTML artifact complement** — keep features.json as the project-level contract (unchanged), and give AI a prompt path to render "one-shot task outputs" (design alternatives / PR walkthroughs / learning reports / disposable custom editors) as standalone HTML files. Background: [Thariq Shihipar's post](https://thariqs.github.io/html-effectiveness/). Viewer could also gain "export current canvas as shareable HTML". Two layers complement each other: long-term evolution lives in codesee, single-shot artifacts live in HTML.
 - [ ] **Vector index** — semantic embedding for "find similar features" / cross-project reuse; must remain optional and never replace the JSON-as-source-of-truth principle
 
 ---

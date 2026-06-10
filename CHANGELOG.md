@@ -9,6 +9,25 @@ Versions follow [Semantic Versioning](https://semver.org/) loosely — schema ma
 
 ---
 
+## [0.7.0] — 2026-06-10
+
+The cognitive-design release: the canvas stops being a map you stare at and gains a path you walk. Design rationale lives in `docs/cognitive-design.md` — every choice below is a cognitive-science finding turned into a schema constraint.
+
+### Added
+
+- **Guided tour (v1)**: new optional `tours` field in `features.json` — 6-10 steps, each with a curiosity-gap question (`gap`), an answer narrative (`reveal`, ≤60 chars), and optional prediction quizzes at key forks. The viewer plays it as a journey: question first, nodes light up one by one (unvisited = not rendered, visited = dimmed spatial anchors), camera follows each reveal, full map unlocks only at the end. View mode follows the step automatically — epic-only steps play in Overview (skeleton with `epic_flow` edges), feature steps in Features view. Positions never drift: layout is computed for the full graph, rendering subtracts.
+- **Tour generation prompt**: `prompts/scan-tour.md` (experimental, not injected by install) teaches AI to write tours — skeleton-step three-act template, good/bad gap examples, quiz placement rules, self-check list.
+- **Tour validation**: `validate-features.mjs` reports broken `focus` references as errors; cognitive-constraint violations (statement-style gaps, >3 focus nodes per step, missing/excess quizzes, overlong reveals) as warnings. `sync.md` gains a tours-maintenance section so renames/deletions don't strand tour references.
+- **Bundled example tour**: the Chinese CodeSee example ships a hand-written 9-step tour with 2 prediction quizzes — it's also the reference spec for AI-generated tours.
+- **Tour entry button**: gradient capsule with breathing glow and a periodically wiggling compass — the only element on the canvas that "breathes". Respects `prefers-reduced-motion`.
+
+### Docs
+
+- **`docs/cognitive-design.md`**: why a tour instead of a better map — working-memory limits, map-vs-journey, five mechanism principles (advance organizer, information gap, generation effect, camera language, on-demand understanding), a theory→engineering mapping table, and the north-star metric (minutes until a newcomer answers their first transfer question).
+- README (en/zh): guided tour in core capabilities, "Why a tour, not a better map?" section, demo landing flow now points at the tour button, roadmap updated (AI-generated tours, question-driven trails v2).
+
+---
+
 ## [0.6.0] — 2026-05-20
 
 Three weeks after 0.5.0, with hooks auto-wiring, RFC 6902 patch protocol, and the first round of layout tuning. Focus shifts from "build the basics" to "make sync cheap and the canvas read-better".

@@ -37,7 +37,7 @@ Not call graphs. Not import maps. A human-readable story of what your project do
 
 ### ▶ [Try it in 30 seconds — no install](https://Kaka-cheaper.github.io/codeSee/?example=codesee-en)
 
-<sub>Open the live demo · explore CodeSee modeling itself · drop your own <code>features.json</code></sub>
+<sub>Open the live demo · click the <strong>🧭 Guided Tour</strong> button at the top — 2 minutes to understand the project · or drop your own <code>features.json</code></sub>
 
 </div>
 
@@ -102,6 +102,7 @@ The three rules that emerged from real use:
 
 | Capability | Description |
 | ---------- | ----------- |
+| **Guided Tour** 🧭 | Not a map to stare at — a path to walk. Each step poses a question first, lets you predict at key forks, then reveals the answer as nodes light up one by one. The full graph unlocks only after you finish. [Why a tour, not a better map? →](#why-a-tour-not-a-better-map) |
 | **Semantic flow graph** | Three-level drill-down: Epics → Features → Steps. See the "what" and "why", not the "how". |
 | **AI-maintained** | AI writes `features.json` after every code change. No manual diagramming. Works with any AI IDE. |
 | **Interactive canvas** | Drag, zoom, undo/redo, auto-save layout. Warm-ivory theme designed for long review sessions. |
@@ -220,6 +221,33 @@ Your Project/                              CodeSee Viewer/
 | **Features** | Features grouped in Epic containers | Drag nodes/containers; double-click → Steps |
 | **Steps** | Step-by-step flow within one feature | Directed graph with async/conditional/error edges |
 
+Plus an optional **`tours` field**: AI can generate a guided tour with
+`prompts/scan-tour.md` — the viewer plays it as a step-by-step journey across
+Overview and Features views.
+
+---
+
+## Why a tour, not a better map?
+
+Human working memory holds **4±1 chunks** (Cowan, 2001). A canvas with 22 feature
+nodes is physiologically impossible to *understand* at a glance — it can only be
+*looked at*. No amount of highlighting or filtering fixes this, because the
+bottleneck isn't the picture; it's brain bandwidth.
+
+People understand complex systems by **walking a path in order**, not by staring
+at a map — that's why anyone can follow a two-hour movie (hundreds of events!) but
+nobody can read a 22-node diagram. The movie serializes for you: one chunk at a
+time, hooked together by causality.
+
+So CodeSee's tour: each step opens a curiosity gap with a question *before*
+showing the answer, asks you to **predict** at key forks (people only retain what
+they generate themselves — and wrong guesses stick hardest), then lights up nodes
+one by one with the camera following. The full map unlocks only at the end:
+**the map is the diploma, not the textbook.**
+
+Every one of these choices is a cognitive-science finding turned into a schema
+constraint. Full design rationale with references → [docs/cognitive-design.md](./docs/cognitive-design.md)
+
 ---
 
 ## Best Practices
@@ -303,6 +331,7 @@ codeSee/
 │   ├── scan-light.md        Light projects (one-shot)
 │   ├── scan-heavy.md        Heavy projects (phased)
 │   ├── scan-planning.md     Doc-only / planning stage
+│   ├── scan-tour.md         Guided-tour generation (experimental, not injected by install)
 │   ├── sync.md              Incremental sync
 │   ├── _schema.md           Schema + enums + example (single source of truth)
 │   └── _rules.md            Constraints (MUST/SHOULD/MAY)
@@ -488,6 +517,9 @@ The install script writes both — your AI IDE will pick whichever it understand
 
 ### Canvas & UX
 
+- [x] **Guided tour (v1)** — question-first, predict-at-forks, nodes light up one by one; full map unlocks at the end. Hand-written tour ships with the bundled example. Design rationale: [docs/cognitive-design.md](./docs/cognitive-design.md)
+- [ ] **AI-generated tours** — iterate `prompts/scan-tour.md` quality against the north-star metric: minutes until a newcomer correctly answers their first transfer question about the codebase
+- [ ] **Question-driven trails (tour v2)** — ask "what breaks if I change X?" → AI writes a temporary tour JSON → viewer's file watcher picks it up and plays a 5-8 node trail, disposable after walking
 - [ ] **Share via URL (remote `features.json`)** — load any URL-accessible `features.json` via `?features=<url>` (or `?repo=<owner>/<repo>` GitHub shorthand). Drop a link in a README / doc / chat and recipients see the live graph instantly — no clone, no install. Read-only mode (layout drafts go to localStorage). Strong fit for OSS project showcasing and code-review sharing.
 - [ ] **Canvas editing** — edit feature names, add notes, lock nodes directly on the canvas
 - [ ] **Search & filter** — find features by name, filter by epic/tag/role

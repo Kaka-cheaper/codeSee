@@ -13,7 +13,11 @@ docs/issue-strategy.md
 
 docs/juejin-article.md
 docs/devto-article.md
+docs/codesee-analysis(2).md
 
 # CodeSee runtime caches (apply-patch backups, sync patches)
 .codesee/cache/
 viewer/public/cache/
+
+# codegraph 本地索引（MCP 代码图谱工具）
+.codegraph/

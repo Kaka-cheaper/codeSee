@@ -12,6 +12,7 @@ type FeaturesFile = {
   features: Feature[]
   cross_feature?: CrossFeatureLink[]
   epic_flow?: EpicFlow[]
+  tours?: Tour[]
 }
 ```
 
@@ -89,6 +90,47 @@ type EpicFlow = {
 }
 ```
 
+## Tour（引导式导览，可选）
+
+> 设计依据：人不通过"看全图"理解系统，而是通过"按顺序走一条路"。
+> Tour 把画布变成逐步点亮的舞台：每步先开一个好奇心缺口（gap），
+> 再揭晓答案叙事（reveal），关键处让用户预测（quiz）。
+
+```ts
+type Tour = {
+  id: string               // slug: 'onboarding'
+  title: string            // manifest.lang 语言："新人入门：这个系统怎么转起来"
+  goal: string             // 走完后用户应能回答什么："能说出从安装到画布渲染的完整链路"
+  steps: TourStep[]        // 6-10 步；第一步必须是骨架步（见下）
+}
+
+type TourStep = {
+  focus: string[]          // 本步点亮的节点：epic id 或 feature id，1-3 个
+  gap: string              // 开缺口的问题。MUST 是问句，不是陈述句
+  reveal: string           // 答案叙事，≤60 字/词，有因果方向
+  quiz?: {                 // 预测点，可选；整条 tour 出现 1-2 次
+    options: string[]      // 2-3 个选项
+    answer: number         // 正确选项下标（0-based）
+    wrong_note?: string    // 答错时的一句话纠偏（指出"你以为 X，实际 Y"）
+  }
+}
+```
+
+**Tour 硬约束**：
+
+1. **6-10 步**。超过 10 步工作记忆撑不住，少于 6 步讲不完骨架+主线。
+2. **第一步是骨架步**：focus 指向 2-3 个核心 epic，reveal 用"三段论"给出系统主线
+   （"先 A，然后 B，最后 C"），不是并列罗列。后续细节都挂在这个架子上。
+3. **gap 必须是问题**：先制造信息缺口再给答案。"接下来是支付模块" ✗；
+   "订单创建后钱还没扣——系统怎么保证用户跑不掉？" ✓
+4. **focus 引用 MUST 存在**：epic id 必须在 epics[]，feature id 必须在 features[]。
+   不支持 step 级 focus（v1 限制）。
+   播放时视图档位自动跟随：focus 全是 epic 的步在概览视图（骨架步天然如此），
+   含 feature 的步在功能视图——所以骨架步只写 epic id，别混入 feature。
+5. **顺序有因果**：每步的 reveal 应该自然引出下一步的 gap，像剧集结尾的钩子。
+6. **quiz 放在岔路口**：条件分支、容错路径、异步行为——用户凭直觉容易答错的地方。
+   不出"纯背诵"题。
+
 ## 枚举速查
 
 ```
@@ -98,6 +140,7 @@ flow.kind:      next | async | conditional | loop | error
 cross.kind:     triggers | flow | depends_on
 cross.mode:     sync | async   (可选，仅用于 flow)
 epic_flow.kind: next | depends_on
+tour.steps:     6-10 步；step.focus 引用 epic id 或 feature id
 importance:     core | normal | auxiliary
 provenance:     ai | user
 ```

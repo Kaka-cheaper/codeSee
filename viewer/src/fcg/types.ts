@@ -143,6 +143,42 @@ export interface EpicFlow {
   note?: string
 }
 
+/* ------------------------------------------------------------------ Tour */
+
+export interface TourQuiz {
+  /** 2-3 个选项 */
+  options: string[]
+  /** 正确选项下标（0-based） */
+  answer: number
+  /** 答错时的一句话纠偏："你以为 X，实际 Y" */
+  wrong_note?: string
+}
+
+export interface TourStep {
+  /** 本步点亮的节点：epic id 或 feature id，1-3 个 */
+  focus: string[]
+  /** 开缺口的问题——必须是问句，在节点出现之前先制造好奇心 */
+  gap: string
+  /** 答案叙事，≤60 字，有因果方向 */
+  reveal: string
+  /** 预测点，可选；整条 tour 出现 1-2 次，放在用户凭直觉容易答错的岔路口 */
+  quiz?: TourQuiz
+}
+
+/**
+ * 引导式导览：把画布变成逐步点亮的舞台。
+ * 认知依据：人通过"按顺序走一条路"理解系统，不是"看一张全图"。
+ * 每步 gap（信息缺口）→ quiz（可选预测）→ reveal（叙事）→ 节点点亮 + 镜头移动。
+ */
+export interface Tour {
+  id: string
+  title: string
+  /** 走完后用户应能回答什么 */
+  goal: string
+  /** 6-10 步；第一步是骨架步（2-3 个核心 epic + 三段论主线） */
+  steps: TourStep[]
+}
+
 export interface FcgManifest {
   repo?: string
   commit?: string
@@ -160,6 +196,8 @@ export interface FeaturesFile {
   cross_feature?: CrossFeatureLink[]
   /** Epic 之间的主线关系：用户故事的宏观流向 */
   epic_flow?: EpicFlow[]
+  /** 引导式导览（可选）：AI 生成或人工编写 */
+  tours?: Tour[]
 }
 
 export function emptyFeatures(): FeaturesFile {

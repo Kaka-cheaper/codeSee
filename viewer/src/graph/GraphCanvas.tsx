@@ -40,6 +40,8 @@ import { FeatureNodeView, type FeatureNodeData } from './FeatureNodeView'
 import { StepNodeView, type StepNodeData } from './StepNodeView'
 import { CROSS_META, FLOW_META, ROLE_META, type CrossKind } from './roleMeta'
 import { DetailsPanel } from './DetailsPanel'
+import { TourPanel, TourStartButton } from './TourMode'
+import { tourVisibleNodeIds, type TourPlay } from './tourLogic'
 import { EpicGroupBg, type EpicGroupBgData } from './EpicGroupBg'
 import { useI18n } from '@/lib/i18n'
 import { Save } from 'lucide-react'
@@ -76,6 +78,8 @@ function GraphInner({ file, activeRepoId }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   /** hover 节点 id：用于实时降噪——hover 时其他节点和边淡出，相关边加亮 */
   const [hoverId, setHoverId] = useState<string | null>(null)
+  /** 导览播放状态（声明放最前：多个早期 effect 要引用它） */
+  const [tourPlay, setTourPlay] = useState<TourPlay | null>(null)
   const reactFlow = useReactFlow()
 
   const view = useMemo(() => buildView(file, state), [file, state])
@@ -652,11 +656,13 @@ function GraphInner({ file, activeRepoId }: Props) {
 
   /* ==================== 通用交互 ==================== */
   useEffect(() => {
+    // 导览激活时镜头由导览自己编排，全局 fitView 不许抢镜
+    if (tourPlay) return
     const t = window.setTimeout(() => {
       reactFlow.fitView({ padding: 0.3, duration: 320 })
     }, 80)
     return () => window.clearTimeout(t)
-  }, [viewKey, reactFlow, layoutVersion])
+  }, [viewKey, reactFlow, layoutVersion, tourPlay])
 
   const resetLayout = useCallback(() => {
     positionsRef.current.delete(viewKey)
@@ -669,8 +675,103 @@ function GraphInner({ file, activeRepoId }: Props) {
     setLayoutVersion((v) => v + 1)
   }, [viewKey, repoId, setLayoutVersion])
 
+  /* ==================== 导览模式 ==================== */
+  const firstTour = file.tours?.[0]
+
+  const startTour = useCallback(() => {
+    const tour = file.tours?.[0]
+    if (!tour || tour.steps.length === 0) return
+    setSelectedId(null)
+    setHoverId(null)
+    // 视图档位由下面的同步 effect 按当前步自动切（骨架步→概览，细节步→功能）
+    setTourPlay({ tour, stepIndex: 0, phase: 'ask' })
+  }, [file.tours])
+
+  /** 退出/完成共用：解锁全图 + 镜头拉回全景（马提尼杯的杯口） */
+  const exitTour = useCallback(() => {
+    setTourPlay(null)
+    window.setTimeout(() => {
+      reactFlow.fitView({ padding: 0.3, duration: 500 })
+    }, 100)
+  }, [reactFlow])
+
+  const revealTourStep = useCallback(() => {
+    setTourPlay((p) => (p ? { ...p, phase: 'shown' } : p))
+  }, [])
+
+  const nextTourStep = useCallback(() => {
+    setTourPlay((p) => {
+      if (!p) return p
+      if (p.stepIndex >= p.tour.steps.length - 1) return p // 最后一步由 onExit 收尾
+      return { ...p, stepIndex: p.stepIndex + 1, phase: 'ask' }
+    })
+  }, [])
+
+  /** 当前进度的可见/当前节点集合（导览未激活时为 null → 全部直通） */
+  const tourVisibility = useMemo(() => {
+    if (!tourPlay) return null
+    return tourVisibleNodeIds(file, tourPlay)
+  }, [file, tourPlay])
+
+  /** 视图档位跟随当前步：骨架步在概览（Epic 真节点 + 主线边），细节步在功能视图 */
+  useEffect(() => {
+    if (!tourVisibility) return
+    const mode = tourVisibility.mode
+    setState((prev) =>
+      prev.mode === mode && !prev.focusedFeatureId ? prev : { mode },
+    )
+  }, [tourVisibility])
+
+  /**
+   * 渲染过滤用 useMemo 派生，绝不 setState patch——
+   * rfNodes 是布局/拖动的唯一真值源，导览只是在出口处做减法，
+   * 这样进退导览、点亮节点都不会触发布局重算或位置漂移。
+   */
+  const displayNodes = useMemo(() => {
+    if (!tourVisibility) return rfNodes
+    const { visible, current } = tourVisibility
+    return rfNodes.map((n) => {
+      const isVisible = visible.has(n.id)
+      const oldData = n.data as Record<string, unknown>
+      return {
+        ...n,
+        hidden: !isVisible,
+        // 已走过的步骤保持微弱可见（空间记忆锚点），当前步全亮
+        data: { ...oldData, dimmed: isVisible && !current.has(n.id) && current.size > 0 },
+      }
+    })
+  }, [rfNodes, tourVisibility])
+
+  const displayEdges = useMemo(() => {
+    if (!tourVisibility) return rfEdges
+    const { visible } = tourVisibility
+    return rfEdges.map((e) => ({
+      ...e,
+      hidden: !(visible.has(e.source) && visible.has(e.target)),
+    }))
+  }, [rfEdges, tourVisibility])
+
+  /**
+   * 揭晓时镜头推到当前步的节点（包围盒 + 留白）。
+   * 依赖里带 rfNodes：视图档位刚切换时 ELK 布局是异步的，
+   * 第一次 fitView 可能扑空——布局落地后 rfNodes 变化会再触发一次补拍。
+   */
+  useEffect(() => {
+    if (!tourPlay || tourPlay.phase !== 'shown' || !tourVisibility) return
+    const ids = tourVisibility.current
+    if (ids.size === 0) return
+    const t = window.setTimeout(() => {
+      const nodes = reactFlow.getNodes().filter((n) => ids.has(n.id))
+      if (nodes.length === 0) return
+      reactFlow.fitView({ nodes, padding: 0.45, duration: 600 })
+    }, 120)
+    return () => window.clearTimeout(t)
+  }, [tourPlay, tourVisibility, reactFlow, rfNodes])
+
   const onNodeDoubleClick: NodeMouseHandler = useCallback(
     (_, node) => {
+      // 导览中禁止双击下钻——视图切换会破坏逐盏点亮的舞台
+      if (tourPlay) return
       const v = view.nodes.find((n) => n.id === node.id)
       if (!v) return
       if (v.kind === 'epic') {
@@ -693,7 +794,7 @@ function GraphInner({ file, activeRepoId }: Props) {
         setState({ mode: 'steps', focusedFeatureId: v.feature.id })
       }
     },
-    [view.nodes, reactFlow],
+    [view.nodes, reactFlow, tourPlay],
   )
 
   const onNodeClick: NodeMouseHandler = useCallback((_, node) => {
@@ -1006,8 +1107,8 @@ function GraphInner({ file, activeRepoId }: Props) {
   return (
     <div className="relative h-full w-full">
       <ReactFlow
-        nodes={rfNodes}
-        edges={rfEdges}
+        nodes={displayNodes}
+        edges={displayEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
@@ -1065,26 +1166,46 @@ function GraphInner({ file, activeRepoId }: Props) {
         <Controls position="bottom-left" />
       </ReactFlow>
 
-      <ViewSwitcher
-        mode={state.mode}
-        focusedFeatureName={
-          state.focusedFeatureId
-            ? file.features.find((f) => f.id === state.focusedFeatureId)?.name
-            : undefined
-        }
-        onChangeMode={goMode}
-        onResetLayout={resetLayout}
-        autoSave={autoSave}
-        onToggleAutoSave={toggleAutoSave}
-        onSaveLayout={saveLayout}
-        saveStatus={saveStatus}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        canUndo={canUndo(viewKey)}
-        canRedo={canRedo(viewKey)}
-      />
+      {!tourPlay && (
+        <ViewSwitcher
+          mode={state.mode}
+          focusedFeatureName={
+            state.focusedFeatureId
+              ? file.features.find((f) => f.id === state.focusedFeatureId)?.name
+              : undefined
+          }
+          onChangeMode={goMode}
+          onResetLayout={resetLayout}
+          autoSave={autoSave}
+          onToggleAutoSave={toggleAutoSave}
+          onSaveLayout={saveLayout}
+          saveStatus={saveStatus}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={canUndo(viewKey)}
+          canRedo={canRedo(viewKey)}
+        />
+      )}
 
-      {newNodeIds.size > 0 && state.mode === 'features' && (
+      {!tourPlay && firstTour && firstTour.steps.length > 0 && (
+        <TourStartButton
+          title={firstTour.title}
+          stepCount={firstTour.steps.length}
+          onStart={startTour}
+        />
+      )}
+
+      {tourPlay && (
+        <TourPanel
+          key={tourPlay.stepIndex}
+          play={tourPlay}
+          onReveal={revealTourStep}
+          onNext={tourPlay.stepIndex >= tourPlay.tour.steps.length - 1 ? exitTour : nextTourStep}
+          onExit={exitTour}
+        />
+      )}
+
+      {newNodeIds.size > 0 && state.mode === 'features' && !tourPlay && (
         <NewNodeIndicator count={newNodeIds.size} />
       )}
 

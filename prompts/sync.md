@@ -119,6 +119,17 @@ Epic 增删或主线变化时更新 epic_flow。
 优先 `next`，note 必填，用 manifest.lang 指定的语言写语义短句。
 不要因小改动重写整个 epic_flow。
 
+## tours 维护（如果文件里有 tours 字段）
+
+删除/重命名 epic 或 feature 时，检查 `tours[].steps[].focus` 是否引用了它：
+
+- 被删的 feature 还有同类替代 → focus 换成替代者
+- 整步失去意义 → 删掉该步（注意保持 6-10 步；不足就合并相邻步的叙事）
+- 改动让某步的 gap/reveal 与现实不符 → 同步改写文案
+
+校验器会把断裂的 focus 引用报为 error，跑校验前先自查。
+不因小改动重写整条 tour——只修受影响的步。
+
 ## 输出协议（增量 patch 优先 / 全量重写兜底）
 
 写 features.json 的方式有两种。**默认走模式 A**——token 成本低、错误率低、可回滚。失败再 fallback 到模式 B。

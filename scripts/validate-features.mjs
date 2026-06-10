@@ -178,8 +178,101 @@ function validate(data) {
     }
   }
 
+  // tours（可选）
+  if (data.tours !== undefined) {
+    if (!isArray(data.tours)) {
+      err('$.tours', '必须是数组（如果提供）')
+    } else {
+      data.tours.forEach((t, i) => validateTour(t, i, epicIds, featureIds))
+    }
+  }
+
   // 全局智能检查
   detectFileLevelSmells(data)
+}
+
+function validateTour(t, i, epicIds, featureIds) {
+  const p = `$.tours[${i}]`
+  if (!isObject(t)) { err(p, '必须是对象'); return }
+  if (!isString(t.id) || !t.id) err(`${p}.id`, 'id 必填')
+  if (!isString(t.title) || !t.title) err(`${p}.title`, 'title 必填')
+  if (!isString(t.goal) || !t.goal) err(`${p}.goal`, 'goal 必填（走完后用户应能回答什么）')
+
+  if (!isArray(t.steps) || t.steps.length === 0) {
+    err(`${p}.steps`, '必须是非空数组')
+    return
+  }
+  if (t.steps.length < 6) warn(`${p}.steps`, `只有 ${t.steps.length} 步，建议 6-10 步（少于 6 步讲不完骨架+主线）`)
+  if (t.steps.length > 10) warn(`${p}.steps`, `${t.steps.length} 步超过 10，工作记忆撑不住，建议拆分或精简`)
+
+  let quizCount = 0
+  t.steps.forEach((s, si) => {
+    const sp = `${p}.steps[${si}]`
+    if (!isObject(s)) { err(sp, '必须是对象'); return }
+
+    // focus
+    if (!isArray(s.focus) || s.focus.length === 0) {
+      err(`${sp}.focus`, '必须是非空数组（epic id 或 feature id）')
+    } else {
+      if (s.focus.length > 3) warn(`${sp}.focus`, `一步点亮 ${s.focus.length} 个节点超过 3，超出工作记忆组块容量`)
+      s.focus.forEach((ref, ri) => {
+        if (!isString(ref) || !ref) {
+          err(`${sp}.focus[${ri}]`, '必须是非空字符串')
+        } else if (!epicIds.has(ref) && !featureIds.has(ref)) {
+          err(`${sp}.focus[${ri}]`, `指向不存在的 epic/feature: "${ref}"（tour 不支持 step 级引用）`)
+        }
+      })
+    }
+
+    // gap：必须是问题
+    if (!isString(s.gap) || !s.gap) {
+      err(`${sp}.gap`, 'gap 必填')
+    } else if (!/[?？]/.test(s.gap)) {
+      warn(`${sp}.gap`, `gap "${s.gap.slice(0, 20)}…" 不含问号——gap 必须是开缺口的问题，不是陈述句`)
+    }
+
+    // reveal
+    if (!isString(s.reveal) || !s.reveal) {
+      err(`${sp}.reveal`, 'reveal 必填')
+    } else if (s.reveal.length > 120) {
+      warn(`${sp}.reveal`, `reveal 过长（${s.reveal.length} 字），建议 ≤60 字——揭晓叙事要一口气读完`)
+    }
+
+    // quiz
+    if (s.quiz !== undefined) {
+      quizCount++
+      const qp = `${sp}.quiz`
+      if (!isObject(s.quiz)) {
+        err(qp, '必须是对象')
+      } else {
+        if (!isArray(s.quiz.options) || s.quiz.options.length < 2 || s.quiz.options.length > 3) {
+          err(`${qp}.options`, '必须是 2-3 个选项的数组')
+        } else if (s.quiz.options.some((o) => !isString(o) || !o)) {
+          err(`${qp}.options`, '每个选项必须是非空字符串')
+        }
+        if (!isNumber(s.quiz.answer) || !Number.isInteger(s.quiz.answer)) {
+          err(`${qp}.answer`, '必须是整数（0-based 选项下标）')
+        } else if (isArray(s.quiz.options) && (s.quiz.answer < 0 || s.quiz.answer >= s.quiz.options.length)) {
+          err(`${qp}.answer`, `下标 ${s.quiz.answer} 超出 options 范围`)
+        }
+        if (s.quiz.wrong_note !== undefined && !isString(s.quiz.wrong_note)) {
+          err(`${qp}.wrong_note`, '必须是字符串')
+        }
+      }
+    }
+  })
+
+  if (quizCount === 0) warn(`${p}.steps`, '整条导览没有 quiz——建议在 1-2 个岔路口（条件分支/容错/异步行为）放预测题')
+  if (quizCount > 3) warn(`${p}.steps`, `${quizCount} 个 quiz 太多，会把导览变成考试，建议 1-2 个`)
+
+  // 骨架步检查：第一步应聚焦 2-3 个 epic
+  const first = t.steps[0]
+  if (isObject(first) && isArray(first.focus)) {
+    const epicRefs = first.focus.filter((r) => isString(r) && epicIds.has(r))
+    if (epicRefs.length < 2) {
+      warn(`${p}.steps[0]`, '第一步应是骨架步：focus 指向 2-3 个核心 epic，reveal 给三段论主线（先 A，然后 B，最后 C）')
+    }
+  }
 }
 
 function validateEpic(e, i, epicIds) {

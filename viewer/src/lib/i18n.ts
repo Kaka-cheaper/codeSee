@@ -88,6 +88,18 @@ const dict = {
     'panel.crossKind.flow': '数据流',
     'panel.crossKind.depends_on': '依赖',
     'panel.crossMode.async': '异步',
+
+    // Tour
+    'tour.startTitle': '开始引导式导览（{count} 步）',
+    'tour.badge': '{count} 步',
+    'tour.exit': '退出导览',
+    'tour.reveal': '揭晓',
+    'tour.next': '下一步',
+    'tour.finish': '完成，解锁全图',
+    'tour.correct': '对，就是这样。',
+    'tour.wrong': '不对。',
+    'tour.goalLabel': '走完这条导览',
+    'tour.pickHint': '先猜一个，再看答案——猜错也比不猜记得牢',
   },
   en: {
     // TopBar
@@ -174,6 +186,18 @@ const dict = {
     'panel.crossKind.flow': 'flow',
     'panel.crossKind.depends_on': 'depends on',
     'panel.crossMode.async': 'async',
+
+    // Tour
+    'tour.startTitle': 'Start guided tour ({count} steps)',
+    'tour.badge': '{count} steps',
+    'tour.exit': 'Exit tour',
+    'tour.reveal': 'Reveal',
+    'tour.next': 'Next',
+    'tour.finish': 'Finish & unlock the map',
+    'tour.correct': 'Correct.',
+    'tour.wrong': 'Not quite. ',
+    'tour.goalLabel': 'After this tour',
+    'tour.pickHint': 'Make a guess first — even a wrong guess sticks better than no guess',
   },
 } as const
 

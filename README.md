@@ -331,7 +331,7 @@ codeSee/
 │   ├── scan-light.md        Light projects (one-shot)
 │   ├── scan-heavy.md        Heavy projects (phased)
 │   ├── scan-planning.md     Doc-only / planning stage
-│   ├── scan-tour.md         Guided-tour generation (experimental, not injected by install)
+│   ├── scan-tour.md         Guided-tour generation (experimental; installed, runs only on explicit request)
 │   ├── sync.md              Incremental sync
 │   ├── _schema.md           Schema + enums + example (single source of truth)
 │   └── _rules.md            Constraints (MUST/SHOULD/MAY)

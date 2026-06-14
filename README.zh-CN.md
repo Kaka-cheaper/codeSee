@@ -325,7 +325,7 @@ codeSee/
 │   ├── scan-light.md        轻型项目（一次产出）
 │   ├── scan-heavy.md        重型项目（分阶段）
 │   ├── scan-planning.md     纯文档/规划阶段
-│   ├── scan-tour.md         导览生成（实验性，install 不注入）
+│   ├── scan-tour.md         导览生成（实验性；会安装，仅在显式要求时运行）
 │   ├── sync.md              增量同步
 │   ├── _schema.md           Schema + 枚举 + 示例（唯一真值源）
 │   └── _rules.md            约束分级（MUST/SHOULD/MAY）

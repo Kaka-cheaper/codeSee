@@ -19,6 +19,10 @@
 **触发 3：用户显式要求**
 "刷新功能图""更新 codesee""扫一下" → 按上述策略执行。
 
+**触发 4：生成导览（仅显式要求，不自动跑）**
+用户说"生成导览""加个 tour""给新人做个引导" → 执行 `.codesee/prompts/scan-tour.md`，
+为 `features.json` 写一条引导式导览（tours 字段）。**绝不在 scan/sync 流程里自动触发。**
+
 ### 项目阶段
 
 CodeSee 同时支持四种阶段：
@@ -54,6 +58,7 @@ CodeSee 同时支持四种阶段：
 - 规则详情：`.codesee/prompts/_rules.md`
 - 扫描：`.codesee/prompts/scan.md`
 - 同步：`.codesee/prompts/sync.md`
+- 导览生成（实验性，仅显式调用）：`.codesee/prompts/scan-tour.md`
 - 校验：`.codesee/scripts/validate-features.mjs`
 - 增量补丁：`.codesee/scripts/apply-patch.mjs`（sync 优先模式）
 - 数据：`.codesee/features.json`

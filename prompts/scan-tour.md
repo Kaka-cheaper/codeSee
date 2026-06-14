@@ -1,6 +1,7 @@
 # CodeSee · 导览生成（tour）
 
-> 实验性 prompt。不属于 scan/sync 主流程，不由 install 注入。
+> 实验性 prompt。独立于 scan/sync 主流程——install 会注入到 .codesee/prompts/，
+> 但只在用户显式要求时调用，绝不进自动扫描链路（这样主流程保持稳定，导览能单独迭代）。
 > 用途：在 features.json 已存在且通过校验后，为它生成一条引导式导览（tours 字段）。
 > viewer 会把导览播放成"逐步点亮"的旅程：每步先抛问题 → （可选）让用户预测 →
 > 揭晓答案叙事 + 节点点亮 + 镜头移动。走完才解锁全图自由探索。

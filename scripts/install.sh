@@ -104,7 +104,7 @@ fi
 
 # 2. .codesee/prompts/*
 mkdir -p "$TARGET/.codesee/prompts"
-for name in scan.md scan-light.md scan-heavy.md scan-planning.md scan-sdd.md sync.md _schema.md _rules.md; do
+for name in scan.md scan-light.md scan-heavy.md scan-planning.md scan-sdd.md scan-tour.md sync.md _schema.md _rules.md; do
   cp -f "$PROMPTS/$name" "$TARGET/.codesee/prompts/$name"
   echo "  - wrote .codesee/prompts/$name"
 done

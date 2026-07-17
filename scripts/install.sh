@@ -5,6 +5,7 @@
 #   ./scripts/install.sh <target-project> [--force]
 #                                          [--enable-claude-code]
 #                                          [--enable-kiro]
+#                                          [--enable-cursor]
 #                                          [--auto-detect]
 #                                          [--force-hooks]
 #                                          [--uninstall-hooks]
@@ -12,7 +13,7 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <target-project> [--force] [--enable-claude-code] [--enable-kiro] [--auto-detect] [--force-hooks] [--uninstall-hooks]" >&2
+  echo "Usage: $0 <target-project> [--force] [--enable-claude-code] [--enable-kiro] [--enable-cursor] [--auto-detect] [--force-hooks] [--uninstall-hooks]" >&2
   exit 1
 fi
 
@@ -22,6 +23,7 @@ shift || true
 FORCE=""
 ENABLE_CC=""
 ENABLE_KIRO=""
+ENABLE_CURSOR=""
 AUTO_DETECT=""
 FORCE_HOOKS=""
 UNINSTALL_HOOKS=""
@@ -30,6 +32,7 @@ for arg in "$@"; do
     --force)              FORCE="--force" ;;
     --enable-claude-code) ENABLE_CC=1 ;;
     --enable-kiro)        ENABLE_KIRO=1 ;;
+    --enable-cursor)      ENABLE_CURSOR=1 ;;
     --auto-detect)        AUTO_DETECT=1 ;;
     --force-hooks)        FORCE_HOOKS=1 ;;
     --uninstall-hooks)    UNINSTALL_HOOKS=1 ;;
@@ -127,7 +130,7 @@ fi
 # 3a. .codesee/hooks/* (templates only; users enable manually)
 if [[ -d "$SELF_DIR/hooks" ]]; then
   mkdir -p "$TARGET/.codesee/hooks"
-  for subdir in claude-code kiro; do
+  for subdir in claude-code kiro cursor; do
     if [[ -d "$SELF_DIR/hooks/$subdir" ]]; then
       mkdir -p "$TARGET/.codesee/hooks/$subdir"
       cp -rf "$SELF_DIR/hooks/$subdir/." "$TARGET/.codesee/hooks/$subdir/"
@@ -184,21 +187,29 @@ fi
 # 5. Phase 2 - optional auto-wiring of platform hooks
 want_cc=""
 want_kiro=""
+want_cursor=""
 if [[ -n "$AUTO_DETECT" ]]; then
   [[ -d "$TARGET/.claude" ]] && want_cc=1
   [[ -d "$TARGET/.kiro"   ]] && want_kiro=1
+  [[ -d "$TARGET/.cursor" ]] && want_cursor=1
 fi
-[[ -n "$ENABLE_CC"   ]] && want_cc=1
-[[ -n "$ENABLE_KIRO" ]] && want_kiro=1
+[[ -n "$ENABLE_CC"     ]] && want_cc=1
+[[ -n "$ENABLE_KIRO"   ]] && want_kiro=1
+[[ -n "$ENABLE_CURSOR" ]] && want_cursor=1
 
 merge_script="$SELF_DIR/scripts/merge-claude-settings.mjs"
 cc_template="$SELF_DIR/hooks/claude-code/settings.json"
+merge_cursor_script="$SELF_DIR/scripts/merge-cursor-hooks.mjs"
+cursor_template="$SELF_DIR/hooks/cursor/hooks.json"
 
 if [[ -n "$UNINSTALL_HOOKS" ]]; then
   echo ''
   echo '==> Uninstalling CodeSee hooks (templates and validator stay).'
   if [[ -f "$merge_script" ]]; then
     node "$merge_script" --target "$TARGET" --template "$cc_template" --remove || true
+  fi
+  if [[ -f "$merge_cursor_script" ]]; then
+    node "$merge_cursor_script" --target "$TARGET" --template "$cursor_template" --remove || true
   fi
   if [[ -d "$TARGET/.kiro/hooks" ]]; then
     for f in "$TARGET/.kiro/hooks"/codesee-*.kiro.hook; do
@@ -213,7 +224,7 @@ if [[ -n "$UNINSTALL_HOOKS" ]]; then
       echo "  - removed $f (legacy)"
     done
   fi
-elif [[ -n "$want_cc" || -n "$want_kiro" ]]; then
+elif [[ -n "$want_cc" || -n "$want_kiro" || -n "$want_cursor" ]]; then
   echo ''
   echo '==> Wiring platform hooks.'
   if [[ -n "$want_cc" ]]; then
@@ -230,6 +241,15 @@ elif [[ -n "$want_cc" || -n "$want_kiro" ]]; then
     if [[ -f "$SELF_DIR/hooks/kiro/sync-on-stop.kiro.hook" ]]; then
       cp -f "$SELF_DIR/hooks/kiro/sync-on-stop.kiro.hook" "$TARGET/.kiro/hooks/codesee-sync-on-stop.kiro.hook"
       echo "  - wrote $TARGET/.kiro/hooks/codesee-sync-on-stop.kiro.hook"
+    fi
+  fi
+  if [[ -n "$want_cursor" ]]; then
+    if [[ ! -f "$merge_cursor_script" ]]; then
+      echo '  - merge-cursor-hooks.mjs not found, skipping Cursor wiring'
+    else
+      cursor_args=(--target "$TARGET" --template "$cursor_template")
+      [[ -n "$FORCE_HOOKS" ]] && cursor_args+=(--force)
+      node "$merge_cursor_script" "${cursor_args[@]}"
     fi
   fi
 fi
@@ -251,7 +271,7 @@ Next steps:
   1. Open the target project in your AI IDE; ask it to read AGENTS.md.
   2. Let the AI run the scan (first time) or sync (after each change).
   3. (Optional) Auto-wire hooks: rerun with --auto-detect (or
-     --enable-claude-code / --enable-kiro). Manual setup: .codesee/hooks/README.md.
+     --enable-claude-code / --enable-kiro / --enable-cursor). Manual setup: .codesee/hooks/README.md.
   4. View the graph in your browser: https://Kaka-cheaper.github.io/codeSee/
      -> click "+ Add project" and select this directory.
 

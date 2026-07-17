@@ -4,34 +4,24 @@
 
 # CodeSee
 
-**The feature graph your AI auto-maintains.**
+**Your AI just wrote 5,000 lines. Can you still say what your project does?**
 
-Stop reading every line of AI-generated code. See a semantic flow graph of your project — auto-updated as AI works, never stale.
+CodeSee is the feature graph your AI maintains for you — a human-readable story of what your project does. Auto-updated as AI works. Never stale.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Demo](https://img.shields.io/badge/Live_Demo-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/?example=codesee-en)
-[![Version](https://img.shields.io/github/package-json/v/Kaka-cheaper/codeSee?filename=viewer%2Fpackage.json&label=viewer)](./viewer/package.json)
-[![Last commit](https://img.shields.io/github/last-commit/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/commits/main)
-[![Issues](https://img.shields.io/github/issues/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/issues)
 [![中文](https://img.shields.io/badge/Lang-中文-red.svg)](./README.zh-CN.md)
 [![LINUX DO](https://img.shields.io/badge/LINUX-DO-FFB003.svg?logo=data:image/svg%2bxml;base64,DQo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiPjxwYXRoIGQ9Ik00Ni44Mi0uMDU1aDYuMjVxMjMuOTY5IDIuMDYyIDM4IDIxLjQyNmM1LjI1OCA3LjY3NiA4LjIxNSAxNi4xNTYgOC44NzUgMjUuNDV2Ni4yNXEtMi4wNjQgMjMuOTY4LTIxLjQzIDM4LTExLjUxMiA3Ljg4NS0yNS40NDUgOC44NzRoLTYuMjVxLTIzLjk3LTIuMDY0LTM4LjAwNC0yMS40M1EuOTcxIDY3LjA1Ni0uMDU0IDUzLjE4di02LjQ3M0MxLjM2MiAzMC43ODEgOC41MDMgMTguMTQ4IDIxLjM3IDguODE3IDI5LjA0NyAzLjU2MiAzNy41MjcuNjA0IDQ2LjgyMS0uMDU2IiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZWNlY2VjO2ZpbGwtb3BhY2l0eToxIi8+PHBhdGggZD0iTTQ3LjI2NiAyLjk1N3EyMi41My0uNjUgMzcuNzc3IDE1LjczOGE0OS43IDQ5LjcgMCAwIDEgNi44NjcgMTAuMTU3cS00MS45NjQuMjIyLTgzLjkzIDAgOS43NS0xOC42MTYgMzAuMDI0LTI0LjM4N2E2MSA2MSAwIDAgMSA5LjI2Mi0xLjUwOCIgc3R5bGU9InN0cm9rZTpub25lO2ZpbGwtcnVsZTpldmVub2RkO2ZpbGw6IzE5MTkxOTtmaWxsLW9wYWNpdHk6MSIvPjxwYXRoIGQ9Ik03Ljk4IDcwLjkyNmMyNy45NzctLjAzNSA1NS45NTQgMCA4My45My4xMTNRODMuNDI2IDg3LjQ3MyA2Ni4xMyA5NC4wODZxLTE4LjgxIDYuNTQ0LTM2LjgzMi0xLjg5OC0xNC4yMDMtNy4wOS0yMS4zMTctMjEuMjYyIiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZjlhZjAwO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+)](https://linux.do/)
 
-[![Spec Kit](https://img.shields.io/badge/Spec_Kit-Compatible-blue)](https://github.com/github/spec-kit)
-[![Trellis](https://img.shields.io/badge/Trellis-Compatible-orange)](https://github.com/mindfold-ai/Trellis)
-[![BMAD](https://img.shields.io/badge/BMAD-Compatible-purple)](https://github.com/bmad-code-org/BMAD-METHOD)
-[![SKILL.md](https://img.shields.io/badge/SKILL.md-Standard-green)](https://agentskills.io/)
-
 </div>
-
-> ⚠ **Active development.** Schema may change between minor versions. Track [CHANGELOG](./CHANGELOG.md) for breaking changes. Currently the most accurate way to follow progress is the [commit history](https://github.com/Kaka-cheaper/codeSee/commits/main).
 
 ---
 
 > Think of it like this: if a feature is "making scrambled eggs with tomatoes",
 > the graph shows "prep → crack eggs → heat oil → stir-fry → season → plate" —
 > not "`prepare()` calls `slice()` then `whisk()`".
-
-Not call graphs. Not import maps. A human-readable story of what your project does.
+>
+> Not call graphs. Not import maps. The story of your project.
 
 <div align="center">
 
@@ -65,14 +55,14 @@ Not call graphs. Not import maps. A human-readable story of what your project do
 
 ## Why
 
-When collaborating with AI on code:
+**The project grows faster than your understanding of it.** That's what AI collaboration actually costs:
 
 - 🤯 **AI writes 5000 lines in 5 minutes** — but you need hours to review them all
 - 🔍 **You need to understand logic, not syntax** — "what does this feature do" matters more than "which function calls which"
 - 🐛 **When something breaks, you trace the full chain** — but the chain might span 20 files you've never read
-- 😤 **You lose the sense of ownership** — the project grows faster than your understanding of it
+- 😤 **Slowly, it stops feeling like *your* project**
 
-CodeSee solves this: AI writes the code AND writes the feature map. You see the story, not the syntax.
+CodeSee closes that gap: AI writes the code AND writes the feature map. You see the story, not the syntax.
 
 ---
 
@@ -131,6 +121,8 @@ If you're an independent dev / small team using Cursor / Claude Code / Kiro / Co
 ---
 
 ## Quick Start
+
+> ⚠ **Active development.** Schema may change between minor versions. Track [CHANGELOG](./CHANGELOG.md) for breaking changes. Currently the most accurate way to follow progress is the [commit history](https://github.com/Kaka-cheaper/codeSee/commits/main).
 
 ### 1. Clone this repo
 
@@ -252,6 +244,11 @@ constraint. Full design rationale with references → [docs/cognitive-design.md]
 ---
 
 ## Best Practices
+
+[![Spec Kit](https://img.shields.io/badge/Spec_Kit-Compatible-blue)](https://github.com/github/spec-kit)
+[![Trellis](https://img.shields.io/badge/Trellis-Compatible-orange)](https://github.com/mindfold-ai/Trellis)
+[![BMAD](https://img.shields.io/badge/BMAD-Compatible-purple)](https://github.com/bmad-code-org/BMAD-METHOD)
+[![SKILL.md](https://img.shields.io/badge/SKILL.md-Standard-green)](https://agentskills.io/)
 
 ### Three usage scenarios
 

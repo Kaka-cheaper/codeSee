@@ -4,34 +4,24 @@
 
 # CodeSee
 
-**AI 自动维护的功能流程图。**
+**AI 刚给你写了 5000 行。你还说得清这个项目在做什么吗？**
 
-不用再逐行读 AI 写的代码——看一张随 AI 工作实时更新、永远不过期的语义流程图。
+CodeSee 是一张由 AI 替你维护的功能地图——用人话讲清你的项目在做什么。AI 一边干活，图一边生长，永不过期。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Demo](https://img.shields.io/badge/在线演示-▶-brightgreen.svg)](https://Kaka-cheaper.github.io/codeSee/?example=codesee)
-[![Version](https://img.shields.io/github/package-json/v/Kaka-cheaper/codeSee?filename=viewer%2Fpackage.json&label=viewer)](./viewer/package.json)
-[![Last commit](https://img.shields.io/github/last-commit/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/commits/main)
-[![Issues](https://img.shields.io/github/issues/Kaka-cheaper/codeSee)](https://github.com/Kaka-cheaper/codeSee/issues)
 [![English](https://img.shields.io/badge/Lang-English-red.svg)](./README.md)
 [![LINUX DO](https://img.shields.io/badge/LINUX-DO-FFB003.svg?logo=data:image/svg%2bxml;base64,DQo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiPjxwYXRoIGQ9Ik00Ni44Mi0uMDU1aDYuMjVxMjMuOTY5IDIuMDYyIDM4IDIxLjQyNmM1LjI1OCA3LjY3NiA4LjIxNSAxNi4xNTYgOC44NzUgMjUuNDV2Ni4yNXEtMi4wNjQgMjMuOTY4LTIxLjQzIDM4LTExLjUxMiA3Ljg4NS0yNS40NDUgOC44NzRoLTYuMjVxLTIzLjk3LTIuMDY0LTM4LjAwNC0yMS40M1EuOTcxIDY3LjA1Ni0uMDU0IDUzLjE4di02LjQ3M0MxLjM2MiAzMC43ODEgOC41MDMgMTguMTQ4IDIxLjM3IDguODE3IDI5LjA0NyAzLjU2MiAzNy41MjcuNjA0IDQ2LjgyMS0uMDU2IiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZWNlY2VjO2ZpbGwtb3BhY2l0eToxIi8+PHBhdGggZD0iTTQ3LjI2NiAyLjk1N3EyMi41My0uNjUgMzcuNzc3IDE1LjczOGE0OS43IDQ5LjcgMCAwIDEgNi44NjcgMTAuMTU3cS00MS45NjQuMjIyLTgzLjkzIDAgOS43NS0xOC42MTYgMzAuMDI0LTI0LjM4N2E2MSA2MSAwIDAgMSA5LjI2Mi0xLjUwOCIgc3R5bGU9InN0cm9rZTpub25lO2ZpbGwtcnVsZTpldmVub2RkO2ZpbGw6IzE5MTkxOTtmaWxsLW9wYWNpdHk6MSIvPjxwYXRoIGQ9Ik03Ljk4IDcwLjkyNmMyNy45NzctLjAzNSA1NS45NTQgMCA4My45My4xMTNRODMuNDI2IDg3LjQ3MyA2Ni4xMyA5NC4wODZxLTE4LjgxIDYuNTQ0LTM2LjgzMi0xLjg5OC0xNC4yMDMtNy4wOS0yMS4zMTctMjEuMjYyIiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZjlhZjAwO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+)](https://linux.do/)
 
-[![Spec Kit](https://img.shields.io/badge/Spec_Kit-兼容-blue)](https://github.com/github/spec-kit)
-[![Trellis](https://img.shields.io/badge/Trellis-兼容-orange)](https://github.com/mindfold-ai/Trellis)
-[![BMAD](https://img.shields.io/badge/BMAD-兼容-purple)](https://github.com/bmad-code-org/BMAD-METHOD)
-[![SKILL.md](https://img.shields.io/badge/SKILL.md-标准-green)](https://agentskills.io/)
-
 </div>
-
-> ⚠ **早期活跃开发中。** 小版本之间 schema 可能变动，重大变更见 [CHANGELOG](./CHANGELOG.md)。最准的进展跟踪是 [commit 历史](https://github.com/Kaka-cheaper/codeSee/commits/main)。
 
 ---
 
 > 类比：如果一个功能是"西红柿炒鸡蛋"，
 > 画布展示的是"备菜 → 打蛋 → 热油 → 下锅 → 调味 → 出锅"，
 > 而不是"`prepare()` 调用 `slice()` 再调用 `whisk()`"。
-
-不是调用图，不是 import 图——是人类可读的"这个项目在做什么"的故事。
+>
+> 不是调用图，不是 import 图——是你的项目自己的故事。
 
 <div align="center">
 
@@ -65,14 +55,14 @@
 
 ## 为什么需要这个
 
-和 AI 协作写代码时：
+**项目增长的速度，超过了你理解它的速度。** 这才是 AI 协作真正的代价：
 
 - 🤯 **AI 五分钟写 5000 行** — 但你需要几个小时才能全部审完
 - 🔍 **你需要理解的是逻辑，不是语法** — "这个功能做了什么"比"哪个函数调了哪个"重要得多
 - 🐛 **出了 bug 要追全链路** — 但链路可能跨 20 个你从没看过的文件
-- 😤 **你失去了对项目的掌控感** — 项目增长的速度超过了你理解它的速度
+- 😤 **慢慢地，它开始不像*你的*项目了**
 
-CodeSee 解决这个问题：AI 写代码的同时也写功能地图。你看到的是故事，不是语法。
+CodeSee 补上这个缺口：AI 写代码的同时也写功能地图。你看到的是故事，不是语法。
 
 ---
 
@@ -130,6 +120,8 @@ CodeSee 是我用 Cursor / Claude Code 做真实项目时希望已经有的工�
 ---
 
 ## 快速开始
+
+> ⚠ **早期活跃开发中。** 小版本之间 schema 可能变动，重大变更见 [CHANGELOG](./CHANGELOG.md)。最准的进展跟踪是 [commit 历史](https://github.com/Kaka-cheaper/codeSee/commits/main)。
 
 ### 1. 克隆本仓库
 
@@ -246,6 +238,11 @@ viewer 把它播放成横跨概览与功能视图的逐步旅程。
 ---
 
 ## 最佳实践
+
+[![Spec Kit](https://img.shields.io/badge/Spec_Kit-兼容-blue)](https://github.com/github/spec-kit)
+[![Trellis](https://img.shields.io/badge/Trellis-兼容-orange)](https://github.com/mindfold-ai/Trellis)
+[![BMAD](https://img.shields.io/badge/BMAD-兼容-purple)](https://github.com/bmad-code-org/BMAD-METHOD)
+[![SKILL.md](https://img.shields.io/badge/SKILL.md-标准-green)](https://agentskills.io/)
 
 ### 三种使用场景
 

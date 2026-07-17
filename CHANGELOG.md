@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/) loosely — schema ma
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Hooks Phase 3 — Cursor native stop**: install ships `.codesee/hooks/cursor/` (template `hooks.json` + thin wrapper `codesee-stop.mjs`). On agent `stop`, the wrapper runs shared `check-staleness.mjs` and emits `{"followup_message":"..."}` when stale (else `{}`). New helper `scripts/merge-cursor-hooks.mjs` tags entries with `_codesee` for idempotent merge / uninstall. Install gains `-EnableCursor` / `--enable-cursor`; `-AutoDetect` also wires when `.cursor/` exists. Docs no longer claim Cursor has no native hooks; Codex remains AGENTS-only.
+
+---
+
 ## [0.7.0] — 2026-06-10
 
 The cognitive-design release: the canvas stops being a map you stare at and gains a path you walk. Design rationale lives in `docs/cognitive-design.md` — every choice below is a cognitive-science finding turned into a schema constraint.

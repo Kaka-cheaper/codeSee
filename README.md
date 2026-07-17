@@ -159,7 +159,7 @@ Drops `AGENTS.md` (or appends to existing) plus `.codesee/{prompts,scripts,hooks
 .\scripts\install.ps1 D:\path\to\your\project -AutoDetect
 ```
 
-Looks for `.claude/` or `.kiro/` and writes the Stop / agentStop hook so the IDE reminds AI to sync `features.json` after every turn. Existing user entries are untouched, reruns are idempotent, and `-UninstallHooks` cleans up. For manual setup or per-platform docs see [`hooks/README.md`](./hooks/README.md).
+Looks for `.claude/`, `.kiro/`, or `.cursor/` and writes the Stop / agentStop / stop hook so the IDE reminds AI to sync `features.json` after every turn. Existing user entries are untouched, reruns are idempotent, and `-UninstallHooks` cleans up. For manual setup or per-platform docs see [`hooks/README.md`](./hooks/README.md).
 
 ### 3. Let AI scan
 
@@ -197,11 +197,12 @@ Your Project/                              CodeSee Viewer/
 │   ├── prompts/*.md           ←────────── prompts/*.md  (scan / scan-sdd / sync / ...)
 │   ├── scripts/               ←────────── scripts/validate-features.mjs
 │   │                                    + hooks/scripts/check-staleness.mjs
-│   ├── hooks/                 ←────────── hooks/{claude-code,kiro,README.md}
+│   ├── hooks/                 ←────────── hooks/{claude-code,kiro,cursor,README.md}
 │   ├── features.json          ──────────→ Loaded by viewer (add project / drag)
 │   └── layout.json            ←────────── Saved from viewer (FSA, same folder as features.json)
 ├── .claude/settings.json      ←────────── (optional) merged Stop hook via --auto-detect
-├── .kiro/hooks/codesee-*.json ←────────── (optional) wired via --auto-detect
+├── .kiro/hooks/codesee-*.kiro.hook ←───── (optional) wired via --auto-detect
+├── .cursor/hooks.json         ←────────── (optional) merged stop hook via --auto-detect
 └── your code  (or .specify / .trellis / .bmad-core / ... for SDD projects)
 ```
 
@@ -344,13 +345,17 @@ codeSee/
 │   │   └── check-staleness.mjs   Shared: detects stale features.json after each turn
 │   ├── claude-code/
 │   │   └── settings.json    Stop hook template (merged into .claude/settings.json)
-│   └── kiro/
-│       └── sync-on-stop.json  agentStop hook (dropped into .kiro/hooks/)
+│   ├── kiro/
+│   │   └── sync-on-stop.kiro.hook  agentStop hook (dropped into .kiro/hooks/)
+│   └── cursor/
+│       ├── hooks.json       Native stop hook template (merged into .cursor/hooks.json)
+│       └── codesee-stop.mjs Thin wrapper → followup_message when stale
 ├── scripts/                 Install + tooling
 │   ├── install.ps1
 │   ├── install.sh
 │   ├── validate-features.mjs       Schema + heuristic validator
-│   └── merge-claude-settings.mjs   Phase 2: idempotent JSON merge for .claude/settings.json
+│   ├── merge-claude-settings.mjs   Idempotent JSON merge for .claude/settings.json
+│   └── merge-cursor-hooks.mjs      Idempotent JSON merge for .cursor/hooks.json
 ├── docs/                    Design docs
 ├── LICENSE                  MIT
 └── README.md
@@ -437,14 +442,15 @@ Easiest way to enable: rerun install with `--auto-detect`.
 .\scripts\install.ps1 D:\my-project -AutoDetect
 ```
 
-That does two things:
+That does three things:
 
 1. Merges the Stop hook into `.claude/settings.json` (only if `.claude/` exists)
-2. Writes `.kiro/hooks/codesee-sync-on-stop.json` (only if `.kiro/` exists)
+2. Writes `.kiro/hooks/codesee-sync-on-stop.kiro.hook` (only if `.kiro/` exists)
+3. Merges the stop hook into `.cursor/hooks.json` (only if `.cursor/` exists; uses a thin wrapper that emits `followup_message` when stale)
 
-Every entry we write carries a `_codesee` marker field. Claude Code ignores unknown fields, but we use it to identify our entries on subsequent runs — reruns are idempotent, your other hooks stay untouched.
+Every entry we write carries a `_codesee` marker field. Claude Code / Cursor ignore unknown fields, but we use it to identify our entries on subsequent runs — reruns are idempotent, your other hooks stay untouched.
 
-Once enabled, after every agent turn the IDE runs `node .codesee/scripts/check-staleness.mjs`. The script compares `manifest.updated_at` against `git log` and prints a reminder if code changed but `features.json` did not. Always exits 0 — never blocks the agent.
+Once enabled, after every agent turn the IDE runs the shared staleness check (`node .codesee/scripts/check-staleness.mjs`, or via the Cursor wrapper). The script compares `manifest.generated_at` against `git log` and prints a reminder if code changed but `features.json` did not. Always exits 0 — never blocks the agent.
 
 Disable:
 
@@ -452,7 +458,7 @@ Disable:
 .\scripts\install.ps1 D:\my-project -UninstallHooks
 ```
 
-Removes only the marker-tagged entry plus `.kiro/hooks/codesee-*.json`. The `.codesee/hooks/` templates stay so you can re-enable any time.
+Removes only the marker-tagged entries plus `.kiro/hooks/codesee-*.kiro.hook`. The `.codesee/hooks/` templates stay so you can re-enable any time.
 
 For per-platform manual setup or Git hook fallback see [`hooks/README.md`](https://github.com/Kaka-cheaper/codeSee/blob/main/hooks/README.md).
 </details>
@@ -507,7 +513,7 @@ The install script writes both — your AI IDE will pick whichever it understand
 - [ ] **Plan-as-Graph** — AI outputs its plan/design directly as `features.json` so you review it on the canvas instead of reading walls of text. Approve, edit, or discard before any code is written. Extends CodeSee from "post-hoc documentation" to "pre-implementation design review".
 - [ ] **Feature Summary (AI memory layer)** — a deterministic script auto-generates a compact markdown summary from `features.json` (~2000 tokens vs 15000+ for raw JSON). AI reads the summary at session start to restore project context instantly. Solves long-task forgetting and cross-session inconsistency.
 - [ ] **Incremental patch output protocol** — `sync` prefers RFC 6902 JSON Patch over full file rewrite. Phase 1 done: `scripts/apply-patch.mjs` implements the patch applier (zero-deps, supports add/remove/replace/move/copy/test ops + atomic write + automatic rolling backup); `sync.md` gained an output-protocol section with mode A (patch first) and mode B (full rewrite fallback). Next: validate token savings on a real heavy project (Polisim, 40+ features), iterate on prompt examples and recovery strategy from real failures.
-- [x] **Platform hooks** — auto-trigger sync via Claude Code hooks / Kiro hooks. Phase 1 done: hook templates + shared `check-staleness.mjs` shipped to `.codesee/hooks/`. Phase 2 done: install gains `--auto-detect` / `--enable-claude-code` / `--enable-kiro` to wire the IDE config in one shot; existing user entries are untouched, reruns are idempotent, `--uninstall-hooks` cleans up.
+- [x] **Platform hooks** — auto-trigger sync via Claude Code / Kiro / Cursor hooks. Phase 1 done: hook templates + shared `check-staleness.mjs` shipped to `.codesee/hooks/`. Phase 2 done: install gains `--auto-detect` / `--enable-claude-code` / `--enable-kiro` to wire the IDE config in one shot. Phase 3 done: Cursor native `stop` hook with `followup_message` wrapper + `--enable-cursor` / AutoDetect on `.cursor/`; existing user entries are untouched, reruns are idempotent, `--uninstall-hooks` cleans up.
 
 ### Ecosystem & integrations
 

@@ -158,7 +158,7 @@ cd codeSee
 .\scripts\install.ps1 D:\path\to\your\project -AutoDetect
 ```
 
-检测到 `.claude/` 或 `.kiro/` 就自动写入对应平台的 Stop / agentStop hook，让 IDE 在每轮 agent 结束时提醒"代码改了但 features.json 没跟上"。已有 entry 一字不改、重跑幂等、`-UninstallHooks` 可清除。手动启用或单独平台说明见 [`hooks/README.md`](./hooks/README.md)。
+检测到 `.claude/`、`.kiro/` 或 `.cursor/` 就自动写入对应平台的 Stop / agentStop / stop hook，让 IDE 在每轮 agent 结束时提醒"代码改了但 features.json 没跟上"。已有 entry 一字不改、重跑幂等、`-UninstallHooks` 可清除。手动启用或单独平台说明见 [`hooks/README.md`](./hooks/README.md)。
 
 ### 3. 让 AI 扫描
 
@@ -196,11 +196,12 @@ AI 读取 `AGENTS.md`（或 SKILL.md 兼容 IDE 读取 `.agents/skills/codesee/S
 │   ├── prompts/*.md           ←────────── prompts/*.md（scan / scan-sdd / sync / ...）
 │   ├── scripts/               ←────────── scripts/validate-features.mjs
 │   │                                    + hooks/scripts/check-staleness.mjs
-│   ├── hooks/                 ←────────── hooks/{claude-code,kiro,README.md}
+│   ├── hooks/                 ←────────── hooks/{claude-code,kiro,cursor,README.md}
 │   ├── features.json          ──────────→ viewer 加载（添加项目 / 拖入）
 │   └── layout.json            ←────────── viewer 保存（File System Access API，与 features.json 同目录）
 ├── .claude/settings.json      ←────────── 可选：--auto-detect 合并 Stop hook
-├── .kiro/hooks/codesee-*.json ←────────── 可选：--auto-detect 自动写入
+├── .kiro/hooks/codesee-*.kiro.hook ←───── 可选：--auto-detect 自动写入
+├── .cursor/hooks.json         ←────────── 可选：--auto-detect 合并 stop hook
 └── 你的代码（或 .specify / .trellis / .bmad-core / ... SDD 项目）
 ```
 
@@ -338,13 +339,17 @@ codeSee/
 │   │   └── check-staleness.mjs   共用：检查 features.json 是否过期
 │   ├── claude-code/
 │   │   └── settings.json    Stop hook 配置模板（merge 进 .claude/settings.json）
-│   └── kiro/
-│       └── sync-on-stop.json  agentStop hook（拷到 .kiro/hooks/）
+│   ├── kiro/
+│   │   └── sync-on-stop.kiro.hook  agentStop hook（拷到 .kiro/hooks/）
+│   └── cursor/
+│       ├── hooks.json       原生 stop hook 模板（merge 进 .cursor/hooks.json）
+│       └── codesee-stop.mjs 薄封装 → 过期时输出 followup_message
 ├── scripts/                 安装与工具
 │   ├── install.ps1
 │   ├── install.sh
 │   ├── validate-features.mjs       Schema + 启发式校验器
-│   └── merge-claude-settings.mjs   Phase 2：幂等 merge .claude/settings.json
+│   ├── merge-claude-settings.mjs   幂等 merge .claude/settings.json
+│   └── merge-cursor-hooks.mjs      幂等 merge .cursor/hooks.json
 ├── docs/                    设计文档
 ├── LICENSE                  MIT
 └── README.md
@@ -431,14 +436,15 @@ AI 给每个 Epic 分配了递增的 `order`（0, 1, 2, ..., N），而不是把
 .\scripts\install.ps1 D:\my-project -AutoDetect
 ```
 
-会做两件事：
+会做三件事：
 
 1. 把 Claude Code 的 `Stop` hook 合并进 `.claude/settings.json`（仅当目录存在时）
-2. 写入 `.kiro/hooks/codesee-sync-on-stop.json`（仅当目录存在时）
+2. 写入 `.kiro/hooks/codesee-sync-on-stop.kiro.hook`（仅当目录存在时）
+3. 把 Cursor 的 `stop` hook 合并进 `.cursor/hooks.json`（仅当目录存在时；经薄封装在过期时输出 `followup_message`）
 
-我们写入的 entry 都带 `_codesee` 标记字段，Claude Code 忽略未知字段，但我们用它来识别——重跑 install 不会重复 append，你的其他 hook 一字不动。
+我们写入的 entry 都带 `_codesee` 标记字段，Claude Code / Cursor 忽略未知字段，但我们用它来识别——重跑 install 不会重复 append，你的其他 hook 一字不动。
 
-启用后：每轮 agent 结束时跑 `node .codesee/scripts/check-staleness.mjs`，对比 `manifest.updated_at` 与 `git log`，发现代码改了但 features.json 没改就提醒 agent 跑一次 sync。脚本永远 exit 0，不阻塞 agent。
+启用后：每轮 agent 结束时跑共用的过期检查（`node .codesee/scripts/check-staleness.mjs`，Cursor 经薄封装调用），对比 `manifest.generated_at` 与 `git log`，发现代码改了但 features.json 没改就提醒 agent 跑一次 sync。脚本永远 exit 0，不阻塞 agent。
 
 关闭：
 
@@ -446,7 +452,7 @@ AI 给每个 Epic 分配了递增的 `order`（0, 1, 2, ..., N），而不是把
 .\scripts\install.ps1 D:\my-project -UninstallHooks
 ```
 
-只删带 marker 的 entry 与 `.kiro/hooks/codesee-*.json`，`.codesee/hooks/` 模板保留可随时再开。
+只删带 marker 的 entry 与 `.kiro/hooks/codesee-*.kiro.hook`，`.codesee/hooks/` 模板保留可随时再开。
 
 跨平台手动启用或 Git hook 兜底方案见 [`hooks/README.md`](https://github.com/Kaka-cheaper/codeSee/blob/main/hooks/README.md)。
 </details>
@@ -501,7 +507,7 @@ install 脚本会同时写入两个文件——你的 AI IDE 会读它能理解�
 - [ ] **Plan-as-Graph（计划即图）** — AI 的计划/设计直接输出为 `features.json`，在画布上审阅而非读冗长文字。审阅后可确认执行、可修改、可丢弃。让 CodeSee 从"事后文档"扩展为"事前设计审阅工具"。
 - [ ] **Feature Summary（AI 记忆层）** — 启发式脚本从 `features.json` 自动生成精简 markdown 摘要（~2000 tokens vs 原始 JSON 15000+）。AI 新会话开始时读摘要即可恢复项目全貌。解决长任务遗忘和跨会话不一致问题。
 - [ ] **增量 patch 输出协议** — sync 优先输出 RFC 6902 JSON Patch 而非全量重写 features.json。Phase 1 已落地：`scripts/apply-patch.mjs` 实现 patch 应用器（zero-deps，支持 add/remove/replace/move/copy/test 6 个 op + 原子写 + 自动备份）；sync.md 加输出协议章节，AI 优先模式 A（patch），失败 fallback 到模式 B（全量）。后续：在真实重型项目（Polisim 40+ feature）验证 token 节省幅度，根据反馈打磨 prompt example 与错误恢复策略。
-- [x] **平台 Hooks 适配** — Claude Code hooks / Kiro hooks 自动触发 sync，不再依赖 AI 自觉。Phase 1 已落地：hook 模板 + 共享检查脚本 `check-staleness.mjs`。Phase 2 已落地：install 加 `--auto-detect` / `--enable-claude-code` / `--enable-kiro` 一键自动写入 IDE 配置；用户已有 entry 一字不改，重跑幂等，`--uninstall-hooks` 可清除。
+- [x] **平台 Hooks 适配** — Claude Code / Kiro / Cursor hooks 自动触发 sync，不再依赖 AI 自觉。Phase 1 已落地：hook 模板 + 共享检查脚本 `check-staleness.mjs`。Phase 2 已落地：install 加 `--auto-detect` / `--enable-claude-code` / `--enable-kiro` 一键自动写入 IDE 配置。Phase 3 已落地：Cursor 原生 `stop` hook（`followup_message` 薄封装）+ `--enable-cursor` / 探测 `.cursor/`；用户已有 entry 一字不改，重跑幂等，`--uninstall-hooks` 可清除。
 
 ### 生态与集成
 

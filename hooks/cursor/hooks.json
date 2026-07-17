@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "command": "node .codesee/hooks/cursor/codesee-stop.mjs",
+        "loop_limit": 5
+      }
+    ]
+  }
+}
